@@ -1,0 +1,4 @@
+2024-03-12 16:36:50.599 main.py[22] main -> Find Control Timeout(10s): {Name: '会话', ControlType: ListControl}
+2024-03-13 09:48:24.426 main.py[41] main -> Find Control Timeout(10s): {Name: '易安', ControlType: ButtonControl}
+2024-03-15 11:39:47.793 uiautomation.py[6474] Refind -> Find Control Timeout(10s): {Name: '易安', ControlType: ButtonControl}
+2024-03-15 17:15:08.627 uiautomation.py[6474] Refind -> Find Control Timeout(10s): {Name: '发送(S)', ControlType: ButtonControl}

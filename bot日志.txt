@@ -1,0 +1,768 @@
+2023-12-07 21:35:12.545322   Lemon bot启动
+2023-12-07 21:36:40.089794  main程序启动
+2023-12-07 21:37:06.945192  查询状态：错误或不在运行
+2023-12-07 21:37:43.819066   Lemon answered and sent a message
+2023-12-07 21:38:37.038239   Lemon answered and sent a message
+2023-12-07 21:39:49.980221   Lemon answered and sent a message
+2023-12-07 21:40:36.036314   Lemon answered and sent a message
+2023-12-07 21:41:01.006973  查询状态：错误或不在运行
+2023-12-07 21:41:29.199191   Lemon answered and sent a message
+2023-12-07 21:42:18.917107   Lemon answered and sent a message
+2023-12-07 21:42:53.287693   Lemon answered and sent a message
+2023-12-07 21:43:22.133980   Lemon answered and sent a message
+2023-12-07 21:43:57.412943   Lemon answered and sent a message
+2023-12-07 21:44:56.601398   Lemon answered and sent a message
+2023-12-07 21:45:45.597058   Lemon answered and sent a message
+2023-12-07 21:46:16.073384   Lemon answered and sent a message
+2023-12-07 21:47:25.224798   Lemon answered and sent a message
+2023-12-07 21:48:07.541887   Lemon answered and sent a message
+2023-12-07 21:48:52.504924   Lemon answered and sent a message
+2023-12-07 21:49:17.692042   Lemon answered and sent a message
+
+2023-12-07 21:55:20.748474   Lemon bot启动
+2023-12-07 21:55:32.498823  main程序启动
+2023-12-07 21:55:59.542089  查询状态：正常运行
+2023-12-07 21:56:03.538050  查询状态：错误或不在运行
+2023-12-07 21:56:28.447909   Lemon answered and sent a message
+2023-12-07 21:58:28.882359   Lemon answered and sent a message
+2023-12-07 21:59:56.384779   Lemon answered and sent a message
+2023-12-07 22:02:09.944362   Lemon answered and sent a message
+2023-12-07 22:05:41.008314   Lemon answered and sent a message
+2023-12-07 22:06:55.106711   Lemon answered and sent a message
+
+2023-12-07 22:21:17.592288   Lemon bot启动
+
+2023-12-08 10:20:16.248441   Lemon bot启动
+2023-12-08 10:20:40.072555  main程序启动
+2023-12-08 10:22:02.629949   Lemon answered and sent a message
+2023-12-08 10:23:31.665210   Lemon answered and sent a message
+2023-12-08 10:25:42.099851   Lemon answered and sent a message
+2023-12-08 10:37:23.631878  查询状态：正常运行
+2023-12-08 10:37:27.726537  查询状态：错误或不在运行
+2023-12-08 10:37:38.578408  main程序已关闭
+
+2023-12-12 13:16:22.288828   Lemon bot启动
+2023-12-12 13:16:46.967234  main程序启动
+
+2023-12-12 13:20:00.523198   Lemon bot启动
+2023-12-12 13:20:06.494403  main程序启动
+
+2023-12-12 13:24:49.257608   Lemon bot启动
+2023-12-12 13:24:56.287079  main程序启动
+2023-12-12 13:25:39.310808   Lemon answered a question and sent a message
+2023-12-12 13:26:17.468586   Lemon answered a question and sent a message
+
+2023-12-12 13:32:54.346302   Lemon bot启动
+2023-12-12 13:34:17.263982  main程序启动
+2023-12-12 13:34:48.776673   Lemon answered a question and sent a message
+2023-12-12 13:35:37.875347  查询状态：正常运行
+2023-12-12 13:35:43.759836  main程序已关闭
+2023-12-12 13:36:13.597104   Lemon answered a question and sent a message
+
+2023-12-12 13:40:07.835686   Lemon bot启动
+2023-12-12 13:40:31.378029  main程序启动
+
+2023-12-12 14:05:34.731434   Lemon bot启动
+
+2023-12-12 21:46:32.770396   Lemon bot启动
+2023-12-12 21:48:49.136734  main程序启动
+
+2023-12-12 21:50:06.418361   Lemon bot启动
+2023-12-12 21:50:18.241057  main程序启动
+
+2023-12-12 22:47:13.931582   Lemon bot启动
+2023-12-12 22:47:43.708533  main程序启动
+2023-12-12 22:49:04.019024  查询状态：正常运行
+2023-12-12 22:50:35.372330   Lemon answered a question and sent a message
+2023-12-12 22:58:42.898091   Lemon answered a question and sent a message
+2023-12-12 22:59:09.519445   Lemon answered a question and sent a message
+2023-12-12 23:00:52.390948   Lemon answered a question and sent a message
+2023-12-12 23:02:00.962038   Lemon answered a question and sent a message
+2023-12-12 23:03:03.055252   Lemon answered a question and sent a message
+2023-12-12 23:04:26.102935   Lemon answered a question and sent a message
+2023-12-12 23:04:49.429480  查询状态：正常运行
+2023-12-12 23:05:01.243502  main程序已关闭
+2023-12-12 23:05:15.843590  main程序重启
+
+2024-01-20 14:16:15.737784   Lemon bot启动
+2024-01-20 14:16:58.987205  main程序启动
+
+2024-01-24 20:07:15.751305   Lemon bot启动
+2024-01-24 20:08:24.615290  查询状态：错误或不在运行
+2024-01-24 20:08:35.382679  main程序启动
+2024-01-24 20:09:01.651826   Lemon answered a question and sent a message
+2024-01-24 20:09:15.081471   Lemon answered a question and sent a message
+2024-01-24 20:09:46.990346   Lemon answered a question and sent a message
+2024-01-24 20:10:58.522490   Lemon answered a question and sent a message
+2024-01-24 20:12:40.428856   Lemon answered a question and sent a message
+2024-01-24 20:13:47.225075   Lemon answered a question and sent a message
+2024-01-24 20:15:31.438432   Lemon answered a question and sent a message
+2024-01-24 20:18:35.418709   Lemon answered a question and sent a message
+2024-01-24 20:19:42.574321   Lemon answered a question and sent a message
+2024-01-24 20:21:15.937306   Lemon answered a question and sent a message
+2024-01-24 20:22:42.642985   Lemon answered a question and sent a message
+2024-01-24 20:23:33.946199   Lemon answered a question and sent a message
+2024-01-24 20:23:54.994601   Lemon answered a question and sent a message
+2024-01-24 20:25:12.205166   Lemon answered a question and sent a message
+2024-01-24 20:28:05.196560   Lemon answered a question and sent a message
+2024-01-24 20:29:00.880637   Lemon answered a question and sent a message
+2024-01-24 20:31:57.338444  查询状态：正常运行
+2024-01-24 20:32:14.408575  main程序已关闭
+2024-01-24 20:32:31.604357  查询状态：错误或不在运行
+2024-01-24 20:32:42.322079  main程序重启
+
+2024-01-27 11:15:33.566445Traceback (most recent call last):
+  File "E:\code\bot_building_v4.2\main.py", line 46, in <module>
+    answer = glm(question)
+             ^^^^^^^^^^^^^
+  File "E:\code\bot_building_v4.2\main.py", line 16, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Cc\AppData\Local\Programs\Python\Python312\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Cc\AppData\Local\Programs\Python\Python312\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Cc\AppData\Local\Programs\Python\Python312\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIRequestFailedError: Error code: 400, with error text {"error":{"code":"1214","message":"messages[0]:content和tool_calls 字段不能同时为空"}}
+
+2024-01-27 11:16:05.728595Traceback (most recent call last):
+  File "e:\code\bot_building_v4.2\main.py", line 46, in <module>
+    answer = glm(question)
+             ^^^^^^^^^^^^^
+  File "e:\code\bot_building_v4.2\main.py", line 16, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Cc\AppData\Local\Programs\Python\Python312\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Cc\AppData\Local\Programs\Python\Python312\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Cc\AppData\Local\Programs\Python\Python312\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIRequestFailedError: Error code: 400, with error text {"error":{"code":"1214","message":"messages[0]:content和tool_calls 字段不能同时为空"}}
+
+2024-01-27 11:18:45.247514   Lemon answered a question and sent a message：
+1
+2024-01-27 11:21:20.884374   Lemon answered a question and sent a message：
+1
+2024-01-27 11:35:06.299370   Lemon answered a question and sent a message：
+1
+2024-01-27 11:36:05.692592   Lemon answered a question and sent a message：
+作为人工智能助手，我并不运行在某台具体的机器上。我的服务是通过云计算提供的，这意味着我的算法和模型是在分布式的服务器网络上进行运算的。当你与我交互时，你的请求会被发送到这些服务器之一，服务器处理请求后，将响应发送回你。这样的架构保证了服务的稳定性和高效性，同时也确保了数据的安全性。
+2024-01-27 13:01:03.415279   Lemon answered a question and sent a message：
+我是一个人工智能助手,我被训练来回答人类提出的问题。我并不是真正的人,我只是一个计算机程序。
+2024-01-27 13:01:54.638415   Lemon answered a question and sent a message：
+“能跑起来就是好代码”这句话，反映了软件开发中的一种实用主义观点。这里的“跑起来”通常指的是程序能够正常运行，不出现崩溃或错误，达到预期的功能需求。对此进行赏析，我们可以从以下几个方面来看：
+
+1. **实用主义精神**：这句话强调了代码的实用性，即最重要的是代码能够正常运行，解决问题。在许多情况下，这种观点认为功能性是评判代码优劣的首要标准。
+
+2. **效率导向**：对于一些紧急或短期的项目来说，快速实现功能可能是最紧迫的需求。在这种情况下，“能跑起来”意味着项目可以按时交付，满足快速迭代和上线的要求。
+
+3. **现实妥协**：在实际开发过程中，由于种种限制（如时间、资源、技术限制等），开发者可能无法写出既优雅又高效的代码。这句话体现了一种对现实的妥协，即在有限条件下，能够工作的代码已经值得肯定。
+
+4. **质量观念**：虽然这句话强调了功能实现的重要性，但并不否认代码质量的重要性。它提醒我们，在保证功能的基础上，还应当追求代码的可读性、可维护性和扩展性。
+
+5. **阶段性的胜利**：对于开发者来说，“能跑起来”通常是开发过程中的一个重要里程碑，代表着阶段性的胜利。但这也只是第一步，为了让代码更加完善，还需要进一步优化和迭代。
+
+6. **对创新的鼓励**：有时候过于追求代码的完美可能会导致创新速度放缓。这句话鼓励开发者可以先实现一个“能跑”的版本，然后再逐步完善，这样可以更快地验证想法，促进创新。
+
+总之，“能跑起来就是好代码”这句话在一定程度上有其合理性，特别是在快节奏的软件开发环境中。但同时也提醒我们，除了功能性，代码质量同样重要，是确保软件长期稳定运行的关键因素。
+2024-01-27 13:03:25.029380   Lemon answered a question and sent a message：
+作为人工智能助手，我没有口感和味觉，所以不具备喜欢或不喜欢柠檬的能力。但我可以提供关于柠檬的营养信息、用途建议等。如果你有关于柠檬的问题，我会很高兴为你解答。
+2024-01-27 13:03:46.564424   Lemon answered a question and sent a message：
+您好！我是一个人工智能助手，旨在提供帮助和信息。请问有什么可以帮到您的？如果您有任何问题或需要帮助，请随时告诉我。
+2024-01-27 22:22:34.949388初始化成功
+2024-01-27 22:23:38.197763   Lemon answered a question and sent a message：
+
+2024-01-27 22:25:12.280135   Lemon answered a question and sent a message：
+
+2024-01-27 22:26:45.825068初始化成功
+2024-01-27 22:27:35.412336   Lemon answered a question and sent a message：
+
+2024-01-27 22:37:36.795348初始化成功
+2024-01-27 22:39:36.725373初始化成功
+2024-01-27 22:40:11.069477   Lemon answered a question and sent a message：
+
+2024-01-27 22:41:29.328250初始化成功
+2024-01-27 22:42:55.193439   Lemon answered a question and sent a message：
+
+2024-01-27 22:47:14.733521初始化成功
+2024-01-27 22:48:03.631635   Lemon answered a question and sent a message.
+
+2024-01-27 22:48:23.409534   Lemon answered a question and sent a message.
+
+2024-01-27 22:48:58.091969初始化成功
+2024-01-27 22:49:19.762024   Lemon answered a question and sent a message.
+
+2024-01-27 22:49:39.592943   Lemon answered a question and sent a message.
+
+2024-01-27 22:50:53.555095初始化成功
+2024-01-27 22:51:16.689545   Lemon answered a question and sent a message.
+
+2024-01-27 22:51:53.298047   Lemon answered a question and sent a message.
+
+2024-01-27 22:54:09.557327初始化成功
+2024-01-27 22:54:25.539548Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 56, in <module>
+    answer = glm(question)
+             ^^^^^^^^^^^^^
+  File "C:\bot4.5\main.py", line 20, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIRequestFailedError: Error code: 400, with error text {"error":{"code":"1214","message":"messages[1].role:角色信息不正确"}}
+
+2024-01-27 22:55:13.557298初始化成功
+2024-01-27 22:55:33.230396Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 50, in <module>
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\bot4.5\SendRead.py", line 40, in WxRead
+    Message.append([mail.GetFirstChildControl().GetFirstChildControl().Name, mail.Name])
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'GetFirstChildControl'
+
+2024-01-27 22:56:18.257568初始化成功
+2024-01-27 22:56:50.744117   Lemon answered a question and sent a message.
+
+2024-01-27 22:57:10.947115   Lemon answered a question and sent a message.
+
+2024-01-27 22:59:22.045159初始化成功
+2024-01-27 22:59:22.799065Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 46, in <module>
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6472, in Refind
+    if not self.Exists(maxSearchSeconds, searchIntervalSeconds, False if raiseException else DEBUG_EXIST_DISAPPEAR):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6414, in Exists
+    if prev and not prev._element and not prev.Exists(maxSearchSeconds, searchIntervalSeconds):
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6422, in Exists
+    control = FindControl(self.searchFromControl, self._CompareFunction, self.searchDepth, False, self.foundIndex)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8357, in FindControl
+    for child, depth in WalkControl(control, findFromSelf, maxDepth):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8238, in WalkControl
+    child = lastControl.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ctypes.COMError: (-2147467259, '未指定的错误', (None, None, None, 0, None))
+
+2024-01-27 23:00:53.265530初始化成功
+2024-01-27 23:01:15.597295   Lemon answered a question and sent a message.
+
+2024-01-27 23:01:58.160968   Lemon answered a question and sent a message.
+
+2024-01-27 23:03:05.008191初始化成功
+2024-01-27 23:03:25.407053   Lemon answered a question and sent a message.
+
+2024-01-27 23:04:24.936052初始化成功
+2024-01-27 23:04:42.204478   Lemon answered a question and sent a message.
+
+2024-01-27 23:05:04.383852   Lemon answered a question and sent a message.
+
+2024-01-27 23:08:37.504894初始化成功
+2024-01-27 23:08:54.734247   Lemon answered a question and sent a message.
+
+2024-01-27 23:09:38.004883   Lemon answered a question and sent a message.
+
+2024-01-27 23:11:21.142768初始化成功
+2024-01-27 23:12:45.514245   Lemon answered a question and sent a message.
+
+2024-01-27 23:14:41.744584初始化成功
+2024-01-27 23:16:15.056348   Lemon answered a question and sent a message.
+
+2024-01-27 23:19:18.215515   Lemon answered a question and sent a message.
+
+2024-01-27 23:21:07.026568   Lemon answered a question and sent a message.
+
+2024-01-27 23:21:31.654294   Lemon answered a question and sent a message.
+
+2024-01-27 23:24:04.119556初始化成功
+2024-01-27 23:24:47.238983   Lemon answered a question and sent a message.
+
+2024-01-27 23:25:02.127512   Lemon answered a question and sent a message.
+
+2024-01-27 23:27:58.855757初始化成功
+2024-01-27 23:28:31.641042   Lemon answered a question and sent a message.
+
+2024-01-27 23:29:05.636907   Lemon answered a question and sent a message.
+
+2024-01-27 23:33:42.484285   Lemon answered a question and sent a message.
+
+2024-01-27 23:36:23.705115   Lemon answered a question and sent a message.
+
+2024-01-27 23:38:28.769600初始化成功
+2024-01-27 23:39:04.465021   Lemon answered a question and sent a message.
+
+2024-01-27 23:39:31.192510   Lemon answered a question and sent a message.
+
+2024-01-27 23:41:06.218680   Lemon answered a question and sent a message.
+
+2024-01-27 23:42:38.929328   Lemon answered a question and sent a message.
+
+2024-01-27 23:43:41.300966   Lemon answered a question and sent a message.
+
+2024-01-27 23:48:09.151497初始化成功
+2024-01-27 23:48:23.631296Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 46, in <module>
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6472, in Refind
+    if not self.Exists(maxSearchSeconds, searchIntervalSeconds, False if raiseException else DEBUG_EXIST_DISAPPEAR):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6422, in Exists
+    control = FindControl(self.searchFromControl, self._CompareFunction, self.searchDepth, False, self.foundIndex)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8357, in FindControl
+    for child, depth in WalkControl(control, findFromSelf, maxDepth):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8238, in WalkControl
+    child = lastControl.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, None))
+
+2024-01-27 23:48:46.552653初始化成功
+2024-01-27 23:49:04.068775   Lemon answered a question and sent a message.
+
+2024-01-27 23:49:32.260881   Lemon answered a question and sent a message.
+
+2024-01-27 23:50:51.926702   Lemon answered a question and sent a message.
+
+2024-01-27 23:53:05.033350   Lemon answered a question and sent a message.
+
+2024-01-27 23:53:34.675305   Lemon answered a question and sent a message.
+
+2024-01-27 23:54:01.338428   Lemon answered a question and sent a message.
+
+2024-01-27 23:54:43.141610   Lemon answered a question and sent a message.
+
+2024-01-27 23:55:12.453193   Lemon answered a question and sent a message.
+
+2024-01-27 23:57:38.055406   Lemon answered a question and sent a message.
+
+2024-01-27 23:57:51.483927   Lemon answered a question and sent a message.
+
+2024-01-27 23:58:04.427141   Lemon answered a question and sent a message.
+
+2024-01-27 23:58:17.509873   Lemon answered a question and sent a message.
+
+2024-01-27 23:58:32.675485   Lemon answered a question and sent a message.
+
+2024-01-27 23:58:44.264415   Lemon answered a question and sent a message.
+
+2024-01-27 23:59:19.621244   Lemon answered a question and sent a message.
+
+2024-01-28 00:37:46.243831   Lemon answered a question and sent a message.
+
+2024-01-28 00:47:16.144102   Lemon answered a question and sent a message.
+
+2024-01-28 00:50:18.157635   Lemon answered a question and sent a message.
+
+2024-01-28 01:23:58.553855   Lemon answered a question and sent a message.
+
+2024-01-28 02:49:13.290251Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 46, in <module>
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6472, in Refind
+    if not self.Exists(maxSearchSeconds, searchIntervalSeconds, False if raiseException else DEBUG_EXIST_DISAPPEAR):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6422, in Exists
+    control = FindControl(self.searchFromControl, self._CompareFunction, self.searchDepth, False, self.foundIndex)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8357, in FindControl
+    for child, depth in WalkControl(control, findFromSelf, maxDepth):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8238, in WalkControl
+    child = lastControl.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, None))
+
+2024-01-28 10:13:58.107339初始化成功
+2024-01-28 10:14:23.175860   Lemon answered a question and sent a message.
+
+2024-01-28 10:14:40.254846   Lemon answered a question and sent a message.
+
+2024-01-28 10:15:02.061216   Lemon answered a question and sent a message.
+
+2024-01-28 10:16:27.656731   Lemon answered a question and sent a message.
+
+2024-01-28 10:20:03.694989   Lemon answered a question and sent a message.
+
+2024-01-28 10:24:52.973723   Lemon answered a question and sent a message.
+
+2024-01-28 10:28:50.457163   Lemon answered a question and sent a message.
+
+2024-01-28 11:29:06.167093初始化成功
+2024-01-28 12:57:00.447468   Lemon answered a question and sent a message.
+
+2024-01-28 13:49:44.121737   Lemon answered a question and sent a message.
+
+2024-01-28 13:51:53.713793   Lemon answered a question and sent a message.
+
+2024-01-28 13:54:36.243795初始化成功
+2024-01-28 13:54:37.800271Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 46, in <module>
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6472, in Refind
+    if not self.Exists(maxSearchSeconds, searchIntervalSeconds, False if raiseException else DEBUG_EXIST_DISAPPEAR):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6414, in Exists
+    if prev and not prev._element and not prev.Exists(maxSearchSeconds, searchIntervalSeconds):
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6422, in Exists
+    control = FindControl(self.searchFromControl, self._CompareFunction, self.searchDepth, False, self.foundIndex)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8359, in FindControl
+    if compare(child, depth):
+       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6373, in _CompareFunction
+    if value != control.Name:
+                ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6088, in Name
+    return self.Element.CurrentName or ''   # CurrentName may be None
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+_ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, None))
+
+2024-01-28 13:54:57.074225初始化成功
+2024-01-28 14:31:46.010021   Lemon answered a question and sent a message.
+
+2024-01-28 14:32:48.573868   Lemon answered a question and sent a message.
+
+2024-01-28 15:31:23.371024   Lemon answered a question and sent a message.
+
+2024-01-28 15:32:42.627954   Lemon answered a question and sent a message.
+
+2024-01-28 15:33:39.318119   Lemon answered a question and sent a message.
+
+2024-01-28 15:39:38.553182   Lemon answered a question and sent a message.
+
+2024-01-28 15:45:12.443198   Lemon answered a question and sent a message.
+
+2024-01-28 15:52:30.846506   Lemon answered a question and sent a message.
+
+2024-01-28 15:55:07.145602   Lemon answered a question and sent a message.
+
+2024-01-28 15:57:30.195367   Lemon answered a question and sent a message.
+
+2024-01-28 16:00:13.155881   Lemon answered a question and sent a message.
+
+2024-01-28 16:04:12.554827   Lemon answered a question and sent a message.
+
+2024-01-28 16:56:05.976990   Lemon answered a question and sent a message.
+
+2024-01-28 17:00:10.821012   Lemon answered a question and sent a message.
+
+2024-01-28 19:01:15.936469   Lemon answered a question and sent a message.
+
+2024-01-28 22:59:49.021864   Lemon answered a question and sent a message.
+
+2024-01-28 23:02:08.625738   Lemon answered a question and sent a message.
+
+2024-01-28 23:02:27.644280   Lemon answered a question and sent a message.
+
+2024-01-28 23:03:19.805886   Lemon answered a question and sent a message.
+
+2024-01-28 23:09:06.699628   Lemon answered a question and sent a message.
+
+2024-01-28 23:59:25.800535   Lemon answered a question and sent a message.
+
+2024-01-29 00:17:40.798711   Lemon answered a question and sent a message.
+
+2024-01-29 00:18:29.753017   Lemon answered a question and sent a message.
+
+2024-01-29 09:43:34.340970   Lemon answered a question and sent a message.
+
+2024-01-29 09:48:00.976005   Lemon answered a question and sent a message.
+
+2024-01-29 09:49:07.912914   Lemon answered a question and sent a message.
+
+2024-01-29 09:49:57.150927   Lemon answered a question and sent a message.
+
+2024-01-29 09:50:51.232878   Lemon answered a question and sent a message.
+
+2024-01-29 16:34:52.938956   Lemon answered a question and sent a message.
+
+2024-01-29 16:46:46.477020   Lemon answered a question and sent a message.
+
+2024-01-29 17:08:48.092947Traceback (most recent call last):
+  File "C:\bot4.5\main.py", line 55, in <module>
+    answer = glm(question)
+             ^^^^^^^^^^^^^
+  File "C:\bot4.5\main.py", line 20, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIRequestFailedError: Error code: 400, with error text {"error":{"code":"1301","message":"系统检测到输入或生成内容可能包含不安全或敏感内容，请您避免输入易产生敏感内容的提示语，感谢您的配合。"}}
+
+2024-01-29 17:16:01.183264初始化成功
+2024-01-29 17:16:25.647581Traceback (most recent call last):
+  File "C:\bot4.6\main.py", line 55, in <module>
+    answer = glm(question)
+             ^^^^^^^^^^^^^
+  File "C:\bot4.6\main.py", line 20, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIRequestFailedError: Error code: 400, with error text {"error":{"code":"1301","message":"系统检测到输入或生成内容可能包含不安全或敏感内容，请您避免输入易产生敏感内容的提示语，感谢您的配合。"}}
+
+2024-01-29 17:18:54.460441初始化成功
+2024-01-29 17:19:59.352423   Lemon answered a question and sent a message.
+
+2024-01-29 17:21:37.537283   Lemon answered a question and sent a message.
+
+2024-01-29 17:22:00.162582Traceback (most recent call last):
+  File "C:\bot4.6\main.py", line 55, in <module>
+    answer = glm(question)
+             ^^^^^^^^^^^^^
+  File "C:\bot4.6\main.py", line 20, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIRequestFailedError: Error code: 400, with error text {"error":{"code":"1301","message":"系统检测到输入或生成内容可能包含不安全或敏感内容，请您避免输入易产生敏感内容的提示语，感谢您的配合。"}}
+
+2024-03-12 16:36:39.576873   Lemon bot启动
+
+2024-03-12 16:36:39.577892初始化成功
+2024-03-12 16:36:50.631345Traceback (most recent call last):
+  File "E:\bot5.0\main.py", line 22, in main
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\anaconda3\envs\pytorch\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\anaconda3\envs\pytorch\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\anaconda3\envs\pytorch\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\anaconda3\envs\pytorch\Lib\site-packages\uiautomation\uiautomation.py", line 6475, in Refind
+    raise LookupError('Find Control Timeout({}s): {}'.format(maxSearchSeconds, self.GetSearchPropertiesStr()))
+LookupError: Find Control Timeout(10s): {Name: '会话', ControlType: ListControl}
+
+2024-03-12 16:37:35.505059   Lemon bot启动
+
+2024-03-12 16:37:35.505059初始化成功
+2024-03-12 17:08:56.256855   Lemon bot启动
+
+2024-03-12 17:15:20.234587   Lemon bot启动
+
+2024-03-12 17:20:28.897768   Lemon bot启动
+
+2024-03-12 17:20:35.423865初始化成功
+2024-03-12 20:38:18.743515Traceback (most recent call last):
+  File "C:\bot5.0\main.py", line 30, in main
+    answer = zhipu_api.glm(question)#调用api，给出ai的回答
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\bot5.0\zhipu_api.py", line 5, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIAuthenticationError: Error code: 401, with error text {"error":{"code":"1000","message":"身份验证失败。"}}
+
+2024-03-12 20:38:32.607728   Lemon bot尝试自动重启
+
+2024-03-12 20:38:39.783575初始化成功
+2024-03-12 20:40:00.922273Traceback (most recent call last):
+  File "C:\bot5.0\main.py", line 30, in main
+    answer = zhipu_api.glm(question)#调用api，给出ai的回答
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\bot5.0\zhipu_api.py", line 5, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 251, in request
+    raise self._make_status_error(err.response) from None
+zhipuai.core._errors.APIAuthenticationError: Error code: 401, with error text {"error":{"code":"1000","message":"身份验证失败。"}}
+
+2024-03-12 20:40:12.488310   Lemon bot尝试自动重启
+
+2024-03-12 20:49:11.432775   Lemon bot启动
+
+2024-03-12 20:49:32.229965初始化成功
+2024-03-12 20:50:36.385602   Lemon answered a question and sent a message.
+
+2024-03-12 21:18:06.532403   Lemon bot启动
+
+2024-03-12 21:18:23.246334初始化成功
+2024-03-12 22:07:01.380832   Lemon answered a question and sent a message.
+
+2024-03-13 09:48:02.594613   Lemon answered a question and sent a message.
+
+2024-03-13 09:48:14.407006Traceback (most recent call last):
+  File "C:\bot5.1\main.py", line 22, in main
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6472, in Refind
+    if not self.Exists(maxSearchSeconds, searchIntervalSeconds, False if raiseException else DEBUG_EXIST_DISAPPEAR):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6422, in Exists
+    control = FindControl(self.searchFromControl, self._CompareFunction, self.searchDepth, False, self.foundIndex)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8359, in FindControl
+    if compare(child, depth):
+       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6373, in _CompareFunction
+    if value != control.Name:
+                ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6088, in Name
+    return self.Element.CurrentName or ''   # CurrentName may be None
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+_ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, None))
+
+2024-03-13 10:43:49.095150   Lemon bot启动
+
+2024-03-13 10:43:56.103087初始化成功
+2024-03-13 11:56:04.794224   Lemon answered a question and sent a message.
+
+2024-03-13 14:07:54.483502   Lemon answered a question and sent a message.
+
+2024-03-13 16:40:01.486408   Lemon answered a question and sent a message.
+
+2024-03-13 21:47:24.802132   Lemon bot启动
+
+2024-03-13 21:47:37.477816初始化成功
+2024-03-13 21:48:30.232304   Lemon answered a question and sent a message.
+
+2024-03-14 09:48:34.206403   Lemon answered a question and sent a message.
+
+2024-03-14 11:35:29.411966   Lemon answered a question and sent a message.
+
+2024-03-14 18:42:16.859267   Lemon answered a question and sent a message.
+
+2024-03-14 19:06:40.885457   Lemon answered a question and sent a message.
+
+2024-03-15 11:39:37.786387Traceback (most recent call last):
+  File "main.py", line 22, in main
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "uiautomation\uiautomation.py", line 6345, in GetChildren
+  File "uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+  File "uiautomation\uiautomation.py", line 6224, in Element
+  File "uiautomation\uiautomation.py", line 6472, in Refind
+  File "uiautomation\uiautomation.py", line 6422, in Exists
+  File "uiautomation\uiautomation.py", line 8357, in FindControl
+  File "uiautomation\uiautomation.py", line 8235, in WalkControl
+  File "uiautomation\uiautomation.py", line 6306, in GetNextSiblingControl
+  File "uiautomation\uiautomation.py", line 5762, in CreateControlFromElement
+_ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, None))
+
+2024-03-15 17:14:55.917945   Lemon bot启动
+
+2024-03-15 17:15:31.283438   Lemon bot启动
+
+2024-03-15 17:15:42.504505初始化成功
+2024-03-17 02:28:02.374408   Lemon answered a question and sent a message.
+
+2024-03-17 02:29:24.817120   Lemon answered a question and sent a message.
+
+2024-03-17 11:43:01.684662   Lemon answered a question and sent a message.
+
+2024-03-17 11:43:55.405673   Lemon answered a question and sent a message.
+
+2024-03-17 11:44:56.347861   Lemon answered a question and sent a message.
+
+2024-03-17 11:55:40.197033   Lemon answered a question and sent a message.
+
+2024-03-17 19:22:06.724407   Lemon answered a question and sent a message.
+
+2024-03-17 19:23:02.362657   Lemon answered a question and sent a message.
+
+2024-03-17 19:26:20.721564   Lemon answered a question and sent a message.
+
+2024-03-17 19:27:46.772477   Lemon answered a question and sent a message.
+
+2024-03-17 22:42:56.099556   Lemon answered a question and sent a message.

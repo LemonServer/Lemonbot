@@ -1,0 +1,5 @@
+uiautomation
+zhipuai
+pyperclip
+pyautogui
+psutil
