@@ -5,6 +5,6 @@ import context
 Wx = uiautomation.WindowControl(Name="微信")    # 微信窗口
 Message = [context.UserMessageContext(i) for i in range(10)]    # 用来储存用户对话信息，MessageList 类对象
 password = '@Lemon bot'     # 群聊中的"@"
-api="d4d3b6869f22136f121d9b6dfc475bc0.ZD9dl84s6ZydwcMj"
+api="请输入你的api"
 client=ZhipuAI(api_key=api)
 number=-1
