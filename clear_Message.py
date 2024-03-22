@@ -2,10 +2,9 @@ from datetime import datetime
 from data import Message
 from context import UserMessageContext
 def clear():
-  global Message
-  now = datetime.now()
-  for i in range(10):
-    if Message[i].username != "未注册":
-        delta_time = (now - Message[i].register_time).total_seconds()
+    global Message
+    now = datetime.now()
+    for UserObject in Message:  # 遍历 Message 中的用户对象
+        delta_time = (now - UserObject.register_time).total_seconds()
         if delta_time > 3600:
-            Message[i] = UserMessageContext(i)
+            Message.remove(UserObject)

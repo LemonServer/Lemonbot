@@ -2,6 +2,7 @@ import pyautogui
 import pyperclip
 from time import sleep
 from data import Wx,Message,password
+from context import UserMessageContext
 def judge():
     if Wx.ToolBarControl(Name='',LocalizedControlType='工具栏').GetLastChildControl().Name == "视频聊天":
         return("私聊")
@@ -10,14 +11,14 @@ def judge():
 
 def Message_append(username,question):
     global Message
-    for i in range(10):
+    for i in range(len(Message)):
         if Message[i].username == username:
             Message[i].add_user_question(question)
             return i
-        elif Message[i].username == "未注册":
-            Message[i].register(username)
-            Message[i].add_user_question(question)
-            return i
+    i = len(Message)
+    Message.append(UserMessageContext(username))
+    Message[i].add_user_question(question)
+    return i
 
 def WxSend(name, answer):
     # 用来发送消息
