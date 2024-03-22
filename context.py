@@ -23,4 +23,3 @@ class UserMessageContext():
 
     def __del__(self):
         print("本次与 " + self.username + " 的上下文对话已完成")
-

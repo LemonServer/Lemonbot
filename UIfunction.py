@@ -13,10 +13,11 @@ def Message_append(username,question):
     for i in range(10):
         if Message[i].username == username:
             Message[i].add_user_question(question)
+            return i
         elif Message[i].username == "未注册":
             Message[i].register(username)
             Message[i].add_user_question(question)
-    return i
+            return i
 
 def WxSend(name, answer):
     # 用来发送消息
