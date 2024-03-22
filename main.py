@@ -1,11 +1,10 @@
 import traceback
-from time import sleep
 from UIfunction import WxRead
 from UIfunction import WxSend
-from UIfunction import judge
 import zhipu_api
 from journal_append import journal_append
-from data import Wx, Message
+from data import Wx, Message,number
+from clear_Message import clear
 def main():
 # 初始化
     print("Lemon bot为您服务，我是基于智谱ai的ChatGLM4机器人\n正在初始化，请稍候！\n")
@@ -23,18 +22,18 @@ def main():
                 print(diagAll.GetChildren()[i].Name + "有新消息")#判断是否有新消息
                 diagAll.GetChildren()[i].Click()#选中新消息的对话框
                 if (WxRead()):
-                    question = Message[-1][1]#从已读取消息的列表中找出最后一条
-                    name = Message[-1][0]#找出提问者
-                    question = question[11:] if judge() == '群聊' else question#针对群聊，去除“@”字符串
                     print("正在处理")
-                    answer = zhipu_api.glm(question)#调用api，给出ai的回答
-                    print("Lemon bot:", answer)
-                    WxSend(name, answer)#发送给提问者
+                    answer = zhipu_api.glm(Message[number].MessageList)#调用api，给出ai的回答
+                    print("Lemon bot answered a question")
+                    WxSend(Message[number].username, answer)#发送给提问者
+                    Message[number].add_ai_answer(answer)
                     journal_append("bot日志.txt", "   Lemon answered a question and sent a message.\n")
             #刷新列表的序号
             if i == 0:
                 diagAll = Wx.ListControl(Name="会话")
             i = (i + 1) % 5
+            clear()
+
     except Exception:
     # 捕获异常，并将异常信息写入到文件，通知开发者
         journal_append("bot日志.txt", traceback.format_exc())

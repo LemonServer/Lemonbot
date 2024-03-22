@@ -766,3 +766,105 @@ _ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, No
 2024-03-17 19:27:46.772477   Lemon answered a question and sent a message.
 
 2024-03-17 22:42:56.099556   Lemon answered a question and sent a message.
+
+2024-03-22 09:27:38.931357   Lemon bot启动
+
+2024-03-22 09:27:46.183832初始化成功
+2024-03-22 09:27:46.283219Traceback (most recent call last):
+  File "C:\6.0\main.py", line 35, in main
+    clear()
+  File "C:\6.0\clear_Message.py", line 7, in clear
+    for i in range[10]:
+             ~~~~~^^^^
+TypeError: type 'range' is not subscriptable
+
+2024-03-22 09:27:59.937818   Lemon bot尝试自动重启
+
+2024-03-22 09:30:01.647218   Lemon bot启动
+
+2024-03-22 09:30:08.943943初始化成功
+2024-03-22 09:30:25.128719Traceback (most recent call last):
+  File "C:\6.0\main.py", line 24, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\6.0\UIfunction.py", line 42, in WxRead
+    number=Message_append([mail.GetFirstChildControl().GetFirstChildControl().Name, question])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Message_append() missing 1 required positional argument: 'question'
+
+2024-03-22 09:30:37.904895   Lemon bot尝试自动重启
+
+2024-03-22 09:30:56.304247   Lemon bot启动
+
+2024-03-22 09:31:03.540021初始化成功
+2024-03-22 09:31:17.212602Traceback (most recent call last):
+  File "C:\6.0\main.py", line 24, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\6.0\UIfunction.py", line 42, in WxRead
+    number=Message_append([mail.GetFirstChildControl().GetFirstChildControl().Name, question])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Message_append() missing 1 required positional argument: 'question'
+
+2024-03-22 09:32:01.024613   Lemon bot启动
+
+2024-03-22 09:32:08.475400初始化成功
+2024-03-22 09:32:17.353246Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_jwt_token.py", line 15, in generate_token
+    api_key, secret = apikey.split(".")
+    ^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 2, got 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\6.0\main.py", line 26, in main
+    answer = zhipu_api.glm(Message[number].MessageList)#调用api，给出ai的回答
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\6.0\zhipu_api.py", line 5, in glm
+    response = client.chat.completions.create(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\api_resource\chat\completions.py", line 48, in create
+    return self._post(
+           ^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 292, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 238, in request
+    request = self._prepare_request(params)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 122, in _prepare_request
+    headers = self._prepare_headers(request_param)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 110, in _prepare_headers
+    headers_dict = _merge_map(self._default_headers, custom_headers)
+                              ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_http_client.py", line 100, in _default_headers
+    **self._auth_headers,
+      ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\_client.py", line 59, in _auth_headers
+    return {"Authorization": f"{_jwt_token.generate_token(api_key)}"}
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\cachetools\__init__.py", line 702, in wrapper
+    v = func(*args, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\zhipuai\core\_jwt_token.py", line 17, in generate_token
+    raise Exception("invalid api_key", e)
+Exception: ('invalid api_key', ValueError('not enough values to unpack (expected 2, got 1)'))
+
+2024-03-22 09:34:31.426219   Lemon bot启动
+
+2024-03-22 09:34:38.786659初始化成功
+2024-03-22 09:35:01.036866   Lemon answered a question and sent a message.
+
+2024-03-22 09:35:35.670935   Lemon answered a question and sent a message.
+
+2024-03-22 09:36:13.667305   Lemon answered a question and sent a message.
+
+2024-03-22 09:36:57.607912   Lemon answered a question and sent a message.
+
+2024-03-22 09:47:21.594316   Lemon answered a question and sent a message.
+
+2024-03-22 09:48:21.791189   Lemon answered a question and sent a message.
+
+2024-03-22 09:50:15.826432   Lemon answered a question and sent a message.
