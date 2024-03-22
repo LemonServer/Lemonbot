@@ -868,3 +868,8 @@ Exception: ('invalid api_key', ValueError('not enough values to unpack (expected
 2024-03-22 09:48:21.791189   Lemon answered a question and sent a message.
 
 2024-03-22 09:50:15.826432   Lemon answered a question and sent a message.
+
+2024-03-22 17:15:23.813513   Lemon bot启动
+
+2024-03-22 17:15:47.926920初始化成功
+2024-03-22 17:17:27.747272   Lemon answered a question and sent a message.
