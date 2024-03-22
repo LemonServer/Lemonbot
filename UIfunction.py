@@ -26,10 +26,10 @@ def WxSend(name, answer):
         Wx.SendKeys('@', waitTime=0)
         Wx.SendKeys(name, waitTime=0)
         Wx.SendKeys('   ', waitTime=0)
-    pyperclip.copy(answer)#将回答写入剪贴板
-    Wx.ButtonControl(Name="发送(S)").Click()#点击发送按钮确保激活输入光标
+    pyperclip.copy(answer)      # 将回答写入剪贴板
+    Wx.ButtonControl(Name="发送(S)").Click()    # 点击发送按钮确保激活输入光标
     sleep(2)
-    pyautogui.hotkey('ctrl', 'v')#发送
+    pyautogui.hotkey('ctrl', 'v')   # 发送
     pyautogui.hotkey('enter')
 def WxRead():
     global Wx, Message, password,number
@@ -37,8 +37,8 @@ def WxRead():
     Wx.SwitchToThisWindow()
     mail_group = Wx.ListControl(Name="消息").GetChildren()
     mail = mail_group[-1]
-    if (mail.GetFirstChildControl().Name == ''):  # 这一条是判断是否是信息发布时间
-        if (mail.GetFirstChildControl().GetFirstChildControl().Name != ''):  # 这一条是判断信息是否是自己发出的
+    if (mail.GetFirstChildControl().Name == ''):    # 这一条是判断是否是信息发布时间
+        if (mail.GetFirstChildControl().GetFirstChildControl().Name != ''):     # 这一条是判断信息是否是自己发出的
             question = mail.Name
             if judge()=="群聊":
                 if password in question:
