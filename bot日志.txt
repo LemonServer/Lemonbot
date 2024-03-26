@@ -868,3 +868,273 @@ Exception: ('invalid api_key', ValueError('not enough values to unpack (expected
 2024-03-22 09:48:21.791189   Lemon answered a question and sent a message.
 
 2024-03-22 09:50:15.826432   Lemon answered a question and sent a message.
+
+2024-03-22 17:15:23.813513   Lemon bot启动
+
+2024-03-22 17:15:47.926920初始化成功
+2024-03-22 17:17:27.747272   Lemon answered a question and sent a message.
+
+2024-03-23 22:12:05.758093   Lemon bot启动
+
+2024-03-23 22:12:24.080270初始化成功
+2024-03-23 22:12:50.174432   Lemon answered a question and sent a message.
+
+2024-03-25 21:52:57.460165Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 24, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 52, in WxRead
+    number=Message_append(mail.GetFirstChildControl().GetFirstChildControl().Name, question)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'GetFirstChildControl'
+
+2024-03-25 21:53:22.430674   Lemon bot启动
+
+2024-03-25 21:53:37.119025初始化成功
+2024-03-25 21:53:59.338451   Lemon answered a question and sent a message.
+
+2024-03-25 21:54:27.618342   Lemon answered a question and sent a message.
+
+2024-03-25 22:08:08.759032   Lemon answered a question and sent a message.
+
+2024-03-26 08:22:31.589991   Lemon bot启动
+
+2024-03-26 08:22:40.365634初始化成功
+2024-03-26 08:23:10.598483Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 31, in main
+    Message[number].add_ai_answer(answer)
+                                  ^^^^^^
+NameError: name 'answer' is not defined
+
+2024-03-26 08:23:23.861434   Lemon bot尝试自动重启
+
+2024-03-26 08:24:02.842375   Lemon bot启动
+
+2024-03-26 08:24:10.200617初始化成功
+2024-03-26 08:24:32.282873   Lemon answered a question and sent a message.
+
+2024-03-26 08:24:35.163482   Lemon answered a question and sent a message.
+
+2024-03-26 08:24:38.439412   Lemon answered a question and sent a message.
+
+2024-03-26 08:24:56.773457   Lemon answered a question and sent a message.
+
+2024-03-26 08:25:08.814384   Lemon answered a question and sent a message.
+
+2024-03-26 08:25:22.506221   Lemon answered a question and sent a message.
+
+2024-03-26 08:25:25.679476   Lemon answered a question and sent a message.
+
+2024-03-26 08:26:13.354809   Lemon answered a question and sent a message.
+
+2024-03-26 08:26:24.745897   Lemon answered a question and sent a message.
+
+2024-03-26 08:26:38.147566   Lemon answered a question and sent a message.
+
+2024-03-26 08:27:18.715071   Lemon answered a question and sent a message.
+
+2024-03-26 08:28:14.138396   Lemon bot启动
+
+2024-03-26 08:28:21.837363初始化成功
+2024-03-26 08:28:58.577451   Lemon answered a question and sent a message.
+
+2024-03-26 08:29:24.514466   Lemon answered a question and sent a message.
+
+2024-03-26 08:29:27.281210   Lemon answered a question and sent a message.
+
+2024-03-26 08:29:41.905191   Lemon answered a question and sent a message.
+
+2024-03-26 08:29:52.954799   Lemon answered a question and sent a message.
+
+2024-03-26 08:30:02.859989   Lemon answered a question and sent a message.
+
+2024-03-26 08:38:54.494924   Lemon bot启动
+
+2024-03-26 08:39:01.700681初始化成功
+2024-03-26 08:39:13.938620   Lemon answered a question and sent a message.
+
+2024-03-26 08:39:28.525213   Lemon answered a question and sent a message.
+
+2024-03-26 08:39:55.033483   Lemon answered a question and sent a message.
+
+2024-03-26 08:40:03.972818   Lemon answered a question and sent a message.
+
+2024-03-26 08:40:20.950606   Lemon answered a question and sent a message.
+
+2024-03-26 08:40:50.792694   Lemon answered a question and sent a message.
+
+2024-03-26 08:40:57.984504   Lemon answered a question and sent a message.
+
+2024-03-26 08:41:08.910885   Lemon answered a question and sent a message.
+
+2024-03-26 08:48:58.064786   Lemon bot启动
+
+2024-03-26 08:49:05.220412初始化成功
+2024-03-26 08:49:15.002940   Lemon answered a question and sent a message.
+
+2024-03-26 08:50:12.403727   Lemon answered a question and sent a message.
+
+2024-03-26 08:54:45.777929   Lemon bot启动
+
+2024-03-26 08:54:52.636026初始化成功
+2024-03-26 08:55:00.194849Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 25, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 55, in WxRead
+    number=Message_append(mail.GetFirstChildControl().GetFirstChildControl().Name, question)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 22, in Message_append
+    print("MA:"+i)
+          ~~~~~^~
+TypeError: can only concatenate str (not "int") to str
+
+2024-03-26 08:55:13.572544   Lemon bot尝试自动重启
+
+2024-03-26 08:55:20.321909初始化成功
+2024-03-26 08:55:30.727568Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 25, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 55, in WxRead
+    number=Message_append(mail.GetFirstChildControl().GetFirstChildControl().Name, question)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 17, in Message_append
+    print("MA:"+i)
+          ~~~~~^~
+TypeError: can only concatenate str (not "int") to str
+
+2024-03-26 08:55:43.913892   Lemon bot尝试自动重启
+
+2024-03-26 08:56:39.077972   Lemon bot启动
+
+2024-03-26 08:56:46.134544初始化成功
+2024-03-26 08:57:00.931952   Lemon answered a question and sent a message.
+
+2024-03-26 08:57:50.597199   Lemon answered a question and sent a message.
+
+2024-03-26 09:00:56.638662   Lemon bot启动
+
+2024-03-26 09:01:02.868402初始化成功
+2024-03-26 09:01:10.695383   Lemon answered a question and sent a message.
+
+2024-03-26 16:58:33.768455   Lemon bot启动
+
+2024-03-26 16:58:42.174398   Lemon bot启动
+
+2024-03-26 16:58:52.549429   Lemon bot启动
+
+2024-03-26 16:59:43.535397   Lemon bot启动
+
+2024-03-26 17:02:06.464384初始化成功
+2024-03-26 17:02:12.625485Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 21, in main
+    if len(diagAll.GetChildren()[i].GetFirstChildControl().GetChildren()) == 3:
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6345, in GetChildren
+    child = self.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+                                                                       ^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6224, in Element
+    self.Refind(maxSearchSeconds=TIME_OUT_SECOND, searchIntervalSeconds=self.searchInterval)
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6472, in Refind
+    if not self.Exists(maxSearchSeconds, searchIntervalSeconds, False if raiseException else DEBUG_EXIST_DISAPPEAR):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6422, in Exists
+    control = FindControl(self.searchFromControl, self._CompareFunction, self.searchDepth, False, self.foundIndex)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8357, in FindControl
+    for child, depth in WalkControl(control, findFromSelf, maxDepth):
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 8238, in WalkControl
+    child = lastControl.GetFirstChildControl()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib\site-packages\uiautomation\uiautomation.py", line 6291, in GetFirstChildControl
+    ele = _AutomationClient.instance().ViewWalker.GetFirstChildElement(self.Element)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ctypes.COMError: (-2147220991, '事件无法调用任何订户', (None, None, None, 0, None))
+
+2024-03-26 17:02:50.065474初始化成功
+2024-03-26 17:02:58.163391   Lemon answered a question and sent a message.
+
+2024-03-26 17:08:19.144816初始化成功
+2024-03-26 17:08:43.730229初始化成功
+2024-03-26 17:08:54.973278Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 30, in main
+    print(Message[number].username)
+          ~~~~~~~^^^^^^^^
+IndexError: list index out of range
+
+2024-03-26 17:09:01.404594   Lemon bot启动
+
+2024-03-26 17:09:08.235495初始化成功
+2024-03-26 17:12:03.491593初始化成功
+2024-03-26 17:12:11.867651Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 25, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 58, in WxRead
+    print("WxRead:%d",number[-1])
+                      ~~~~~~^^^^
+TypeError: 'int' object is not subscriptable
+
+2024-03-26 17:12:18.204532   Lemon bot启动
+
+2024-03-26 17:12:25.144975初始化成功
+2024-03-26 17:14:28.699441初始化成功
+2024-03-26 17:14:40.123698Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 25, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 57, in WxRead
+    number[0]=Message_append(mail.GetFirstChildControl().GetFirstChildControl().Name, question)
+    ~~~~~~^^^
+TypeError: 'set' object does not support item assignment
+
+2024-03-26 17:14:46.528274   Lemon bot启动
+
+2024-03-26 17:15:38.842540初始化成功
+2024-03-26 17:15:49.988535Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 25, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 57, in WxRead
+    number[0]=Message_append(mail.GetFirstChildControl().GetFirstChildControl().Name, question)
+    ~~~~~~^^^
+TypeError: 'set' object does not support item assignment
+
+2024-03-26 17:16:26.314646初始化成功
+2024-03-26 17:16:36.418781Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 25, in main
+    if (WxRead()):
+        ^^^^^^^^
+  File "C:\Lemonbot-Cc\UIfunction.py", line 57, in WxRead
+    number[0]=Message_append(mail.GetFirstChildControl().GetFirstChildControl().Name, question)
+    ~~~~~~^^^
+TypeError: 'set' object does not support item assignment
+
+2024-03-26 17:16:42.776712   Lemon bot启动
+
+2024-03-26 17:16:49.556726初始化成功
+2024-03-26 17:18:03.404116初始化成功
+2024-03-26 17:18:14.703650   Lemon answered a question and sent a message.
+
+2024-03-26 17:21:08.015414初始化成功
+2024-03-26 17:21:20.041145Traceback (most recent call last):
+  File "C:\Lemonbot-Cc\main.py", line 27, in main
+    answer = zhipu_api.glm(Message[number].MessageList)     # 调用api，给出ai的回答
+                           ~~~~~~~^^^^^^^^
+TypeError: list indices must be integers or slices, not list
+
+2024-03-26 17:21:26.535866   Lemon bot启动
+
+2024-03-26 17:21:33.325537初始化成功
+2024-03-26 17:22:15.097366初始化成功
+2024-03-26 17:22:44.378647   Lemon answered a question and sent a message.
+
+2024-03-26 17:22:54.414705   Lemon answered a question and sent a message.
+
+2024-03-26 17:23:14.317642   Lemon answered a question and sent a message.
+
+2024-03-26 17:24:02.982860   Lemon answered a question and sent a message.
