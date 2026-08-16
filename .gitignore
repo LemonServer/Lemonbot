@@ -1,0 +1,43 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.venv*/
+.uv-cache/
+dist/
+build/
+
+# Local runtime state and secrets
+.env
+.env.*
+!.env.example
+config/lemonbot.toml
+data/
+runtime/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+*.log
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Browser and downloaded artifacts
+playwright-report/
+test-results/
+downloads/
+quarantine/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini

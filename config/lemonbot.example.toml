@@ -1,0 +1,143 @@
+schema_version = 1
+profile = "prod"
+timezone = "Asia/Shanghai"
+
+[runtime]
+connector = "fake" # fake | wecom | wechat_uia
+data_root = ""      # empty = %LOCALAPPDATA%\Lemonbot
+log_level = "INFO"
+
+[admin]
+host = "127.0.0.1"
+port = 8765
+
+[models]
+provider = "deepseek"
+base_url = "https://api.deepseek.com"
+api_key_secret_name = "deepseek_api_key"
+flash_model = "deepseek-v4-flash"
+pro_model = "deepseek-v4-pro"
+request_timeout_seconds = 90
+max_input_tokens = 65536
+max_output_tokens = 4096
+verify_models_on_startup = true
+
+[models.budget]
+enabled = false
+daily_limit_cny = "0"
+monthly_limit_cny = "0"
+flash_input_cny_per_million = "0"
+flash_output_cny_per_million = "0"
+pro_input_cny_per_million = "0"
+pro_output_cny_per_million = "0"
+
+[vision]
+enabled = false
+base_url = "https://open.bigmodel.cn/api/paas/v4"
+model = "glm-4.6v-flash"
+max_file_bytes = 10485760
+max_pixels = 20000000
+# Conservative pre-call budget reservation for the single sanitized image.
+image_token_reserve = 16384
+# Set both to the provider's current prices before enabled=true. An advertised
+# free tier must be represented explicitly as 0 rather than leaving them unset.
+# input_cny_per_million = "0"
+# output_cny_per_million = "0"
+
+[browser]
+enabled = false
+max_text_chars = 50000
+navigation_timeout_seconds = 30
+max_downloads_per_task = 3
+
+[vault]
+read_roots = []
+write_roots = []
+
+[mcp]
+enabled = false # the broker, every server and every tool are opt-in
+
+# Enroll only an audited, locally installed executable. `arguments` are passed
+# directly without a shell. The reported name/version must match exactly.
+# [[mcp.servers]]
+# name = "example"
+# enabled = false
+# executable = "C:\\Program Files\\ExampleMCP\\example-mcp.exe"
+# arguments = ["--stdio"]
+# executable_sha256 = "<64 lowercase hex characters>"
+# working_directory = "C:\\Program Files\\ExampleMCP"
+# expected_server_name = "example-mcp"
+# expected_server_version = "1.2.3"
+# protocol_version = "2025-03-26"
+# startup_timeout_seconds = 30
+# max_message_bytes = 1048576
+# memory_limit_bytes = 268435456
+# max_processes = 1
+#
+# [mcp.servers.tools.lookup]
+# enabled = false
+# remote_name = "lookup"
+# description = "Read an enrolled public catalog by exact query."
+# read_only = true
+# timeout_seconds = 30
+# max_output_bytes = 65536
+# input_schema = { type = "object", additionalProperties = false, properties = { query = { type = "string", minLength = 1, maxLength = 200 } }, required = ["query"] }
+
+[wecom]
+enabled = false
+bot_id = ""
+welcome_text = "你好，我是 Lemonbot，一个由 AI 驱动的助手。"
+allow_chat_ids = []
+admin_sender_ids = [] # only these stable user IDs may trigger /deep
+
+[wechat_uia]
+enabled = false
+stage = "observe" # observe | draft | reply | proactive
+expected_account = ""
+expected_windows_user = ""
+expected_process_name = "WeChat.exe"
+expected_executable_path = "" # exact absolute local-drive path from `uia inspect`
+expected_executable_sha256 = "" # 64 lowercase hex characters
+enrolled_client_version = ""
+enrolled_selector_signature = ""
+# Copy and enroll config/wechat_uia_selectors.example.json on the lab VM, then
+# use an absolute path. The checked-in __ENROLL__ placeholders never match.
+selector_bundle_path = ""
+allow_chat_ids = []
+admin_sender_ids = [] # UIA sender hashes allowed to trigger /deep
+reconcile_seconds = 15
+
+[limits]
+quiet_start = "23:00"
+quiet_end = "08:00"
+event_timeout_seconds = 300
+max_model_turns = 8
+max_tool_calls = 20
+max_navigations = 10
+max_downloads = 3
+max_reply_chunks = 2
+max_chunk_chars = 1500
+
+[limits.wecom_reply]
+per_10_minutes = 6
+per_hour = 30
+per_day = 100
+global_per_day = 500
+
+[limits.wecom_proactive]
+per_period = 1
+period_hours = 6
+per_day = 3
+global_per_day = 30
+
+[limits.wechat_reply]
+per_10_minutes = 3
+per_hour = 10
+per_day = 30
+global_per_day = 50
+
+[limits.wechat_proactive]
+per_period = 1
+period_hours = 12
+per_day = 2
+global_per_day = 10

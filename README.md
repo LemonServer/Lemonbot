@@ -1,14 +1,99 @@
-# Lemonbot
-a Wechat bot powered by uiautomation of python,with LLM api service available
+# Lemonbot 2026
 
+Lemonbot 是一个面向 Windows 11 x64 的、能力受控的自主聊天代理。它以 DeepSeek API
+作为默认文本与工具模型，以企业微信智能机器人作为生产消息通道，并把个人微信 UI
+Automation 放在完全隔离、默认关闭的实验通道中。
 
-基于python的uiautomation库的微信聊天机器人，可调用Chatgpt、智谱等api
+> 这不是“让模型随意控制电脑”的程序。所有外部动作都必须经过独立策略引擎；支付、
+> 转账、购买、订阅、账号安全、凭据、提权、安装、永久删除、任意命令执行及批量外发
+> 永久禁止。个人微信自动化仍有非零风控和封号风险。
 
-2024/3/21
-***上传bot
+## 当前能力
 
-2024/3/22
-***完成上下文功能
+- 持久化 inbox/outbox、逐会话串行处理、去重、审计和崩溃恢复。
+- DeepSeek 优先的 OpenAI-compatible 模型网关及硬预算。
+- SQLite WAL、FTS5 长期记忆、摘要和来源追踪。
+- 企业微信官方长连接适配器、假连接器和个人微信实验性 UIA 适配器。
+- 只读 HTTPS 浏览器、图片净化/OCR/智谱视觉、路径受限文件保险库。
+- 附件写入前磁盘余量熔断，默认保留至少 1 GiB，不自动清理原始数据。
+- 固定清单 MCP、白名单、静默期、限频、主动任务来源约束和全局急停。
+- 仅监听回环地址的本地管理台、诊断、备份、数据导出与显式删除命令。
 
-2024/3/26
-***修复上下文对话的bug
+## 快速开始
+
+需要 Windows 11 x64、Python 3.12 x64 和 [uv](https://docs.astral.sh/uv/)。
+
+```powershell
+uv sync --all-extras
+uv run playwright install chromium
+Copy-Item config/lemonbot.example.toml "$env:LOCALAPPDATA\Lemonbot\config.toml"
+uv run lemonbot doctor
+```
+
+密钥不会写入 TOML。使用 Windows Credential Manager：
+
+```powershell
+uv run lemonbot secret set deepseek_api_key
+uv run lemonbot secret set zhipu_api_key
+```
+
+先在配置中填写模型价格和每日/月度预算，再启动：
+
+```powershell
+uv run lemonbot run
+```
+
+默认管理地址为 `http://127.0.0.1:8765`。初次登录令牌只会显示在本机控制台或托盘，
+不会写入日志。没有真实企业微信凭据时，可将 `runtime.connector = "fake"` 进行端到端验证。
+
+## 个人微信实验门禁
+
+个人微信只允许 `profile = "lab"` 和独立测试号，并依次提升以下四个阶段：
+
+- `observe`：只持久化观察到的事件，不调用模型、不创建 outbox、不发送。
+- `draft`：生成并保存供人工检查的草稿，不创建 outbox、不操作发送控件。
+- `reply`：只回复白名单会话中已经观察到的入站消息，禁止主动发送。
+- `proactive`：在 `reply` 之上允许具备来源事件的已授权主动任务，仍受静默期和配额约束。
+
+UIA 没有通用选择器。请复制
+[`config/wechat_uia_selectors.example.json`](config/wechat_uia_selectors.example.json)，在目标虚拟机上完成账号、客户端版本和 UI 树登记后再启用。样例中的 `__ENROLL__` 值故意不能匹配真实控件；未登记时会安全停止。详见[运行手册](docs/operations.md#个人微信-uia-登记与分阶段上线)。
+
+## 管理员数据操作
+
+停止 Lemonbot 后，可以导出当前 profile 的一致性数据归档，或显式永久删除一个精确会话：
+
+```powershell
+uv run lemonbot data export --config <path> --output <archive.zip>
+uv run lemonbot data delete-conversation <channel> <chat-id> --config <path> --confirm
+```
+
+导出沿用可校验的 backup format v1，包含当前 profile 的 SQLite 原始记录与附件对象，但不含
+Credential Manager、配置或日志。删除命令只存在于管理员 CLI，不注册为模型工具；详情和
+不可恢复边界见[运行手册](docs/operations.md#管理员数据导出与显式删除)。
+
+## 安全边界
+
+- 生产与实验通道使用不同数据库、附件目录、白名单和密钥命名空间。
+- 网页、聊天、OCR、图片和工具结果一律视为不可信内容。
+- 浏览器只允许公开 HTTPS GET/HEAD，阻断私网、回环地址、异常端口和重定向绕过。
+- 个人微信仅支持独立测试号；不含 Hook、DLL 注入、协议逆向、WCFerry 或风控规避。
+- 任何出站状态不确定的消息进入 `unknown`，不自动重发。
+
+更多部署和威胁模型见 [docs/operations.md](docs/operations.md) 与
+[docs/security.md](docs/security.md)。
+
+## 开发
+
+```powershell
+uv sync --extra dev
+uv run pytest
+uv run ruff check .
+uv run mypy src
+```
+
+GitHub CI 在 Windows Server 2025 / Python 3.12 上按 `uv.lock` 安装并执行同一组检查；
+另有只扫描当前检出树的 Gitleaks 作业。旧 Git 历史按约定不改写，因此历史审计与当前树
+门禁应分开理解。
+
+旧版原型中的密钥、私钥、浏览器扩展、驱动和日志已从当前工作树移除；按项目约定未改写
+旧 Git 历史。旧凭据即使已失效，也不应再次使用。

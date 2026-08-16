@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lemonbot"
+version = "0.1.0"
+description = "A capability-bounded autonomous chat agent for Windows and WeCom"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "aiosqlite>=0.21,<1",
+  "alembic>=1.16,<2",
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "jinja2>=3.1,<4",
+  "jsonschema>=4.24,<5",
+  "pillow>=11.3,<13",
+  "platformdirs>=4.3,<5",
+  "playwright>=1.54,<2",
+  "psutil>=7,<8",
+  "pydantic>=2.11,<3",
+  "python-multipart>=0.0.20,<1",
+  "sqlalchemy>=2.0.41,<3",
+  "typer>=0.16,<1",
+  "tzdata>=2025.2",
+  "uvicorn>=0.35,<1",
+]
+
+[project.optional-dependencies]
+wecom = [
+  "wecom-aibot-python-sdk==1.0.1",
+]
+vision = [
+  "onnxruntime>=1.22,<2",
+  "rapidocr-onnxruntime>=1.4.4,<2",
+]
+windows = [
+  "pystray>=0.19.5,<1; sys_platform == 'win32'",
+  "pywin32>=311; sys_platform == 'win32'",
+  "uiautomation>=2.0.29,<3; sys_platform == 'win32'",
+]
+dev = [
+  "hypothesis>=6.136,<7",
+  "mypy>=1.17,<2",
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "pytest-cov>=6.2,<7",
+  "respx>=0.22,<1",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+lemonbot = "lemonbot.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lemonbot"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+  "integration: integration tests",
+  "security: security boundary tests",
+  "windows: tests requiring a Windows desktop",
+  "live: tests requiring explicit real service credentials",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "RUF"]
+ignore = ["S101", "RUF001", "ASYNC240"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["lemonbot"]
+
+[tool.coverage.run]
+branch = true
+source = ["lemonbot"]
