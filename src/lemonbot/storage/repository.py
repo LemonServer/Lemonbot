@@ -189,31 +189,39 @@ class CoreRepository:
                 ),
             )
         )
-        query = (
+        candidate = (
             select(current.id)
             .where(current.state == InboxState.PENDING.value, ~blocking_earlier)
             .order_by(current.occurred_at, current.id)
             .limit(1)
         )
         if channel is not None:
-            query = query.where(current.channel == channel)
+            candidate = candidate.where(current.channel == channel)
 
         async with self.database.sessions() as session, session.begin():
-            item_id = await session.scalar(query)
-            if item_id is None:
-                return None
+            # Selection and state transition must be one SQLite statement.  A
+            # SELECT followed by a CAS UPDATE lets two concurrent consumers
+            # select the same row; the loser would incorrectly report IDLE even
+            # when another chat is eligible.  SQLite serializes these writes,
+            # so the second statement re-evaluates the candidate after the first
+            # transaction commits and claims the next eligible conversation.
             now = utc_now()
             claimed = await session.execute(
                 update(InboxRow)
-                .where(InboxRow.id == item_id, InboxRow.state == InboxState.PENDING.value)
+                .where(
+                    InboxRow.id == candidate.scalar_subquery(),
+                    InboxRow.state == InboxState.PENDING.value,
+                )
                 .values(
                     state=InboxState.PROCESSING.value,
                     attempts=InboxRow.attempts + 1,
                     claimed_at=now,
                     updated_at=now,
                 )
+                .returning(InboxRow.id)
             )
-            if _rowcount(claimed) != 1:
+            item_id = claimed.scalar_one_or_none()
+            if item_id is None:
                 return None
             row = await session.get(InboxRow, item_id)
             assert row is not None

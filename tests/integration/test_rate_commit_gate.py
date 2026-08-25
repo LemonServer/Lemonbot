@@ -57,7 +57,10 @@ async def test_shared_commit_gate_prevents_concurrent_global_quota_overshoot(
     second = EventPipeline(repository, policy, model, side_effect_lock=shared_gate)
 
     try:
-        results = await asyncio.gather(first.process_once("fake"), second.process_once("fake"))
+        results = await asyncio.wait_for(
+            asyncio.gather(first.process_once("fake"), second.process_once("fake")),
+            timeout=10,
+        )
         assert sorted(result.status for result in results) == [
             PipelineStatus.COMPLETED,
             PipelineStatus.SKIPPED,
