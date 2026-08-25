@@ -46,9 +46,7 @@ async def make_pipeline(tmp_path, output_mode: str):
 
 def test_observe_records_event_without_model_draft_or_outbox(tmp_path) -> None:
     async def scenario() -> None:
-        database, repository, model, pipeline, event = await make_pipeline(
-            tmp_path, "observe"
-        )
+        database, repository, model, pipeline, event = await make_pipeline(tmp_path, "observe")
         connector = FakeConnector(channel="fake")
         try:
             await pipeline.ingest(event)
@@ -70,9 +68,7 @@ def test_observe_records_event_without_model_draft_or_outbox(tmp_path) -> None:
 
 def test_draft_calls_model_once_but_never_creates_or_dispatches_outbox(tmp_path) -> None:
     async def scenario() -> None:
-        database, repository, model, pipeline, event = await make_pipeline(
-            tmp_path, "draft"
-        )
+        database, repository, model, pipeline, event = await make_pipeline(tmp_path, "draft")
         connector = FakeConnector(channel="fake")
         try:
             await pipeline.ingest(event)

@@ -92,6 +92,7 @@ class PinnedMCPTool(BaseModel):
     description: str = Field(min_length=1, max_length=2_000)
     input_schema: dict[str, Any]
     read_only: bool = True
+    allow_conversation_data: bool = False
     enabled: bool = False
     timeout_seconds: float = Field(default=30, gt=0, le=120)
     max_output_bytes: int = Field(default=64 * 1024, ge=256, le=256 * 1024)
@@ -114,9 +115,7 @@ class PinnedMCPTool(BaseModel):
     @classmethod
     def validate_input_schema(cls, value: dict[str, Any]) -> dict[str, Any]:
         try:
-            encoded = json.dumps(value, allow_nan=False, separators=(",", ":")).encode(
-                "utf-8"
-            )
+            encoded = json.dumps(value, allow_nan=False, separators=(",", ":")).encode("utf-8")
         except (TypeError, ValueError, RecursionError) as exc:
             raise ValueError("MCP tool input schema must be finite JSON") from exc
         if len(encoded) > 128 * 1024:
@@ -200,9 +199,7 @@ class PinnedMCPServer(BaseModel):
             raise ValueError(
                 "enabled MCP server requires pinned identity/version and an enabled tool"
             )
-        enabled_remote_names = [
-            tool.remote_name for tool in self.tools.values() if tool.enabled
-        ]
+        enabled_remote_names = [tool.remote_name for tool in self.tools.values() if tool.enabled]
         if len(enabled_remote_names) != len(set(enabled_remote_names)):
             raise ValueError("enabled MCP remote tool names must be unique per server")
         return self
@@ -240,10 +237,7 @@ class MCPStdioClient:
         configured_working_directory = self._server.working_directory
         if configured_executable.is_symlink() or configured_executable.is_junction():
             raise MCPError("pinned MCP executable cannot be a link or junction")
-        if (
-            configured_working_directory.is_symlink()
-            or configured_working_directory.is_junction()
-        ):
+        if configured_working_directory.is_symlink() or configured_working_directory.is_junction():
             raise MCPError("MCP working directory cannot be a link or junction")
         executable = configured_executable.resolve(strict=True)
         if not executable.is_file():
@@ -272,9 +266,7 @@ class MCPStdioClient:
                 return
             if self._process is not None:
                 await self.close()
-            executable, working_directory = await asyncio.to_thread(
-                self._verify_and_resolve
-            )
+            executable, working_directory = await asyncio.to_thread(self._verify_and_resolve)
             worker_name = f"mcp-{self._server.name}-{uuid4().hex}"
             worker = await self._supervisor.spawn(
                 worker_name,
@@ -294,10 +286,7 @@ class MCPStdioClient:
                 loaded_executable, loaded_working_directory = await asyncio.to_thread(
                     self._verify_and_resolve
                 )
-                if (
-                    loaded_executable != executable
-                    or loaded_working_directory != working_directory
-                ):
+                if loaded_executable != executable or loaded_working_directory != working_directory:
                     raise MCPError("MCP pinned paths changed during process launch")
                 result = await self._request(
                     "initialize",
@@ -425,9 +414,7 @@ class MCPStdioClient:
             await self._send(
                 {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}
             )
-            response = await self._receive(
-                timeout_seconds or self._server.startup_timeout_seconds
-            )
+            response = await self._receive(timeout_seconds or self._server.startup_timeout_seconds)
             response_id = response.get("id")
             if type(response_id) is not int or response_id != request_id:
                 raise MCPError("MCP response id mismatch")
@@ -464,9 +451,7 @@ class MCPStdioClient:
         if self._process is None or self._process.stdout is None:
             raise MCPError("MCP process is not running")
         try:
-            raw = await asyncio.wait_for(
-                self._process.stdout.readline(), timeout=timeout_seconds
-            )
+            raw = await asyncio.wait_for(self._process.stdout.readline(), timeout=timeout_seconds)
         except TimeoutError as exc:
             raise MCPError("MCP response timed out") from exc
         except ValueError as exc:
@@ -506,10 +491,13 @@ class MCPToolAdapter:
         if not client.server.enabled or tool is None or not tool.enabled:
             raise ValueError("MCP tool must be pinned and enabled before registration")
         action = "mcp_read" if tool.read_only else "mcp_write"
-        scope = f"mcp.{ 'read' if tool.read_only else 'write' }.{client.server.name}.{local_name}"
+        scope = f"mcp.{'read' if tool.read_only else 'write'}.{client.server.name}.{local_name}"
         self._client = client
         self._local_name = local_name
         self._read_only = tool.read_only
+        allowed_data = {DataClass.PUBLIC}
+        if tool.allow_conversation_data:
+            allowed_data.add(DataClass.CONVERSATION)
         self._manifest = ToolManifest(
             name=f"mcp.{client.server.name}.{local_name}",
             description=tool.description,
@@ -519,7 +507,7 @@ class MCPToolAdapter:
             risk_level="low" if tool.read_only else "high",
             idempotent=tool.read_only,
             required_scopes=frozenset({scope}),
-            allowed_data=frozenset({DataClass.PUBLIC, DataClass.CONVERSATION}),
+            allowed_data=frozenset(allowed_data),
             timeout_seconds=tool.timeout_seconds,
             max_output_bytes=tool.max_output_bytes,
         )

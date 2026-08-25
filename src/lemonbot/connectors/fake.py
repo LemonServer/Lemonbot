@@ -57,9 +57,7 @@ class FakeConnector(Connector):
         if self._closed:
             raise RuntimeError("fake connector is closed")
         if event.channel != self.channel:
-            raise ValueError(
-                f"event channel {event.channel!r} does not match {self.channel!r}"
-            )
+            raise ValueError(f"event channel {event.channel!r} does not match {self.channel!r}")
         if not self._seen.add(event.event_id):
             return False
         self._queue.put_nowait(event)
@@ -106,9 +104,7 @@ class FakeConnector(Connector):
         else:
             self._delivered.append(message)
             acknowledged_at = (
-                utc_now()
-                if self._delivery_status is DeliveryStatus.ACKNOWLEDGED
-                else None
+                utc_now() if self._delivery_status is DeliveryStatus.ACKNOWLEDGED else None
             )
             receipt = DeliveryReceipt(
                 message_id=message.message_id,
@@ -130,4 +126,3 @@ class FakeConnector(Connector):
             detail="closed" if self._closed else "ready (in-memory)",
             account_id="fake",
         )
-

@@ -1,6 +1,5 @@
 """Zhipu GLM visual-understanding contract with an explicit OCR fallback."""
 
-
 from __future__ import annotations
 
 import base64

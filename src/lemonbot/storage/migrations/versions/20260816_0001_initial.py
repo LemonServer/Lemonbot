@@ -50,9 +50,7 @@ def upgrade() -> None:
         sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("metadata_json", sa.JSON(), nullable=False),
     )
-    op.create_index(
-        "ix_messages_recent", "messages", ["channel", "chat_id", "occurred_at", "id"]
-    )
+    op.create_index("ix_messages_recent", "messages", ["channel", "chat_id", "occurred_at", "id"])
     op.create_index("ix_messages_external", "messages", ["channel", "external_id"])
     op.create_table(
         "outbox",
@@ -77,9 +75,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("channel", "reply_to_event_id", name="uq_outbox_one_reply_per_event"),
     )
     op.create_index("ix_outbox_dispatch", "outbox", ["state", "created_at", "id"])
-    op.create_index(
-        "ix_outbox_rate", "outbox", ["channel", "chat_id", "created_at", "state"]
-    )
+    op.create_index("ix_outbox_rate", "outbox", ["channel", "chat_id", "created_at", "state"])
     op.create_table(
         "audit_log",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
@@ -184,12 +180,8 @@ def upgrade() -> None:
             name="ck_model_budget_state",
         ),
     )
-    op.create_index(
-        "ix_model_budget_day", "model_budget_ledger", ["day_key", "state"]
-    )
-    op.create_index(
-        "ix_model_budget_month", "model_budget_ledger", ["month_key", "state"]
-    )
+    op.create_index("ix_model_budget_day", "model_budget_ledger", ["day_key", "state"])
+    op.create_index("ix_model_budget_month", "model_budget_ledger", ["month_key", "state"])
     op.create_table(
         "proactive_jobs",
         sa.Column("job_id", sa.Text(), primary_key=True),

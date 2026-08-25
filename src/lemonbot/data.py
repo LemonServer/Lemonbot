@@ -221,12 +221,7 @@ def _validate_export_destination(paths: RuntimePaths, destination: Path) -> None
 
 
 def _validate_scope(channel: str, chat_id: str) -> None:
-    if (
-        not channel
-        or channel != channel.strip()
-        or len(channel) > 64
-        or "\0" in channel
-    ):
+    if not channel or channel != channel.strip() or len(channel) > 64 or "\0" in channel:
         raise DataOperationError("channel must be an exact non-empty stable identifier")
     if not chat_id or chat_id != chat_id.strip() or len(chat_id) > 512 or "\0" in chat_id:
         raise DataOperationError("chat_id must be an exact non-empty stable identifier")
@@ -297,10 +292,7 @@ def _table_names(connection: sqlite3.Connection) -> set[str]:
 
 
 def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
-    return {
-        str(row[1])
-        for row in connection.execute(f"PRAGMA table_info({_quote(table)})")
-    }
+    return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({_quote(table)})")}
 
 
 def _unsupported_scoped_tables(
@@ -412,9 +404,7 @@ def _remove_unreferenced_objects(paths: tuple[Path, ...]) -> tuple[int, int]:
 def _rebuild_fts(connection: sqlite3.Connection, existing: set[str]) -> None:
     for table in ("messages_fts", "memory_fts"):
         if table in existing:
-            connection.execute(
-                f"INSERT INTO {_quote(table)}({_quote(table)}) VALUES('rebuild')"
-            )
+            connection.execute(f"INSERT INTO {_quote(table)}({_quote(table)}) VALUES('rebuild')")
 
 
 def _checkpoint_truncate(connection: sqlite3.Connection) -> None:

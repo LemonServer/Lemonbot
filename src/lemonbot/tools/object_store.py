@@ -61,8 +61,7 @@ class ContentAddressedStore:
         if self._is_link(destination) or (destination.exists() and not destination.is_file()):
             raise ObjectStoreError("object path is not a regular file")
         if destination.exists() and (
-            destination.stat().st_size != len(content)
-            or self._file_digest(destination) != digest
+            destination.stat().st_size != len(content) or self._file_digest(destination) != digest
         ):
             raise ObjectStoreError("existing content-addressed object failed integrity check")
         if not destination.exists():

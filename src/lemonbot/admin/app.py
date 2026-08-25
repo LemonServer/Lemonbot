@@ -45,9 +45,7 @@ class LoopbackGuardMiddleware(BaseHTTPMiddleware):
             f"http://localhost:{port}",
         }
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         host = request.headers.get("host", "").lower()
         if host not in self._allowed_hosts:
             return Response("invalid host", status_code=400)

@@ -144,9 +144,7 @@ class ApprovalService:
         )
 
     async def recover_interrupted(self) -> int:
-        return await self.repository.recover_executing(
-            profile=self.profile, now=self._now()
-        )
+        return await self.repository.recover_executing(profile=self.profile, now=self._now())
 
     def _now(self) -> datetime:
         return _aware_utc(self.clock())

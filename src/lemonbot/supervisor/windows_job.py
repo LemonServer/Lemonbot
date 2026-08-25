@@ -11,6 +11,7 @@ class JobObjectError(RuntimeError):
 
 
 if os.name == "nt":
+
     class _SECURITY_ATTRIBUTES(ctypes.Structure):
         _fields_ = [
             ("nLength", wintypes.DWORD),

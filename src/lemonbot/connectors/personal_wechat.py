@@ -107,9 +107,7 @@ class PersonalWeChatConfig:
                 PureWindowsPath(self.expected_executable_path).name.casefold()
                 != self.expected_process_name.casefold()
             ):
-                raise ValueError(
-                    "expected executable filename must match expected_process_name"
-                )
+                raise ValueError("expected executable filename must match expected_process_name")
         if self.expected_executable_sha256 is not None and not _SHA256_PATTERN.fullmatch(
             self.expected_executable_sha256
         ):
@@ -280,9 +278,7 @@ class PersonalWeChatConnector(Connector):
         reasons.extend(self._snapshot_reasons(snapshot, target_chat_id))
         return UIAPreflightReport(not reasons, tuple(reasons), snapshot)
 
-    def _snapshot_reasons(
-        self, snapshot: UIASnapshot, target_chat_id: str | None
-    ) -> list[str]:
+    def _snapshot_reasons(self, snapshot: UIASnapshot, target_chat_id: str | None) -> list[str]:
         reasons: list[str] = []
         if snapshot.session_locked:
             reasons.append("Windows session is locked")
@@ -290,13 +286,10 @@ class PersonalWeChatConnector(Connector):
             reasons.append("expected exactly one WeChat process")
         if snapshot.process_name.casefold() != self.config.expected_process_name.casefold():
             reasons.append("unexpected WeChat process identity")
-        if (
-            self.config.expected_executable_path is not None
-            and (
-                snapshot.executable_path is None
-                or _windows_path_key(snapshot.executable_path)
-                != _windows_path_key(self.config.expected_executable_path)
-            )
+        if self.config.expected_executable_path is not None and (
+            snapshot.executable_path is None
+            or _windows_path_key(snapshot.executable_path)
+            != _windows_path_key(self.config.expected_executable_path)
         ):
             reasons.append("WeChat executable path changed since enrollment")
         if snapshot.executable_sha256 != self.config.expected_executable_sha256:
@@ -457,8 +450,7 @@ class PersonalWeChatConnector(Connector):
                 status=DeliveryStatus.UNKNOWN,
                 external_id=attempt.external_id,
                 detail=(
-                    "UIA outcome is uncertain; do not retry automatically: "
-                    + "; ".join(reasons)
+                    "UIA outcome is uncertain; do not retry automatically: " + "; ".join(reasons)
                 ),
             )
         return DeliveryReceipt(

@@ -245,7 +245,7 @@ class SQLiteMemoryStore:
                     SELECT records.record_json, bm25(memory_fts) AS fts_rank
                     FROM memory_fts
                     JOIN memory_records AS records ON records.rowid = memory_fts.rowid
-                    WHERE memory_fts MATCH ? AND {' AND '.join(clauses)}
+                    WHERE memory_fts MATCH ? AND {" AND ".join(clauses)}
                     ORDER BY fts_rank ASC, records.created_at DESC
                     LIMIT ?
                     """
@@ -257,7 +257,7 @@ class SQLiteMemoryStore:
                 scan_statement = f"""
                     SELECT records.record_json, 0.0 AS fts_rank
                     FROM memory_records AS records
-                    WHERE {' AND '.join(clauses)}
+                    WHERE {" AND ".join(clauses)}
                     ORDER BY records.created_at DESC
                     LIMIT ?
                     """

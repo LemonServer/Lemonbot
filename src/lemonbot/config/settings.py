@@ -88,7 +88,8 @@ class VisionSettings(StrictModel):
 
 class BrowserSettings(StrictModel):
     enabled: bool = False
-    max_text_chars: int = Field(default=50_000, ge=1000, le=500_000)
+    # Keep the complete ToolResult inside the 1 MiB framed-JSON IPC ceiling.
+    max_text_chars: int = Field(default=50_000, ge=1000, le=200_000)
     navigation_timeout_seconds: float = Field(default=30, gt=0, le=120)
     max_downloads_per_task: int = Field(default=3, ge=0, le=10)
 
@@ -154,23 +155,16 @@ class WechatUIASettings(StrictModel):
                 or len(path.drive) != 2
                 or not path.drive.endswith(":")
                 or any(part in {".", ".."} for part in path.parts)
-                or self.expected_executable_path.startswith(
-                    ("\\\\", "\\\\?\\", "\\\\.\\")
-                )
+                or self.expected_executable_path.startswith(("\\\\", "\\\\?\\", "\\\\.\\"))
             ):
-                raise ValueError(
-                    "expected_executable_path must be an absolute local-drive path"
-                )
+                raise ValueError("expected_executable_path must be an absolute local-drive path")
             if path.name.casefold() != self.expected_process_name.casefold():
-                raise ValueError(
-                    "expected executable filename must match expected_process_name"
-                )
-        if self.expected_executable_sha256 and re.fullmatch(
-            r"[0-9a-f]{64}", self.expected_executable_sha256
-        ) is None:
-            raise ValueError(
-                "expected_executable_sha256 must be 64 lowercase hex characters"
-            )
+                raise ValueError("expected executable filename must match expected_process_name")
+        if (
+            self.expected_executable_sha256
+            and re.fullmatch(r"[0-9a-f]{64}", self.expected_executable_sha256) is None
+        ):
+            raise ValueError("expected_executable_sha256 must be 64 lowercase hex characters")
         enrollment = (
             self.expected_account,
             self.expected_windows_user,
@@ -206,7 +200,10 @@ class LimitsSettings(StrictModel):
     quiet_start: time = time(23, 0)
     quiet_end: time = time(8, 0)
     event_timeout_seconds: int = Field(default=300, ge=10, le=1800)
+    delivery_timeout_seconds: int = Field(default=60, ge=5, le=300)
     max_model_turns: int = Field(default=8, ge=1, le=32)
+    max_task_input_tokens: int = Field(default=196_608, ge=1_024, le=2_000_000)
+    max_task_output_tokens: int = Field(default=16_384, ge=128, le=131_072)
     max_tool_calls: int = Field(default=20, ge=0, le=100)
     max_navigations: int = Field(default=10, ge=0, le=50)
     max_downloads: int = Field(default=3, ge=0, le=10)
@@ -274,8 +271,7 @@ class AppSettings(StrictModel):
             if model_url.scheme == "http" and host not in {"127.0.0.1", "localhost", "::1"}:
                 raise ValueError("plaintext OpenAI-compatible endpoints must be loopback-only")
         if self.vision.enabled and (
-            str(self.vision.base_url).rstrip("/")
-            != "https://open.bigmodel.cn/api/paas/v4"
+            str(self.vision.base_url).rstrip("/") != "https://open.bigmodel.cn/api/paas/v4"
             or self.vision.model != "glm-4.6v-flash"
         ):
             raise ValueError(

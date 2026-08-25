@@ -75,9 +75,10 @@ def _sha256(path: Path) -> str:
 def _sqlite_snapshot(source: Path, destination: Path) -> None:
     if not source.is_file():
         raise BackupError(f"database does not exist: {source}")
-    with closing(sqlite3.connect(source)) as live, closing(
-        sqlite3.connect(destination)
-    ) as snapshot:
+    with (
+        closing(sqlite3.connect(source)) as live,
+        closing(sqlite3.connect(destination)) as snapshot,
+    ):
         live.backup(snapshot)
         result = snapshot.execute("PRAGMA integrity_check").fetchone()
         if result != ("ok",):
@@ -208,16 +209,14 @@ def _validated_archive_members(
         ):
             raise BackupError("backup object inventory is not content-addressed")
         seen_objects.add(object_name.casefold())
-        normalized_objects.append(
-            {"name": object_name, "sha256": digest, "size": size}
-        )
+        normalized_objects.append({"name": object_name, "sha256": digest, "size": size})
         expected_names.add(f"objects/{object_name}")
     if set(members) != expected_names:
         raise BackupError("backup members do not exactly match the manifest")
     if members[f"database/{database_name}"].file_size != database_size:
         raise BackupError("backup database size does not match its manifest")
     for entry in normalized_objects:
-        if members[f"objects/{entry['name']}"] .file_size != entry["size"]:
+        if members[f"objects/{entry['name']}"].file_size != entry["size"]:
             raise BackupError("backup object size does not match its manifest")
     manifest["objects"] = normalized_objects
     return members, manifest

@@ -22,8 +22,8 @@ def test_initial_migration_creates_all_durable_subsystems(tmp_path: Path) -> Non
         "inbox",
         "outbox",
         "drafts",
-            "approvals",
-            "tool_executions",
+        "approvals",
+        "tool_executions",
         "messages",
         "messages_fts",
         "memory_records",
@@ -35,4 +35,4 @@ def test_initial_migration_creates_all_durable_subsystems(tmp_path: Path) -> Non
         "proactive_jobs",
         "attachments",
     }.issubset(tables)
-    assert revision == ("20260816_0005",)
+    assert revision == ("20260825_0006",)

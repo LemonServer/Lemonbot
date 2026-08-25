@@ -123,9 +123,7 @@ def test_connection_uses_numeric_peer_but_original_hostname_for_sni(
     raw_socket = RecordingSocket()
     monkeypatch.setattr(module.socket, "socket", lambda *_args: raw_socket)
     context = RecordingTLSContext()
-    connection = _PinnedHTTPSConnection(
-        "media.example.com", "93.184.216.34", 5, context
-    )
+    connection = _PinnedHTTPSConnection("media.example.com", "93.184.216.34", 5, context)
 
     connection.connect()
 

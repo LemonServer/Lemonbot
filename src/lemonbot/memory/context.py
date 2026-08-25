@@ -1,6 +1,5 @@
 """Build bounded model context without crossing conversation scope."""
 
-
 from __future__ import annotations
 
 import json

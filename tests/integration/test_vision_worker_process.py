@@ -33,9 +33,7 @@ def _png_bytes() -> bytes:
 def _budget() -> BudgetManager:
     return BudgetManager(
         limits=BudgetLimits(daily=Decimal(10), monthly=Decimal(100)),
-        prices={
-            ("zhipu", "glm-4.6v-flash"): ModelPrice(Decimal(1), Decimal(1))
-        },
+        prices={("zhipu", "glm-4.6v-flash"): ModelPrice(Decimal(1), Decimal(1))},
     )
 
 

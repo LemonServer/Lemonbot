@@ -56,9 +56,10 @@ def test_restore_rejects_tampered_object_before_touching_active_state(
 ) -> None:
     paths, source, digest = _fixture_backup(tmp_path)
     tampered = tmp_path / "tampered.zip"
-    with zipfile.ZipFile(source) as original, zipfile.ZipFile(
-        tampered, "w", compression=zipfile.ZIP_DEFLATED
-    ) as changed:
+    with (
+        zipfile.ZipFile(source) as original,
+        zipfile.ZipFile(tampered, "w", compression=zipfile.ZIP_DEFLATED) as changed,
+    ):
         for info in original.infolist():
             body = original.read(info)
             if info.filename.startswith("objects/"):
@@ -68,7 +69,7 @@ def test_restore_rejects_tampered_object_before_touching_active_state(
         connection.execute("UPDATE facts SET value='active'")
         connection.commit()
 
-    with pytest.raises(BackupError, match="digest|size"):
+    with pytest.raises(BackupError, match=r"digest|size"):
         restore_backup(paths, tampered, preserve_current=False)
 
     with closing(sqlite3.connect(paths.database)) as connection:

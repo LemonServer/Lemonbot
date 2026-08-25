@@ -398,9 +398,12 @@ def test_delete_conversation_scrubs_scope_and_only_unreferenced_objects(
                 ("wecom", "target-chat"),
             ).fetchone()
             assert target is not None and target[0] == 0
-        assert connection.execute(
-            "SELECT count(*) FROM messages WHERE chat_id='other-chat'"
-        ).fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM messages WHERE chat_id='other-chat'"
+            ).fetchone()[0]
+            == 1
+        )
         summary = connection.execute(
             """
             SELECT outcome, chat_id, detail_json FROM audit_log
@@ -411,12 +414,18 @@ def test_delete_conversation_scrubs_scope_and_only_unreferenced_objects(
         assert summary["outcome"] == "completed"
         assert summary["chat_id"] is None
         assert "target-chat" not in summary["detail_json"]
-        assert connection.execute(
-            "SELECT count(*) FROM messages_fts WHERE messages_fts MATCH 'message'"
-        ).fetchone()[0] == 1
-        assert connection.execute(
-            "SELECT count(*) FROM memory_fts WHERE memory_fts MATCH 'memory'"
-        ).fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM messages_fts WHERE messages_fts MATCH 'message'"
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM memory_fts WHERE memory_fts MATCH 'memory'"
+            ).fetchone()[0]
+            == 1
+        )
     assert b"target-chat" not in paths.database.read_bytes()
     wal = paths.database.with_name(paths.database.name + "-wal")
     assert not wal.exists() or wal.stat().st_size == 0
@@ -545,6 +554,6 @@ def test_approvals_are_exported_and_known_to_conversation_deletion(tmp_path: Pat
 
     assert result.rows_deleted["approvals"] == 1
     with closing(sqlite3.connect(paths.database)) as connection:
-        assert connection.execute(
-            "SELECT chat_id FROM approvals ORDER BY chat_id"
-        ).fetchall() == [("other-chat",)]
+        assert connection.execute("SELECT chat_id FROM approvals ORDER BY chat_id").fetchall() == [
+            ("other-chat",)
+        ]

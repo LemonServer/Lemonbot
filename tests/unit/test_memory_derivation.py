@@ -13,14 +13,8 @@ from lemonbot.orchestration import FakeModelBackend
 
 
 async def test_rolling_summary_supersedes_only_within_the_same_conversation() -> None:
-    first_json = (
-        '{"memories":[],"summary":{"text":"用户计划周五交报告。",'
-        '"confidence":0.9}}'
-    )
-    second_json = (
-        '{"memories":[],"summary":{"text":"用户改为周四交报告。",'
-        '"confidence":0.95}}'
-    )
+    first_json = '{"memories":[],"summary":{"text":"用户计划周五交报告。","confidence":0.9}}'
+    second_json = '{"memories":[],"summary":{"text":"用户改为周四交报告。","confidence":0.95}}'
     backend = FakeModelBackend([first_json, second_json])
     store = InMemoryMemoryStore()
     service = MemoryDerivationService(store=store, backend=backend)

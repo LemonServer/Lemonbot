@@ -35,4 +35,3 @@ class Connector(ABC):
 
 
 BaseConnector = Connector
-

@@ -26,12 +26,13 @@ UI Automation 不代表腾讯授权，也不能保证账号安全。该适配器
 变化、同名会话、目标不确定或发送结果不明时一律停止。不实现 Hook、注入、协议逆向、
 客户端降级或风控规避。
 
-## 文本模型工作进程
+## 模型与视觉工作进程
 
 DeepSeek/OpenAI-compatible 文本模型可以通过 `IsolatedModelBackend` 放入独立工作进程。
 核心进程只持有 `ProviderConfig.secret_name` 这一 Credential Manager 查找名和持久化预算器；
-实际密钥由子进程按 `prod`/`lab` 命名空间读取，不通过参数、环境变量或 IPC 返回。当前隔离
-只覆盖文本 `ModelBackend`，视觉后端仍需单独迁移，不能误认为已经隔离。
+实际密钥由子进程按 `prod`/`lab` 命名空间读取，不通过参数、环境变量或 IPC 返回。智谱视觉、
+图片解码、净化和 RapidOCR 同样由 `IsolatedVisionBackend` 在独立工作进程完成；核心只向它
+传递当前会话已绑定附件的内容寻址 ID，不接触智谱密钥，也不接收原始图片字节。
 
 集成入口如下；创建后将 `model.aclose` 注册到运行时关闭流程即可：
 
@@ -53,6 +54,15 @@ model = await IsolatedModelBackend.create(
 以内的长度前缀 JSON 和严格 Pydantic 模型，stderr 被丢弃且不会写入日志。Windows Job
 Object 限制内存和进程生命周期；Python 可执行文件与模块参数由代码固定，不能来自聊天或
 模型输出。
+
+Playwright 浏览器适配器由 `IsolatedBrowserReadTool` 放入独立工作进程；核心只传递当前入站
+事件中逐字出现、且已由策略绑定的 HTTPS URL。worker 仍会独立执行公开地址解析、DNS 固定、
+有限字节 GET 和离线无脚本渲染；IPC 超时或损坏会永久关闭该 worker，不自动重试。
+
+当前进程隔离尚未覆盖企业微信 SDK 和个人微信 UIA 连接器，它们仍由核心服务进程托管，但
+受到目标绑定、白名单、配额和策略提交前复判约束。因此 Windows 专用低权限虚拟机仍是必要
+安全边界。在把连接器迁入独立 Job Object worker、并完成真实账号长稳测试之前，不应把当前
+版本描述为完成全部生产隔离验收。
 
 ## 固定 MCP 能力
 

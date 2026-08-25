@@ -173,9 +173,7 @@ class BudgetManager:
                 item.amount for item in self._reservations.values() if item.day_key == day_key
             )
             monthly_reserved = sum(
-                item.amount
-                for item in self._reservations.values()
-                if item.month_key == month_key
+                item.amount for item in self._reservations.values() if item.month_key == month_key
             )
             projected_day = self._daily_spend.get(day_key, Decimal(0)) + daily_reserved + amount
             projected_month = (

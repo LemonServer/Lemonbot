@@ -37,4 +37,3 @@ async def require_secret(store: SecretStore, name: str) -> str:
     if not value:
         raise SecretNotFoundError(f"credential {name!r} is not configured")
     return value
-

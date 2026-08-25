@@ -137,9 +137,7 @@ class InMemoryMemoryStore:
         hits = [self._score(item, query_terms, now) for item in candidates]
         if query_terms:
             hits = [
-                hit
-                for hit in hits
-                if hit.matched_terms or hit.record.kind is MemoryKind.COMMITMENT
+                hit for hit in hits if hit.matched_terms or hit.record.kind is MemoryKind.COMMITMENT
             ]
         hits.sort(key=lambda hit: (hit.score, hit.record.created_at), reverse=True)
         return tuple(hits[:limit])

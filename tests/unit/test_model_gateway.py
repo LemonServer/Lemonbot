@@ -78,9 +78,7 @@ def weather_manifest() -> ToolManifest:
 
 @async_test
 async def test_token_estimate_covers_unicode_and_complete_tool_call_payload() -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda _: httpx.Response(500))
-    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(500)))
     backend = OpenAICompatibleBackend.deepseek(
         secret_store=MappingSecretStore({"deepseek_api_key": "unused"}),
         budget=budget(),
@@ -104,9 +102,7 @@ async def test_token_estimate_covers_unicode_and_complete_tool_call_payload() ->
 
 @async_test
 async def test_vision_estimate_reserves_image_and_utf8_text() -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda _: httpx.Response(500))
-    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(500)))
     adapter = ZhipuVisionAdapter(
         secret_store=MappingSecretStore({"zhipu_api_key": "unused"}),
         budget=budget(),
@@ -116,9 +112,7 @@ async def test_vision_estimate_reserves_image_and_utf8_text() -> None:
     prompt = "看看🙂"
     ocr = "截图文字" * 100
     request = VisionRequest(
-        image=SanitizedImage.from_bytes(
-            b"sanitized", media_type="image/png", width=1, height=1
-        ),
+        image=SanitizedImage.from_bytes(b"sanitized", media_type="image/png", width=1, height=1),
         prompt=prompt,
         ocr_text=ocr,
     )
@@ -175,9 +169,7 @@ async def test_deepseek_defaults_routing_tool_validation_and_thinking_continuati
         return httpx.Response(
             200,
             json={
-                "choices": [
-                    {"message": {"content": "sunny"}, "finish_reason": "stop"}
-                ],
+                "choices": [{"message": {"content": "sunny"}, "finish_reason": "stop"}],
                 "usage": {"prompt_tokens": 30, "completion_tokens": 2},
             },
         )

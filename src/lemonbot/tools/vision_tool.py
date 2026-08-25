@@ -94,9 +94,7 @@ class ImageUnderstandingTool:
                         expected_size=record.size,
                         declared_media_type=record.media_type,
                         prompt=question,
-                        correlation_id=(
-                            f"{context.channel}:{context.event_id}:{attachment_id}"
-                        ),
+                        correlation_id=(f"{context.channel}:{context.event_id}:{attachment_id}"),
                     )
                 )
                 result = isolated.result
@@ -127,9 +125,7 @@ class ImageUnderstandingTool:
                         image=sanitized,
                         prompt=question,
                         ocr_text=ocr_text,
-                        correlation_id=(
-                            f"{context.channel}:{context.event_id}:{attachment_id}"
-                        ),
+                        correlation_id=(f"{context.channel}:{context.event_id}:{attachment_id}"),
                     )
                 )
                 sanitized_sha256 = prepared.sha256

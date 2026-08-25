@@ -64,9 +64,7 @@ def test_personal_wechat_requires_absolute_hash_pinned_executable() -> None:
     with pytest.raises(ValueError, match="absolute local-drive path"):
         AppSettings.model_validate(raw)
 
-    raw["wechat_uia"]["expected_executable_path"] = (
-        r"C:\Program Files\Tencent\WeChat\WeChat.exe"
-    )
+    raw["wechat_uia"]["expected_executable_path"] = r"C:\Program Files\Tencent\WeChat\WeChat.exe"
     with pytest.raises(ValueError, match="64 lowercase hex"):
         AppSettings.model_validate(raw)
 

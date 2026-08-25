@@ -21,11 +21,14 @@ def test_one_time_login_cookie_and_csrf() -> None:
         assert "HttpOnly" in exchange.headers["set-cookie"]
         csrf = exchange.json()["csrf"]
         assert client.get("/api/status").status_code == 200
-        assert client.post(
-            "/api/pause/global",
-            json={"paused": True},
-            headers={"Origin": "http://127.0.0.1:8765"},
-        ).status_code == 403
+        assert (
+            client.post(
+                "/api/pause/global",
+                json={"paused": True},
+                headers={"Origin": "http://127.0.0.1:8765"},
+            ).status_code
+            == 403
+        )
         paused = client.post(
             "/api/pause/global",
             json={"paused": True},

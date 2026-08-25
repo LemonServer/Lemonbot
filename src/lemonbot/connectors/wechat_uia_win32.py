@@ -252,20 +252,12 @@ class WindowsWeChatUIABackend:
             return None, None
         candidate = Path(str(raw))
         try:
-            if (
-                not candidate.is_absolute()
-                or any(
-                    part.is_symlink() or part.is_junction()
-                    for part in (candidate, *candidate.parents)
-                )
+            if not candidate.is_absolute() or any(
+                part.is_symlink() or part.is_junction() for part in (candidate, *candidate.parents)
             ):
                 return None, None
             resolved = candidate.resolve(strict=True)
-            if (
-                not resolved.is_file()
-                or resolved.is_symlink()
-                or resolved.is_junction()
-            ):
+            if not resolved.is_file() or resolved.is_symlink() or resolved.is_junction():
                 return None, None
             with resolved.open("rb") as executable:
                 before = os.fstat(executable.fileno())
@@ -408,11 +400,9 @@ class WindowsWeChatUIABackend:
         if snapshot.window_handle is None or snapshot.window_handle <= 0:
             reasons.append("window handle is unavailable")
         assert self._expected_executable_path is not None
-        if (
-            snapshot.executable_path is None
-            or self._path_key(snapshot.executable_path)
-            != self._path_key(self._expected_executable_path)
-        ):
+        if snapshot.executable_path is None or self._path_key(
+            snapshot.executable_path
+        ) != self._path_key(self._expected_executable_path):
             reasons.append("executable path changed")
         if snapshot.executable_sha256 != self._expected_executable_sha256:
             reasons.append("executable hash changed")
@@ -425,8 +415,7 @@ class WindowsWeChatUIABackend:
         if snapshot.selector_signature != self._enrolled_selector_signature:
             reasons.append("selector signature changed")
         if target_chat_id is not None and (
-            snapshot.target_match_count != 1
-            or snapshot.target_chat_id != target_chat_id
+            snapshot.target_match_count != 1 or snapshot.target_chat_id != target_chat_id
         ):
             reasons.append("target chat is missing or ambiguous")
         return reasons
@@ -440,9 +429,7 @@ class WindowsWeChatUIABackend:
             snapshot = self._snapshot_from_state(process, window, target_chat_id)
             reasons = self._identity_reasons(snapshot, target_chat_id)
             if reasons:
-                raise UIADriverError(
-                    "enrolled UIA identity check failed: " + "; ".join(reasons)
-                )
+                raise UIADriverError("enrolled UIA identity check failed: " + "; ".join(reasons))
             return initializer, process, window, snapshot
         except BaseException:
             initializer.Uninitialize()
@@ -498,9 +485,7 @@ class WindowsWeChatUIABackend:
             return UIASendAttempt(attempted=False, detail="text is empty or exceeds 1500 chars")
         try:
             prepared = self._prepare_target_sync(chat_id)
-            initializer, _process, window, edit_snapshot = self._require_enrolled_state(
-                chat_id
-            )
+            initializer, _process, window, edit_snapshot = self._require_enrolled_state(chat_id)
         except Exception:
             return UIASendAttempt(
                 attempted=False,
@@ -533,9 +518,7 @@ class WindowsWeChatUIABackend:
             initializer.Uninitialize()
 
         try:
-            initializer, _process, window, commit_snapshot = self._require_enrolled_state(
-                chat_id
-            )
+            initializer, _process, window, commit_snapshot = self._require_enrolled_state(chat_id)
         except Exception:
             return UIASendAttempt(
                 attempted=False,
@@ -561,8 +544,7 @@ class WindowsWeChatUIABackend:
                 self._session_locked()
                 or getpass.getuser() != self._expected_windows_user
                 or self._account_signature(window) != self._expected_account_id
-                or int(self._property(window, "NativeWindowHandle", 0))
-                != prepared.window_handle
+                or int(self._property(window, "NativeWindowHandle", 0)) != prepared.window_handle
                 or label is None
                 or str(self._property(header, "Name")) != label
             )
@@ -627,22 +609,29 @@ class WindowsWeChatUIABackend:
                     raise UIADriverError("target identity changed while polling")
                 message_list = self._find_one(window, "message_list")
                 items = self._find_all(message_list, self._bundle.controls["message_item"])
-                for item in reversed(items):
+                occurrences: dict[str, int] = {}
+                for item in items:
                     if len(self._find_all(item, self._bundle.controls["incoming_marker"])) != 1:
                         continue
                     texts = self._find_all(item, self._bundle.controls["message_text"])
                     senders = self._find_all(item, self._bundle.controls["message_sender"])
                     times = self._find_all(item, self._bundle.controls["message_timestamp"])
-                    if len(texts) != 1 or len(senders) != 1 or len(times) != 1:
-                        break
+                    if len(texts) != 1 or len(senders) != 1 or len(times) > 1:
+                        continue
                     text = str(self._property(texts[0], "Name"))
                     sender = str(self._property(senders[0], "Name"))
-                    displayed_time = str(self._property(times[0], "Name"))
-                    if not text or not sender or not displayed_time:
-                        break
+                    displayed_time = str(self._property(times[0], "Name")) if times else ""
+                    if not text or not sender:
+                        continue
                     sender_id = hashlib.sha256(sender.encode()).hexdigest()
-                    fingerprint = hashlib.sha256(
+                    base = hashlib.sha256(
                         f"{chat_id}\0{sender_id}\0{displayed_time}\0{text}".encode()
+                    ).hexdigest()
+                    occurrence = occurrences.get(base, 0)
+                    occurrences[base] = occurrence + 1
+                    runtime_identity = self._control_runtime_identity(item)
+                    fingerprint = hashlib.sha256(
+                        f"{base}\0{runtime_identity or occurrence}".encode()
                     ).hexdigest()
                     events.append(
                         InboundEvent(
@@ -656,11 +645,28 @@ class WindowsWeChatUIABackend:
                             metadata={
                                 "vendor": "wechat_win32_uia",
                                 "displayed_timestamp": displayed_time,
+                                "same_content_occurrence": occurrence,
                                 "identity_strength": "experimental_uia",
                             },
                         )
                     )
-                    break
         finally:
             initializer.Uninitialize()
         return tuple(events)
+
+    def _control_runtime_identity(self, control: Any) -> str | None:
+        values: list[str] = []
+        for name in ("AutomationId", "NativeWindowHandle"):
+            value = self._property(control, name, None)
+            if value not in {None, "", 0}:
+                values.append(f"{name}={value}")
+        try:
+            getter = control.GetRuntimeId
+            runtime_id = getter()
+        except Exception:
+            runtime_id = None
+        if runtime_id:
+            values.append("RuntimeId=" + json.dumps(runtime_id, separators=(",", ":"), default=str))
+        if not values:
+            return None
+        return hashlib.sha256("\0".join(values).encode()).hexdigest()

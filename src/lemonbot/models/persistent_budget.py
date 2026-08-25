@@ -78,9 +78,7 @@ class PersistentBudgetManager(BudgetManager):
         return connection
 
     @classmethod
-    def _initialize_and_recover(
-        cls, path: Path, timezone_name: str
-    ) -> tuple[Decimal, Decimal]:
+    def _initialize_and_recover(cls, path: Path, timezone_name: str) -> tuple[Decimal, Decimal]:
         from zoneinfo import ZoneInfo
 
         now = datetime.now(UTC).astimezone(ZoneInfo(timezone_name))
@@ -182,9 +180,7 @@ class PersistentBudgetManager(BudgetManager):
         await self._record_settlement(reservation_id, "unknown", settlement.charged)
         return settlement
 
-    async def _record_settlement(
-        self, reservation_id: str, state: str, charged: Decimal
-    ) -> None:
+    async def _record_settlement(self, reservation_id: str, state: str, charged: Decimal) -> None:
         async with self._ledger_lock:
             await asyncio.to_thread(
                 self._update_settlement,

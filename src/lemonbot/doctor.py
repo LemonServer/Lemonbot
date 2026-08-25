@@ -73,9 +73,7 @@ def run_checks(settings: AppSettings, paths: RuntimePaths) -> list[Check]:
             )
         )
         if settings.models.api_key_secret_name:
-            checks.append(
-                _credential_check(settings.profile, settings.models.api_key_secret_name)
-            )
+            checks.append(_credential_check(settings.profile, settings.models.api_key_secret_name))
     if settings.vision.enabled:
         checks.append(_credential_check(settings.profile, "zhipu_api_key"))
     if settings.browser.enabled:
@@ -107,8 +105,7 @@ def _data_disk_check(
         return Check("data-disk-free", False, f"unavailable: {type(exc).__name__}", required=False)
     gib = 1024**3
     detail = (
-        f"{usage.free / gib:.2f} GiB free; "
-        f"attachment reserve={minimum_free_bytes / gib:.2f} GiB"
+        f"{usage.free / gib:.2f} GiB free; attachment reserve={minimum_free_bytes / gib:.2f} GiB"
     )
     return Check(
         "data-disk-free",

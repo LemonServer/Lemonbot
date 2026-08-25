@@ -105,9 +105,7 @@ async def test_runtime_revalidates_cas_path_and_sanitizes_inside_worker(
     adapter = _FakeAdapter()
     runtime = VisionWorkerRuntime(_config(root), adapter=adapter)  # type: ignore[arg-type]
 
-    prepared, pending = await runtime.prepare(
-        _request(stored.path, stored.sha256, stored.size)
-    )
+    prepared, pending = await runtime.prepare(_request(stored.path, stored.sha256, stored.size))
     assert prepared.width == 20
     assert prepared.height == 12
     assert not prepared.ocr_available
@@ -270,9 +268,7 @@ async def test_worker_classifies_unsafe_object_as_image_rejection(tmp_path: Path
 def _budget() -> BudgetManager:
     return BudgetManager(
         limits=BudgetLimits(daily=Decimal(10), monthly=Decimal(100)),
-        prices={
-            ("zhipu", "glm-4.6v-flash"): ModelPrice(Decimal(1), Decimal(1))
-        },
+        prices={("zhipu", "glm-4.6v-flash"): ModelPrice(Decimal(1), Decimal(1))},
     )
 
 

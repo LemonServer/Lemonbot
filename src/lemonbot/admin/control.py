@@ -31,6 +31,9 @@ class StatusView(BaseModel):
     queue_depth: int = 0
     unknown_outbox: int = 0
     pending_approvals: int = 0
+    attachment_intake_paused: bool = False
+    attachment_capacity_reason: str | None = None
+    attachment_free_bytes: int | None = None
     started_at: datetime
 
 

@@ -73,6 +73,20 @@ sha256(str(Name).strip().encode("utf-8")).hexdigest()
 不符时均应回退到 `observe`，不能把 `reconcile_seconds` 调到 5 秒以下，也不能用坐标点击
 或剪贴板作为回退。
 
+`wechat_uia.stage` 仅表示配置请求的最高阶段，不能自行解锁发送。Lemonbot 在 `lab.db` 保存
+独立的登记指纹和已验证阶段；首次运行、账号/用户/可执行文件/版本/selector/白名单任一登记
+变化都会自动重置为 `observe`。完成上一阶段复核后，先把 TOML 的 `stage` 精确改为下一阶段，
+保持微信已登录且桌面解锁，再运行：
+
+```powershell
+uv run lemonbot uia promote --to draft --config <path> --confirm
+uv run lemonbot uia promote --to reply --config <path> --confirm
+uv run lemonbot uia promote --to proactive --config <path> --confirm
+```
+
+每次命令都会获取运行锁、执行实时只读 UIA preflight，并且只接受紧邻的下一阶段；不能跳级。
+晋级失败时不会改变已验证阶段。客户端或登记发生变化后必须重新从 `draft` 逐级验证。
+
 ### 启用配置核对
 
 ```toml
@@ -208,6 +222,23 @@ tool name、action kind、参数结构摘要、完整参数和规范 JSON 的 SH
 所有遗留的 `executing` 必须直接转为 `unknown`，绝不重新排队；相同 event、tool、action 和
 完整参数哈希的唯一约束也会阻止以新 approval ID 绕过这一规则。
 
+## 不确定出站消息的人工核对
+
+连接器超时、进程在 `dispatching` 时中断或 UI 回读不确定时，outbox 固定进入 `unknown`，不会
+自动重试。先停止 Lemonbot，在对应稳定会话中人工核对消息 ID、来源事件、时间和实际内容；
+CLI 列表故意不打印消息正文：
+
+```powershell
+uv run lemonbot outbox unknown --config <path>
+uv run lemonbot outbox resolve <item-id> --as acknowledged `
+  --note "已在目标会话确认精确消息" --config <path> --confirm
+uv run lemonbot outbox resolve <item-id> --as dead `
+  --note "确认未送达并决定放弃，不再发送" --config <path> --confirm
+```
+
+`acknowledged` 表示管理员确认已经送达；`dead` 表示终止该消息。两者都是终态，均不能恢复为
+`pending`，重复核对也不会覆盖第一次结果。每次操作都会写入 `outbox.reconcile` 审计。
+
 ## 事故处理
 
 - 误发风险：立即点击托盘“紧急停止”，保留数据库和日志，不删除 `unknown` outbox。
@@ -236,6 +267,8 @@ tool name、action kind、参数结构摘要、完整参数和规范 JSON 的 SH
 
 `lemonbot doctor` 的 `data-disk-free` 项报告当前 profile 数据盘余量和 1 GiB 附件保留线。
 低于保留线时显示 `WARN` 而不是阻止整个文本服务启动；在重新启用附件前必须先解决该警告。
+运行中的锁存状态、原因和最近剩余字节同时显示在本地管理台 `/api/status`；附件失败不会阻断
+纯文本处理，但最终回复会明确说明有附件未能安全接收或保存。
 
 ## CI 与密钥门禁
 

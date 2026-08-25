@@ -42,9 +42,7 @@ class _FakeKernel32:
         self.assign_calls: list[tuple[object, ...]] = []
         self.close_calls: list[object] = []
         self.CreateJobObjectW = _FakeFunction(lambda *_args: self.job_handle)
-        self.SetInformationJobObject = _FakeFunction(
-            set_information or self._set_information
-        )
+        self.SetInformationJobObject = _FakeFunction(set_information or self._set_information)
         self.OpenProcess = _FakeFunction(lambda *_args: self.process_handle)
         self.AssignProcessToJobObject = _FakeFunction(assign or self._assign)
         self.CloseHandle = _FakeFunction(close or self._close)

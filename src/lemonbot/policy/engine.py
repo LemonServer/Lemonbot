@@ -97,7 +97,11 @@ class DeterministicPolicy:
 
         if action.side_effect and await self.repository.is_paused(action.channel):
             return await self._decision(
-                action, PolicyDecision.DENY, "runtime_paused", "side effects are paused"
+                action,
+                PolicyDecision.DENY,
+                "runtime_paused",
+                "side effects are paused",
+                retry_after_seconds=30,
             )
 
         if kind in COMMUNICATION_ACTIONS:
@@ -186,6 +190,7 @@ class DeterministicPolicy:
                     PolicyDecision.DENY,
                     f"rate_{rule}",
                     f"reply quota reached ({count}/{maximum})",
+                    retry_after_seconds=int(duration.total_seconds()),
                 )
         global_count = await self.repository.count_outbound_since(
             now - timedelta(days=1), channel=action.channel, exclude_message_id=excluded
@@ -196,6 +201,7 @@ class DeterministicPolicy:
                 PolicyDecision.DENY,
                 "rate_global_day",
                 f"channel daily quota reached ({global_count}/{limits.global_per_day})",
+                retry_after_seconds=86_400,
             )
         return await self._decision(
             action, PolicyDecision.AUTO, "reply_allowed", "allowlisted reply within quota"
@@ -227,6 +233,7 @@ class DeterministicPolicy:
                 PolicyDecision.DENY,
                 "quiet_hours",
                 "proactive messaging is blocked during quiet hours",
+                retry_after_seconds=self._quiet_retry_seconds(now.astimezone(self.timezone)),
             )
         cooldown_count = await self.repository.count_outbound_since(
             now - timedelta(hours=limits.proactive_cooldown_hours),
@@ -241,6 +248,7 @@ class DeterministicPolicy:
                 PolicyDecision.DENY,
                 "proactive_cooldown",
                 "per-chat proactive cooldown is active",
+                retry_after_seconds=limits.proactive_cooldown_hours * 3600,
             )
         chat_day = await self.repository.count_outbound_since(
             now - timedelta(days=1),
@@ -255,6 +263,7 @@ class DeterministicPolicy:
                 PolicyDecision.DENY,
                 "proactive_chat_day",
                 "per-chat proactive daily quota reached",
+                retry_after_seconds=86_400,
             )
         global_day = await self.repository.count_outbound_since(
             now - timedelta(days=1),
@@ -268,6 +277,7 @@ class DeterministicPolicy:
                 PolicyDecision.DENY,
                 "proactive_global_day",
                 "global proactive daily quota reached",
+                retry_after_seconds=86_400,
             )
         return await self._decision(
             action,
@@ -291,6 +301,19 @@ class DeterministicPolicy:
         if start < end:
             return start <= current < end
         return current >= start or current < end
+
+    def _quiet_retry_seconds(self, local_now: datetime) -> int:
+        current = local_now.timetz().replace(tzinfo=None)
+        end_date = local_now.date()
+        if self.config.quiet_start >= self.config.quiet_end and current >= self.config.quiet_start:
+            end_date += timedelta(days=1)
+        quiet_end = datetime.combine(
+            end_date,
+            self.config.quiet_end,
+            tzinfo=self.timezone,
+        )
+        seconds = int((quiet_end.astimezone(UTC) - local_now.astimezone(UTC)).total_seconds())
+        return min(86_400, max(1, seconds))
 
     @staticmethod
     def _hard_denied(kind: str) -> bool:
@@ -330,8 +353,15 @@ class DeterministicPolicy:
         decision: PolicyDecision,
         rule_id: str,
         reason: str,
+        *,
+        retry_after_seconds: int | None = None,
     ) -> PolicyEvaluation:
-        evaluation = PolicyEvaluation(decision=decision, rule_id=rule_id, reason=reason)
+        evaluation = PolicyEvaluation(
+            decision=decision,
+            rule_id=rule_id,
+            reason=reason,
+            retry_after_seconds=retry_after_seconds,
+        )
         await self.repository.append_audit(
             AuditRecord(
                 action=f"policy.{action.kind}",

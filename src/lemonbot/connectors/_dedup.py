@@ -37,4 +37,3 @@ class BoundedDeduplicator:
 
     def __len__(self) -> int:
         return len(self._keys)
-

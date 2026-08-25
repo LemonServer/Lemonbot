@@ -57,13 +57,12 @@ class ModelWorkerConfig(WorkerPayload):
             raise ValueError("plaintext OpenAI-compatible workers are loopback-only")
         if not loopback and self.provider.secret_name is None:
             raise ValueError("remote model workers require a Credential Manager lookup name")
-        if self.provider.secret_name is not None and _SECRET_NAME.fullmatch(
-            self.provider.secret_name
-        ) is None:
-            raise ValueError("credential lookup name is invalid")
-        if self.provider.secret_name is not None and self.provider.secret_name.startswith(
-            "sk-"
+        if (
+            self.provider.secret_name is not None
+            and _SECRET_NAME.fullmatch(self.provider.secret_name) is None
         ):
+            raise ValueError("credential lookup name is invalid")
+        if self.provider.secret_name is not None and self.provider.secret_name.startswith("sk-"):
             raise ValueError("credential lookup name appears to contain an API key")
         return self
 

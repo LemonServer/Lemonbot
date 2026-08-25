@@ -63,9 +63,7 @@ async def test_pending_list_is_bound_but_never_returns_full_arguments(tmp_path: 
 
         async with database.sessions() as session:
             stored = await session.scalar(
-                select(ApprovalRow).where(
-                    ApprovalRow.approval_id == str(created.approval_id)
-                )
+                select(ApprovalRow).where(ApprovalRow.approval_id == str(created.approval_id))
             )
             assert stored is not None
             assert stored.arguments_json["api_key"] == secret

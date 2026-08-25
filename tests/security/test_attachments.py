@@ -154,9 +154,7 @@ async def test_vision_tool_enforces_event_scope_and_marks_output_untrusted(
     assert result.facts[0]["trust"] == "untrusted_image_analysis"
 
     wrong_event = context.model_copy(update={"event_id": "event-2"})
-    denied = await tool.invoke(
-        wrong_event, {"attachment_id": str(attachment.attachment_id)}
-    )
+    denied = await tool.invoke(wrong_event, {"attachment_id": str(attachment.attachment_id)})
     assert not denied.ok
 
 

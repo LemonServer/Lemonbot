@@ -23,18 +23,23 @@ from lemonbot.domain import InboundEvent
 from lemonbot.orchestration import EventPipeline, FakeModelBackend
 from lemonbot.policy import DeterministicPolicy
 from lemonbot.proactive import JobSource, ProactiveJob, ProactiveJobStore
-from lemonbot.runtime_lock import AlreadyRunningError
+from lemonbot.runtime_lock import AlreadyRunningError, RuntimeLock
 from lemonbot.security.secrets import NamespacedSecretStore, WindowsCredentialStore
 
 app = typer.Typer(no_args_is_help=True, help="Lemonbot 2026 local runtime")
 secret_app = typer.Typer(no_args_is_help=True, help="Manage Windows Credential Manager entries")
 schedule_app = typer.Typer(no_args_is_help=True, help="Manage bounded proactive jobs")
-uia_app = typer.Typer(no_args_is_help=True, help="Read-only personal WeChat UIA enrollment")
+uia_app = typer.Typer(
+    no_args_is_help=True,
+    help="Inspect personal WeChat UIA enrollment and advance durable stage gates",
+)
 data_app = typer.Typer(no_args_is_help=True, help="Offline administrator data operations")
+outbox_app = typer.Typer(no_args_is_help=True, help="Reconcile ambiguous outbound sends")
 app.add_typer(secret_app, name="secret")
 app.add_typer(schedule_app, name="schedule")
 app.add_typer(uia_app, name="uia")
 app.add_typer(data_app, name="data")
+app.add_typer(outbox_app, name="outbox")
 
 ConfigOption = Annotated[
     Path | None,
@@ -126,6 +131,103 @@ def uia_inspect(
     typer.echo(json.dumps(result, ensure_ascii=True, sort_keys=True))
 
 
+@uia_app.command("promote")
+def uia_promote(
+    target: str = typer.Option(..., "--to", help="Next stage: draft, reply, or proactive"),
+    config: ConfigOption = None,
+    confirm: bool = typer.Option(False, "--confirm"),
+) -> None:
+    """Promote the lab UIA gate by exactly one stage after a live preflight."""
+    if not confirm:
+        typer.echo("晋级会扩大个人微信自动化能力；核对配置后添加 --confirm。", err=True)
+        raise typer.Exit(2)
+    if target not in {"draft", "reply", "proactive"}:
+        typer.echo("--to 必须是 draft、reply 或 proactive。", err=True)
+        raise typer.Exit(2)
+    settings = _settings(config)
+    uia = settings.wechat_uia
+    if settings.profile != "lab" or settings.runtime.connector != "wechat_uia":
+        typer.echo("UIA 晋级只允许 lab profile 的 wechat_uia connector。", err=True)
+        raise typer.Exit(2)
+    if not uia.enabled or uia.stage != target:
+        typer.echo(
+            "请先启用 UIA，并把配置中的 wechat_uia.stage 精确改为目标阶段。",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    async def verify_and_promote() -> str:
+        from lemonbot.connectors import (
+            PersonalWeChatConfig,
+            PersonalWeChatConnector,
+            PersonalWeChatStage,
+            SelectorBundle,
+            WindowsWeChatUIABackend,
+            promote_uia_stage,
+        )
+        from lemonbot.storage import CoreRepository, Database
+        from lemonbot.storage.migrate import upgrade_database
+
+        bundle = SelectorBundle.load(Path(uia.selector_bundle_path))
+        if not set(uia.allow_chat_ids).issubset(bundle.chat_targets):
+            raise ValueError("UIA allowlist contains a chat absent from the selector bundle")
+        backend = WindowsWeChatUIABackend(
+            bundle=bundle,
+            expected_process_name=uia.expected_process_name,
+            expected_executable_path=uia.expected_executable_path,
+            expected_executable_sha256=uia.expected_executable_sha256,
+            expected_windows_user=uia.expected_windows_user,
+            expected_account_id=uia.expected_account,
+            enrolled_client_version=uia.enrolled_client_version,
+            enrolled_selector_signature=uia.enrolled_selector_signature,
+            poll_seconds=uia.reconcile_seconds,
+        )
+        connector = PersonalWeChatConnector(
+            PersonalWeChatConfig(
+                enabled=True,
+                stage=PersonalWeChatStage.OBSERVE,
+                expected_process_name=uia.expected_process_name,
+                expected_executable_path=uia.expected_executable_path,
+                expected_executable_sha256=uia.expected_executable_sha256,
+                expected_windows_user=uia.expected_windows_user,
+                expected_account_id=uia.expected_account,
+                enrolled_client_version=uia.enrolled_client_version,
+                enrolled_selector_signature=uia.enrolled_selector_signature,
+                allowed_chat_ids=frozenset(uia.allow_chat_ids),
+            ),
+            backend=backend,
+        )
+        try:
+            report = await connector.preflight()
+            if not report.safe:
+                raise RuntimeError("live UIA preflight did not prove the enrolled identity")
+            paths = RuntimePaths.from_settings(settings)
+            await asyncio.to_thread(upgrade_database, paths.database)
+            database = Database.from_path(paths.database)
+            await database.initialise()
+            try:
+                promoted = await promote_uia_stage(
+                    CoreRepository(database),
+                    uia,
+                    target,  # type: ignore[arg-type]
+                )
+            finally:
+                await database.close()
+            return promoted
+        finally:
+            await connector.close()
+
+    paths = RuntimePaths.from_settings(settings)
+    paths.ensure()
+    try:
+        with RuntimeLock(paths.lock_file):
+            promoted = asyncio.run(verify_and_promote())
+    except (AlreadyRunningError, RuntimeError, ValueError, OSError) as exc:
+        typer.echo(f"UIA 晋级失败：{type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"UIA 已晋级到 {promoted}；启动时仍会重复执行身份和目标校验。")
+
+
 @data_app.command("export")
 def data_export_command(
     config: ConfigOption = None,
@@ -191,6 +293,87 @@ def data_delete_conversation(
     if result.object_cleanup_failures:
         typer.echo("数据库删除已提交，但部分零引用对象未能清理；请离线人工核对。", err=True)
         raise typer.Exit(1)
+
+
+@outbox_app.command("unknown")
+def outbox_unknown(
+    config: ConfigOption = None,
+    limit: int = typer.Option(100, "--limit", min=1, max=500),
+) -> None:
+    """List ambiguous sends without printing message bodies."""
+    settings = _settings(config)
+    paths = RuntimePaths.from_settings(settings)
+    paths.ensure()
+
+    async def list_items() -> list[dict[str, object]]:
+        from lemonbot.storage import CoreRepository, Database
+        from lemonbot.storage.migrate import upgrade_database
+
+        await asyncio.to_thread(upgrade_database, paths.database)
+        database = Database.from_path(paths.database)
+        await database.initialise()
+        try:
+            return await CoreRepository(database).list_unknown_outbox(limit=limit)
+        finally:
+            await database.close()
+
+    try:
+        with RuntimeLock(paths.lock_file):
+            items = asyncio.run(list_items())
+    except (AlreadyRunningError, RuntimeError, OSError) as exc:
+        typer.echo(f"读取 unknown outbox 失败：{type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    for item in items:
+        typer.echo(json.dumps(item, ensure_ascii=True, sort_keys=True))
+    if not items:
+        typer.echo("没有 unknown outbox。")
+
+
+@outbox_app.command("resolve")
+def outbox_resolve(
+    item_id: int,
+    outcome: str = typer.Option(..., "--as", help="acknowledged or dead"),
+    note: str = typer.Option(..., "--note", help="Manual inspection evidence"),
+    config: ConfigOption = None,
+    confirm: bool = typer.Option(False, "--confirm"),
+) -> None:
+    """Resolve one ambiguous send after manually checking the target chat."""
+    if not confirm or outcome not in {"acknowledged", "dead"}:
+        typer.echo(
+            "人工核对目标会话后，指定 --as acknowledged|dead、--note 和 --confirm。",
+            err=True,
+        )
+        raise typer.Exit(2)
+    settings = _settings(config)
+    paths = RuntimePaths.from_settings(settings)
+    paths.ensure()
+
+    async def reconcile() -> bool:
+        from lemonbot.storage import CoreRepository, Database
+        from lemonbot.storage.migrate import upgrade_database
+
+        await asyncio.to_thread(upgrade_database, paths.database)
+        database = Database.from_path(paths.database)
+        await database.initialise()
+        try:
+            return await CoreRepository(database).reconcile_unknown_outbox(
+                item_id,
+                outcome=outcome,
+                operator_note=note,
+            )
+        finally:
+            await database.close()
+
+    try:
+        with RuntimeLock(paths.lock_file):
+            resolved = asyncio.run(reconcile())
+    except (AlreadyRunningError, RuntimeError, ValueError, OSError) as exc:
+        typer.echo(f"outbox 核对失败：{type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    if not resolved:
+        typer.echo("该记录不存在或已不处于 unknown；未做更改。", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"outbox {item_id} 已人工核对为 {outcome}，不会自动重发。")
 
 
 @app.command()

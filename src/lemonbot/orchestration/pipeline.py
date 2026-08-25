@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -17,6 +18,7 @@ from lemonbot.domain import (
     AuditRecord,
     Connector,
     ConversationMessage,
+    DataClass,
     EventKind,
     InboundEvent,
     InboxItem,
@@ -44,6 +46,19 @@ from lemonbot.memory import (
 from lemonbot.models.budget import BudgetError
 from lemonbot.models.gateway import ModelGatewayError
 from lemonbot.storage import CoreRepository
+
+_EXPLICIT_HTTPS_URL = re.compile(r"https://[^\s<>\"']{1,4096}", re.IGNORECASE)
+_TRAILING_URL_PUNCTUATION = ".,;:!?，。！？；、)]}》」』"
+
+
+def _explicit_event_urls(text: str | None) -> frozenset[str]:
+    if not text:
+        return frozenset()
+    return frozenset(
+        match.group(0).rstrip(_TRAILING_URL_PUNCTUATION)
+        for match in _EXPLICIT_HTTPS_URL.finditer(text)
+        if match.group(0).rstrip(_TRAILING_URL_PUNCTUATION)
+    )
 
 
 class PipelineStatus(StrEnum):
@@ -78,7 +93,10 @@ class PipelineConfig(BaseModel):
     welcome_text: str | None = Field(default=None, min_length=1, max_length=3_000)
     recent_messages: int = Field(default=30, ge=1, le=200)
     max_task_seconds: float = Field(default=300.0, gt=0, le=600)
+    delivery_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
     max_model_turns: int = Field(default=8, ge=1, le=16)
+    max_task_input_tokens: int = Field(default=196_608, ge=1_024, le=2_000_000)
+    max_task_output_tokens: int = Field(default=16_384, ge=128, le=131_072)
     max_tool_calls: int = Field(default=20, ge=0, le=50)
     max_navigations: int = Field(default=10, ge=0, le=50)
     max_downloads: int = Field(default=3, ge=0, le=10)
@@ -111,6 +129,8 @@ class _PreparedContext:
 class _ModelRun:
     reply: str
     turns_used: int
+    input_tokens_used: int
+    output_tokens_used: int
 
 
 class EventPipeline:
@@ -184,6 +204,27 @@ class EventPipeline:
                 detail="observed without model generation",
             )
 
+        # Connector enrollment is broker-owned metadata.  A connector may
+        # still persist a non-enrolled event for audit/deduplication, but that
+        # event must never reach a paid model, memory retrieval, or a tool.
+        if event.metadata.get("connector_allowlisted") is False:
+            await self.repository.complete_inbox(item.id)
+            await self.repository.append_audit(
+                AuditRecord(
+                    action="pipeline.connector_enrollment",
+                    outcome="blocked",
+                    channel=event.channel,
+                    chat_id=event.chat_id,
+                    event_id=event.event_id,
+                    detail={"model_called": False, "outbox_created": False},
+                )
+            )
+            return PipelineResult(
+                status=PipelineStatus.SKIPPED,
+                item_id=item.id,
+                detail="connector_not_enrolled",
+            )
+
         message_id = uuid5(NAMESPACE_URL, f"lemonbot:{event.channel}:{event.event_id}")
         action = ProposedAction(
             kind="reply",
@@ -234,7 +275,14 @@ class EventPipeline:
             )
             prepared = await self._prepare_context(item, recent)
             model_run = await self._run_model_and_tools(item, list(prepared.messages))
-            reply = self._bounded_reply(model_run.reply)
+            reply_text = model_run.reply
+            attachment_failures = event.metadata.get("attachment_failures", 0)
+            if isinstance(attachment_failures, int) and attachment_failures > 0:
+                reply_text += (
+                    f"\n\n（有 {attachment_failures} 个附件未能安全接收或保存，"
+                    "因此本次回答可能不包含其中的信息。）"
+                )
+            reply = self._bounded_reply(reply_text)
 
         if self.config.output_mode == "draft":
             draft = await self.repository.create_draft(
@@ -258,6 +306,8 @@ class EventPipeline:
                     reply=reply,
                     assistant_message_id=message_id,
                     model_turns_used=model_run.turns_used,
+                    input_tokens_used=model_run.input_tokens_used,
+                    output_tokens_used=model_run.output_tokens_used,
                 )
             await self.repository.complete_inbox(item.id)
             await self.repository.append_audit(
@@ -310,6 +360,8 @@ class EventPipeline:
                 reply=reply,
                 assistant_message_id=message_id,
                 model_turns_used=model_run.turns_used,
+                input_tokens_used=model_run.input_tokens_used,
+                output_tokens_used=model_run.output_tokens_used,
             )
         await self.repository.complete_inbox(item.id)
         await self.repository.append_audit(
@@ -339,9 +391,7 @@ class EventPipeline:
         )
         # Count through the backend's own conservative estimator.  Treating
         # schemas as a synthetic message deliberately reserves a little extra.
-        return self.model.count_tokens(
-            (ModelMessage(role=MessageRole.SYSTEM, content=encoded),)
-        )
+        return self.model.count_tokens((ModelMessage(role=MessageRole.SYSTEM, content=encoded),))
 
     def _reserved_context_tokens(self) -> int:
         return self.config.model_max_tokens + self._tool_schema_tokens()
@@ -358,14 +408,20 @@ class EventPipeline:
     @staticmethod
     def _attachment_hint(entry: ConversationMessage) -> str:
         attachment_ids = entry.metadata.get("attachment_ids")
-        if not isinstance(attachment_ids, list | tuple) or not all(
+        hints: list[str] = []
+        if isinstance(attachment_ids, list | tuple) and all(
             isinstance(value, str) for value in attachment_ids
         ):
-            return ""
-        identifiers = ", ".join(attachment_ids[:10])
-        if not identifiers:
-            return ""
-        return "\n[UNTRUSTED ATTACHMENTS bound to this event: " + identifiers + "]"
+            identifiers = ", ".join(attachment_ids[:10])
+            if identifiers:
+                hints.append("UNTRUSTED ATTACHMENTS bound to this event: " + identifiers)
+        failures = entry.metadata.get("attachment_failures")
+        if isinstance(failures, int) and failures > 0:
+            hints.append(
+                f"ATTACHMENT INTAKE FAILURE: {failures} item(s) were unavailable; "
+                "do not claim to have inspected them"
+            )
+        return "" if not hints else "\n[" + "]\n[".join(hints) + "]"
 
     async def _prepare_context(
         self,
@@ -482,9 +538,15 @@ class EventPipeline:
         reply: str,
         assistant_message_id: UUID,
         model_turns_used: int,
+        input_tokens_used: int,
+        output_tokens_used: int,
     ) -> None:
         service = self.memory_derivation
         if service is None or model_turns_used >= self.config.max_model_turns:
+            return
+        remaining_input = self.config.max_task_input_tokens - input_tokens_used
+        remaining_output = self.config.max_task_output_tokens - output_tokens_used
+        if remaining_input < 2 or remaining_output < 1:
             return
         turns = (
             *prepared.source_turns,
@@ -501,16 +563,22 @@ class EventPipeline:
         include_summary = prepared.truncated or (
             len(turns) >= self.config.memory_summary_turn_threshold
         )
+        memory_output_tokens = min(
+            self.config.memory_derivation_max_tokens,
+            self.config.model_max_tokens,
+            remaining_output,
+        )
+        memory_context_tokens = min(
+            self._maximum_context_tokens(),
+            remaining_input + memory_output_tokens,
+        )
         try:
             async with asyncio.timeout(self.config.memory_timeout_seconds):
                 records = await service.derive(
                     turns=turns,
                     include_summary=include_summary,
-                    maximum_context_tokens=self._maximum_context_tokens(),
-                    maximum_output_tokens=min(
-                        self.config.memory_derivation_max_tokens,
-                        self.config.model_max_tokens,
-                    ),
+                    maximum_context_tokens=memory_context_tokens,
+                    maximum_output_tokens=memory_output_tokens,
                 )
         except Exception as exc:
             await self._audit_memory_event(
@@ -579,18 +647,21 @@ class EventPipeline:
                 high = midpoint - 1
         history.append(message_for(bounded[:low] + "…[truncated]" if low else omission))
 
-    async def _run_model_and_tools(
-        self, item: InboxItem, history: list[ModelMessage]
-    ) -> _ModelRun:
+    async def _run_model_and_tools(self, item: InboxItem, history: list[ModelMessage]) -> _ModelRun:
         tool_calls_used = 0
         navigations_used = 0
+        input_tokens_used = 0
+        output_tokens_used = 0
         manifests = tuple(tool.manifest() for tool in self.tools.values())
         for turn_number in range(1, self.config.max_model_turns + 1):
             self._ensure_context_fits(history)
+            output_remaining = self.config.max_task_output_tokens - output_tokens_used
+            if output_remaining < 1:
+                raise PermanentPipelineError("task output token limit exceeded")
             request = ModelRequest(
                 messages=tuple(history),
                 tools=manifests,
-                max_tokens=self.config.model_max_tokens,
+                max_tokens=min(self.config.model_max_tokens, output_remaining),
                 deep=bool(
                     item.event.sender_id in self.config.deep_sender_ids
                     and item.event.text
@@ -598,10 +669,13 @@ class EventPipeline:
                 ),
                 correlation_id=f"{item.event.channel}:{item.event.event_id}",
             )
+            estimated_input = self.model.count_tokens(request.messages)
+            if request.tools:
+                estimated_input += self._tool_schema_tokens()
+            if input_tokens_used + estimated_input > self.config.max_task_input_tokens:
+                raise PermanentPipelineError("task input token limit exceeded")
             if not await self.repository.mark_inbox_model_started(item.id):
-                raise PermanentPipelineError(
-                    "inbox state changed before model provider I/O"
-                )
+                raise PermanentPipelineError("inbox state changed before model provider I/O")
             try:
                 response = await self.model.generate(request)
             except (BudgetError, ModelGatewayError) as exc:
@@ -611,6 +685,34 @@ class EventPipeline:
                 raise PermanentPipelineError(
                     f"model call failed closed: {type(exc).__name__}"
                 ) from exc
+            charged_input = max(estimated_input, response.prompt_tokens)
+            if input_tokens_used + charged_input > self.config.max_task_input_tokens:
+                raise PermanentPipelineError("provider exceeded the task input token limit")
+            input_tokens_used += charged_input
+            if response.tool_calls:
+                output_message = ModelMessage(
+                    role=MessageRole.ASSISTANT,
+                    content=response.content,
+                    tool_calls=response.tool_calls,
+                    reasoning_content=response.reasoning_content,
+                )
+                estimated_output = self.model.count_tokens((output_message,))
+            elif response.content:
+                estimated_output = self.model.count_tokens(
+                    (
+                        ModelMessage(
+                            role=MessageRole.ASSISTANT,
+                            content=response.content,
+                            reasoning_content=response.reasoning_content,
+                        ),
+                    )
+                )
+            else:
+                estimated_output = 1
+            charged_output = max(estimated_output, response.completion_tokens)
+            if output_tokens_used + charged_output > self.config.max_task_output_tokens:
+                raise PermanentPipelineError("provider exceeded the task output token limit")
+            output_tokens_used += charged_output
             if response.tool_calls:
                 tool_calls_used += len(response.tool_calls)
                 if tool_calls_used > self.config.max_tool_calls:
@@ -646,7 +748,12 @@ class EventPipeline:
                     )
                 continue
             if response.content and response.content.strip():
-                return _ModelRun(reply=response.content.strip(), turns_used=turn_number)
+                return _ModelRun(
+                    reply=response.content.strip(),
+                    turns_used=turn_number,
+                    input_tokens_used=input_tokens_used,
+                    output_tokens_used=output_tokens_used,
+                )
             raise PermanentPipelineError("model returned neither text nor tool calls")
         raise PermanentPipelineError("model turn limit exceeded")
 
@@ -699,6 +806,37 @@ class EventPipeline:
                 result_summary={"error_type": type(exc).__name__},
             )
             return ToolResult(ok=False, content=f"Tool arguments rejected: {type(exc).__name__}")
+        data_class = DataClass.CONVERSATION
+        if manifest.action_kind == "browse_public_https":
+            requested_url = arguments.get("url")
+            if not isinstance(requested_url, str) or requested_url not in _explicit_event_urls(
+                item.event.text
+            ):
+                await self.repository.resolve_tool_execution(
+                    execution_id,
+                    state="denied",
+                    outcome_code="url_not_explicitly_authorized",
+                )
+                return ToolResult(
+                    ok=False,
+                    error_code="url_not_authorized",
+                    content=(
+                        "The browser may open only an HTTPS URL written explicitly "
+                        "in the current inbound message."
+                    ),
+                )
+            data_class = DataClass.PUBLIC
+        if data_class not in manifest.allowed_data:
+            await self.repository.resolve_tool_execution(
+                execution_id,
+                state="denied",
+                outcome_code="data_class_not_allowed",
+            )
+            return ToolResult(
+                ok=False,
+                error_code="data_class_denied",
+                content="The broker denied this data class for the selected tool.",
+            )
         action = ProposedAction(
             kind=manifest.action_kind,
             channel=item.event.channel,
@@ -779,6 +917,7 @@ class EventPipeline:
             event_id=item.event.event_id,
             principal_id=item.event.sender_id,
             granted_scopes=self.config.granted_tool_scopes,
+            data_class=data_class,
         )
         if not await self.repository.mark_tool_executing(execution_id):
             raise PermanentPipelineError("tool execution state changed before invocation")
@@ -791,9 +930,7 @@ class EventPipeline:
                     execution_id,
                     state="unknown" if manifest.side_effect else "failed",
                     outcome_code=(
-                        "cancelled_during_side_effect"
-                        if manifest.side_effect
-                        else "cancelled"
+                        "cancelled_during_side_effect" if manifest.side_effect else "cancelled"
                     ),
                 )
             )
@@ -805,9 +942,7 @@ class EventPipeline:
                     execution_id,
                     state=state,
                     outcome_code=(
-                        "exception_during_side_effect"
-                        if manifest.side_effect
-                        else "tool_exception"
+                        "exception_during_side_effect" if manifest.side_effect else "tool_exception"
                     ),
                     result_summary={"error_type": type(exc).__name__},
                 )
@@ -883,7 +1018,11 @@ class EventPipeline:
                 "proactive_global_day",
             }
             if transient:
-                await self.repository.release_reserved(item.id, evaluation.reason)
+                await self.repository.release_reserved(
+                    item.id,
+                    evaluation.reason,
+                    retry_after_seconds=evaluation.retry_after_seconds or 300,
+                )
                 status = PipelineStatus.DEFERRED
             else:
                 await self.repository.mark_reserved_dead(item.id, evaluation.reason)
@@ -897,7 +1036,8 @@ class EventPipeline:
                 detail="outbox state changed before dispatch",
             )
         try:
-            receipt = await connector.deliver(message)
+            async with asyncio.timeout(self.config.delivery_timeout_seconds):
+                receipt = await connector.deliver(message)
             state = await self.repository.apply_receipt(item.id, receipt)
         except Exception as exc:
             # Once connector.deliver is entered, the remote outcome may be

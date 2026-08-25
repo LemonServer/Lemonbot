@@ -56,9 +56,7 @@ def summarize_arguments(arguments: dict[str, Any]) -> str:
             break
         display_name = name if _SAFE_FIELD_NAME.fullmatch(name) else "<field>"
         sensitive = bool(_SENSITIVE_FIELD_NAME.search(name))
-        fields.append(
-            f"{display_name}=<{_shape(arguments[name], sensitive=sensitive)}>"
-        )
+        fields.append(f"{display_name}=<{_shape(arguments[name], sensitive=sensitive)}>")
     return ", ".join(fields)
 
 

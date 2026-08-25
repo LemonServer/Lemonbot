@@ -195,9 +195,7 @@ def _sniff_media_type(content: bytes, declared_kind: str) -> str:
     return "application/octet-stream"
 
 
-def map_wecom_frame(
-    frame: Mapping[str, Any], *, channel: str = "wecom"
-) -> InboundEvent | None:
+def map_wecom_frame(frame: Mapping[str, Any], *, channel: str = "wecom") -> InboundEvent | None:
     """Map a vendor callback to a safe domain event.
 
     Response URLs, AES keys and the raw callback are deliberately excluded from
@@ -223,10 +221,7 @@ def map_wecom_frame(
         return None
 
     sender = _mapping(body.get("from"))
-    sender_id = (
-        _nonempty_string(sender.get("userid"))
-        or _nonempty_string(event_info.get("userid"))
-    )
+    sender_id = _nonempty_string(sender.get("userid")) or _nonempty_string(event_info.get("userid"))
     chat_type = _nonempty_string(body.get("chattype")) or "single"
     chat_id = _nonempty_string(body.get("chatid"))
     if chat_type == "single":
@@ -296,8 +291,7 @@ def _load_official_sdk() -> ModuleType:
     ]
     if missing:
         raise ConnectorDependencyError(
-            "The installed 'wecom-aibot-python-sdk' is incompatible; missing: "
-            + ", ".join(missing)
+            "The installed 'wecom-aibot-python-sdk' is incompatible; missing: " + ", ".join(missing)
         )
     return module
 
@@ -321,9 +315,7 @@ class WeComConnector(Connector):
         self._attachment_sink = attachment_sink
         self._media_fetcher = media_fetcher
         self._media_decryptor = media_decryptor
-        self._queue: asyncio.Queue[InboundEvent | object] = asyncio.Queue(
-            maxsize=config.queue_size
-        )
+        self._queue: asyncio.Queue[InboundEvent | object] = asyncio.Queue(maxsize=config.queue_size)
         self._seen = BoundedDeduplicator(config.dedup_capacity)
         self._reply_frames: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._receipts: OrderedDict[UUID, DeliveryReceipt] = OrderedDict()
@@ -373,9 +365,7 @@ class WeComConnector(Connector):
                 result = self._client.connect()
                 if inspect.isawaitable(result):
                     await result
-                self._connected = bool(
-                    getattr(self._client, "is_connected", self._connected)
-                )
+                self._connected = bool(getattr(self._client, "is_connected", self._connected))
             except Exception as exc:
                 self._last_error = _redact_diagnostic(exc)
                 self._started = False
@@ -610,9 +600,7 @@ class WeComConnector(Connector):
 
     async def health(self) -> ConnectorHealth:
         sdk_connected = bool(
-            getattr(self._client, "is_connected", False)
-            if self._client is not None
-            else False
+            getattr(self._client, "is_connected", False) if self._client is not None else False
         )
         connected = self._connected or sdk_connected
         if self._closed:
@@ -629,10 +617,7 @@ class WeComConnector(Connector):
             detail = "authenticated"
         return ConnectorHealth(
             healthy=(
-                not self._closed
-                and connected
-                and self._authenticated
-                and self._last_error is None
+                not self._closed and connected and self._authenticated and self._last_error is None
             ),
             detail=detail,
             account_id=self.config.bot_id,

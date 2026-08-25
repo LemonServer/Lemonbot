@@ -17,4 +17,3 @@ class ConnectorDisabledError(ConnectorError):
 
 class ConnectorSafetyError(ConnectorError):
     """A fail-closed safety precondition was not satisfied."""
-

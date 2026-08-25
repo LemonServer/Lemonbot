@@ -64,12 +64,16 @@ class FileVault:
         # sense even though some pathlib operations treat it as relative.
         windows_path = PureWindowsPath(relative_path)
         raw_parts = relative_path.replace("/", "\\").split("\\")
-        if windows_path.drive or windows_path.root or any(
-            part in {"", ".", ".."}
-            or _WINDOWS_FORBIDDEN.search(part)
-            or part.endswith((" ", "."))
-            or part.split(".", 1)[0].upper() in _WINDOWS_RESERVED
-            for part in raw_parts
+        if (
+            windows_path.drive
+            or windows_path.root
+            or any(
+                part in {"", ".", ".."}
+                or _WINDOWS_FORBIDDEN.search(part)
+                or part.endswith((" ", "."))
+                or part.split(".", 1)[0].upper() in _WINDOWS_RESERVED
+                for part in raw_parts
+            )
         ):
             raise VaultError("path must be a normalized relative path")
         candidate = root.path.joinpath(*raw_parts)

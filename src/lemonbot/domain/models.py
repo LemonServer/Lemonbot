@@ -256,6 +256,7 @@ class PolicyEvaluation(DomainModel):
     decision: PolicyDecision
     reason: str = Field(min_length=1, max_length=2_000)
     rule_id: str = Field(min_length=1, max_length=128)
+    retry_after_seconds: int | None = Field(default=None, ge=1, le=86_400)
 
 
 class InboxItem(DomainModel):

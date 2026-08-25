@@ -110,9 +110,7 @@ class CoreRepository:
             )
         return item_id is not None
 
-    async def inbound_event(
-        self, channel: str, chat_id: str, event_id: str
-    ) -> InboundEvent | None:
+    async def inbound_event(self, channel: str, chat_id: str, event_id: str) -> InboundEvent | None:
         """Return one exact broker-owned event for approval revalidation."""
 
         if not channel or not chat_id or not event_id:
@@ -521,9 +519,16 @@ class CoreRepository:
             return self._outbox_item(row)
 
     async def reserve_next_outbox(self, channel: str | None = None) -> OutboxItem | None:
+        now = utc_now()
         query = (
             select(OutboxRow.id)
-            .where(OutboxRow.state == OutboxState.PENDING.value)
+            .where(
+                OutboxRow.state == OutboxState.PENDING.value,
+                or_(
+                    OutboxRow.next_attempt_at.is_(None),
+                    OutboxRow.next_attempt_at <= now,
+                ),
+            )
             .order_by(OutboxRow.created_at, OutboxRow.id)
             .limit(1)
         )
@@ -533,7 +538,6 @@ class CoreRepository:
             item_id = await session.scalar(query)
             if item_id is None:
                 return None
-            now = utc_now()
             reserved = await session.execute(
                 update(OutboxRow)
                 .where(OutboxRow.id == item_id, OutboxRow.state == OutboxState.PENDING.value)
@@ -611,17 +615,27 @@ class CoreRepository:
             )
             return _rowcount(result) == 1
 
-    async def release_reserved(self, item_id: int, detail: str) -> bool:
+    async def release_reserved(
+        self,
+        item_id: int,
+        detail: str,
+        *,
+        retry_after_seconds: int = 300,
+    ) -> bool:
         """Release a reservation only before delivery has been attempted."""
+        if retry_after_seconds < 1 or retry_after_seconds > 86_400:
+            raise ValueError("outbox retry delay must be 1..86400 seconds")
         async with self.database.sessions() as session, session.begin():
+            now = utc_now()
             result = await session.execute(
                 update(OutboxRow)
                 .where(OutboxRow.id == item_id, OutboxRow.state == OutboxState.RESERVED.value)
                 .values(
                     state=OutboxState.PENDING.value,
                     reserved_at=None,
+                    next_attempt_at=now + timedelta(seconds=retry_after_seconds),
                     failure_detail=detail[:2_000],
-                    updated_at=utc_now(),
+                    updated_at=now,
                 )
             )
             return _rowcount(result) == 1
@@ -678,7 +692,12 @@ class CoreRepository:
                     OutboxRow.state == OutboxState.RESERVED.value,
                     OutboxRow.reserved_at < cutoff,
                 )
-                .values(state=OutboxState.PENDING.value, reserved_at=None, updated_at=utc_now())
+                .values(
+                    state=OutboxState.PENDING.value,
+                    reserved_at=None,
+                    next_attempt_at=None,
+                    updated_at=utc_now(),
+                )
             )
             dispatching = await session.execute(
                 update(OutboxRow)
@@ -741,6 +760,64 @@ class CoreRepository:
         async with self.database.sessions() as session, session.begin():
             await session.execute(statement)
 
+    async def reconcile_allowlist(
+        self,
+        channel: str,
+        chat_ids: set[str] | frozenset[str],
+        *,
+        label: str = "config allowlist",
+    ) -> dict[str, int]:
+        """Make one channel's durable allowlist exactly match broker configuration."""
+
+        if not channel or any(not value for value in chat_ids):
+            raise ValueError("allowlist channel and chat ids must be non-empty")
+        now = utc_now()
+        async with self.database.sessions() as session, session.begin():
+            disabled = await session.execute(
+                update(AllowlistRow)
+                .where(
+                    AllowlistRow.channel == channel,
+                    AllowlistRow.enabled == 1,
+                    (AllowlistRow.chat_id.not_in(chat_ids) if chat_ids else text("1=1")),
+                )
+                .values(enabled=0, updated_at=now)
+            )
+            enabled_count = 0
+            for chat_id in sorted(chat_ids):
+                result = await session.execute(
+                    sqlite_insert(AllowlistRow)
+                    .values(
+                        channel=channel,
+                        chat_id=chat_id,
+                        enabled=1,
+                        label=label,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    .on_conflict_do_update(
+                        index_elements=["channel", "chat_id"],
+                        set_={"enabled": 1, "label": label, "updated_at": now},
+                    )
+                )
+                enabled_count += max(0, _rowcount(result))
+            session.add(
+                AuditRow(
+                    action="allowlist.reconcile",
+                    outcome="applied",
+                    channel=channel,
+                    detail_json={
+                        "configured_count": len(chat_ids),
+                        "disabled_count": _rowcount(disabled),
+                    },
+                    occurred_at=now,
+                )
+            )
+        return {
+            "configured": len(chat_ids),
+            "disabled": _rowcount(disabled),
+            "upserted": enabled_count,
+        }
+
     async def is_allowlisted(self, channel: str, chat_id: str) -> bool:
         async with self.database.sessions() as session:
             value = await session.scalar(
@@ -774,6 +851,29 @@ class CoreRepository:
                 )
             ).all()
         return any(bool(value.get("paused")) for value in values)
+
+    async def runtime_state(self, key: str) -> dict[str, Any] | None:
+        if not key or len(key) > 512:
+            raise ValueError("runtime state key is invalid")
+        async with self.database.sessions() as session:
+            value = await session.scalar(
+                select(RuntimeStateRow.value_json).where(RuntimeStateRow.key == key)
+            )
+        return None if value is None else dict(value)
+
+    async def set_runtime_state(self, key: str, value: dict[str, Any]) -> None:
+        if not key or len(key) > 512:
+            raise ValueError("runtime state key is invalid")
+        statement = (
+            sqlite_insert(RuntimeStateRow)
+            .values(key=key, value_json=value, updated_at=utc_now())
+            .on_conflict_do_update(
+                index_elements=["key"],
+                set_={"value_json": value, "updated_at": utc_now()},
+            )
+        )
+        async with self.database.sessions() as session, session.begin():
+            await session.execute(statement)
 
     async def count_outbound_since(
         self,
@@ -903,18 +1003,18 @@ class CoreRepository:
                 )
             ).all()
             return [
-            {
-                "id": row.id,
-                "action": row.action,
-                "outcome": row.outcome,
-                "channel": row.channel,
-                "chat_id": row.chat_id,
-                "event_id": row.event_id,
-                "message_id": row.message_id,
-                "rule_id": row.rule_id,
-                "detail": row.detail_json,
-                "occurred_at": _utc(row.occurred_at),
-            }
+                {
+                    "id": row.id,
+                    "action": row.action,
+                    "outcome": row.outcome,
+                    "channel": row.channel,
+                    "chat_id": row.chat_id,
+                    "event_id": row.event_id,
+                    "message_id": row.message_id,
+                    "rule_id": row.rule_id,
+                    "detail": row.detail_json,
+                    "occurred_at": _utc(row.occurred_at),
+                }
                 for row in rows
             ]
 
@@ -926,14 +1026,82 @@ class CoreRepository:
                 )
             )
             unknown_outbox = await session.scalar(
-                select(func.count(OutboxRow.id)).where(
-                    OutboxRow.state == OutboxState.UNKNOWN.value
-                )
+                select(func.count(OutboxRow.id)).where(OutboxRow.state == OutboxState.UNKNOWN.value)
             )
         return {
             "queue_depth": int(queue_depth or 0),
             "unknown_outbox": int(unknown_outbox or 0),
         }
+
+    async def list_unknown_outbox(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Return operator-safe metadata for ambiguous sends, never message text."""
+        if limit < 1 or limit > 500:
+            raise ValueError("limit must be between 1 and 500")
+        query = (
+            select(OutboxRow)
+            .where(OutboxRow.state == OutboxState.UNKNOWN.value)
+            .order_by(OutboxRow.updated_at.desc(), OutboxRow.id.desc())
+            .limit(limit)
+        )
+        async with self.database.sessions() as session:
+            rows = list((await session.scalars(query)).all())
+        return [
+            {
+                "id": row.id,
+                "message_id": row.message_id,
+                "channel": row.channel,
+                "chat_id": row.chat_id,
+                "reply_to_event_id": row.reply_to_event_id,
+                "attempts": row.attempts,
+                "created_at": _required_utc(row.created_at).isoformat(),
+                "updated_at": _required_utc(row.updated_at).isoformat(),
+                "external_id": row.external_id,
+                "failure_detail": row.failure_detail,
+            }
+            for row in rows
+        ]
+
+    async def reconcile_unknown_outbox(
+        self,
+        item_id: int,
+        *,
+        outcome: str,
+        operator_note: str,
+    ) -> bool:
+        """Close an ambiguous send after manual inspection; never makes it retryable."""
+        if outcome not in {OutboxState.ACKNOWLEDGED.value, OutboxState.DEAD.value}:
+            raise ValueError("outcome must be acknowledged or dead")
+        note = operator_note.strip()
+        if len(note) < 3 or len(note) > 1_000:
+            raise ValueError("operator note must be 3..1000 characters")
+        async with self.database.sessions() as session, session.begin():
+            row = await session.scalar(
+                select(OutboxRow).where(
+                    OutboxRow.id == item_id,
+                    OutboxRow.state == OutboxState.UNKNOWN.value,
+                )
+            )
+            if row is None:
+                return False
+            now = utc_now()
+            row.state = outcome
+            row.updated_at = now
+            if outcome == OutboxState.ACKNOWLEDGED.value:
+                row.acknowledged_at = now
+            row.failure_detail = f"manual reconciliation: {note}"[:2_000]
+            session.add(
+                AuditRow(
+                    action="outbox.reconcile",
+                    outcome=outcome,
+                    channel=row.channel,
+                    chat_id=row.chat_id,
+                    event_id=row.reply_to_event_id,
+                    message_id=row.message_id,
+                    detail_json={"item_id": row.id, "operator_note": note},
+                    occurred_at=now,
+                )
+            )
+            return True
 
     async def outbox_state(self, message_id: UUID) -> OutboxState | None:
         async with self.database.sessions() as session:

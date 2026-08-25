@@ -221,9 +221,7 @@ class IsolatedModelBackend:
                 error = validate_payload(ModelWorkerError, response.payload)
             except ValueError:
                 await self._terminate()
-                raise ModelWorkerUnavailable(
-                    "model worker error payload was invalid"
-                ) from None
+                raise ModelWorkerUnavailable("model worker error payload was invalid") from None
             raise _RemoteFailure(error)
         if response.message_type != expected:
             await self._terminate()
@@ -253,14 +251,17 @@ class IsolatedModelBackend:
                 payload = message.model_dump(mode="json", exclude_none=False)
             else:
                 payload = {"value": repr(message)}
-            total += len(
-                json.dumps(
-                    payload,
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                    default=str,
-                ).encode("utf-8")
-            ) + 64
+            total += (
+                len(
+                    json.dumps(
+                        payload,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        default=str,
+                    ).encode("utf-8")
+                )
+                + 64
+            )
         return total
 
     def _validate_and_estimate(self, request: ModelRequest) -> tuple[str, int]:
@@ -343,6 +344,7 @@ class IsolatedModelBackend:
             raise ModelProtocolError("worker returned a non-routed model identity")
         ToolSchemaRegistry(request.tools).validate_many(response.tool_calls)
         if request.response_format == "json" and response.content is not None:
+
             def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
                 result: dict[str, object] = {}
                 for key, value in pairs:
@@ -367,11 +369,7 @@ class IsolatedModelBackend:
 
     async def generate(self, request: ModelRequest) -> ModelResponse:
         async with self._request_lock:
-            if (
-                self._closed
-                or self._poisoned
-                or self._worker.process.returncode is not None
-            ):
+            if self._closed or self._poisoned or self._worker.process.returncode is not None:
                 await self._terminate()
                 raise ModelWorkerUnavailable("model worker is unavailable")
             model, prompt_tokens = self._validate_and_estimate(request)
@@ -402,23 +400,17 @@ class IsolatedModelBackend:
                     await self._terminate()
                 self._raise_remote(exc.error)
             except asyncio.CancelledError:
-                await asyncio.shield(
-                    self._charge_budget_unknown(reservation.reservation_id)
-                )
+                await asyncio.shield(self._charge_budget_unknown(reservation.reservation_id))
                 raise
             except (ModelProtocolError, ValueError):
                 await self._critical_transition(
                     self._charge_budget_unknown(reservation.reservation_id)
                 )
                 await self._terminate()
-                raise ModelProtocolError(
-                    "isolated worker response failed validation"
-                ) from None
+                raise ModelProtocolError("isolated worker response failed validation") from None
             except BaseException:
                 try:
-                    await asyncio.shield(
-                        self._charge_budget_unknown(reservation.reservation_id)
-                    )
+                    await asyncio.shield(self._charge_budget_unknown(reservation.reservation_id))
                 finally:
                     await asyncio.shield(self._terminate())
                 raise
@@ -465,9 +457,7 @@ class IsolatedModelBackend:
             except (IsolatedModelError, _RemoteFailure):
                 pass
             except ValueError:
-                raise ModelWorkerUnavailable(
-                    "model worker shutdown response was invalid"
-                ) from None
+                raise ModelWorkerUnavailable("model worker shutdown response was invalid") from None
             finally:
                 await self._terminate()
 

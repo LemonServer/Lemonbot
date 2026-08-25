@@ -69,9 +69,7 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
             raise
 
 
-ConnectionFactory = Callable[
-    [str, str, float, ssl.SSLContext], http.client.HTTPSConnection
-]
+ConnectionFactory = Callable[[str, str, float, ssl.SSLContext], http.client.HTTPSConnection]
 
 
 def _default_connection_factory(

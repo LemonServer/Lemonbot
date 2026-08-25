@@ -27,6 +27,7 @@ from lemonbot.connectors import (
     WeComConfig,
     WeComConnector,
     WindowsWeChatUIABackend,
+    effective_uia_stage,
 )
 from lemonbot.domain import (
     ApprovalState,
@@ -46,19 +47,18 @@ from lemonbot.memory import (
 from lemonbot.models import (
     BudgetLimits,
     IsolatedModelBackend,
+    IsolatedVisionBackend,
     ModelPrice,
     ModelWorkerConfig,
     PersistentBudgetManager,
     ProviderConfig,
     VisionProviderConfig,
-    VisionService,
-    ZhipuVisionAdapter,
+    VisionWorkerConfig,
 )
 from lemonbot.orchestration import EventPipeline, FakeModelBackend, PipelineConfig, PipelineStatus
 from lemonbot.policy import DeterministicPolicy, PolicyConfig, RateLimitProfile
 from lemonbot.proactive import ProactiveJobStore, ProactiveRunner
 from lemonbot.runtime_lock import RuntimeLock
-from lemonbot.security.model_secrets import AsyncSecretStoreAdapter
 from lemonbot.security.redaction import configure_logging
 from lemonbot.security.secrets import NamespacedSecretStore, WindowsCredentialStore
 from lemonbot.storage import CoreRepository, Database
@@ -66,21 +66,25 @@ from lemonbot.storage.migrate import upgrade_database
 from lemonbot.supervisor import WorkerSupervisor
 from lemonbot.tools import Tool
 from lemonbot.tools.attachments import AttachmentStore
-from lemonbot.tools.browser import BrowserReadTool
+from lemonbot.tools.browser_worker_protocol import BrowserWorkerConfig
+from lemonbot.tools.browser_worker_proxy import IsolatedBrowserReadTool
 from lemonbot.tools.mcp import MCPStdioClient, MCPToolAdapter, PinnedMCPServer
 from lemonbot.tools.vault import FileVault, VaultCreateTool, VaultReadTool, VaultRoot
-from lemonbot.tools.vision import ImagePreprocessor, RapidOCRReader
 from lemonbot.tools.vision_tool import ImageUnderstandingTool
 
 logger = logging.getLogger(__name__)
 
 
-def _pipeline_output_mode(settings: AppSettings) -> Literal["observe", "draft", "send"]:
+def _pipeline_output_mode(
+    settings: AppSettings,
+    stage: PersonalWeChatStage | None = None,
+) -> Literal["observe", "draft", "send"]:
     if settings.runtime.connector != "wechat_uia":
         return "send"
-    if settings.wechat_uia.stage == "observe":
+    selected = stage or PersonalWeChatStage(settings.wechat_uia.stage)
+    if selected is PersonalWeChatStage.OBSERVE:
         return "observe"
-    if settings.wechat_uia.stage == "draft":
+    if selected is PersonalWeChatStage.DRAFT:
         return "draft"
     return "send"
 
@@ -99,6 +103,7 @@ class RepositoryControl(ControlBackend):
         policy: DeterministicPolicy,
         granted_tool_scopes: frozenset[str],
         side_effect_lock: asyncio.Lock,
+        attachment_store: AttachmentStore | None = None,
     ) -> None:
         self._repository = repository
         self._profile = profile
@@ -110,10 +115,16 @@ class RepositoryControl(ControlBackend):
         self._policy = policy
         self._granted_tool_scopes = granted_tool_scopes
         self._side_effect_lock = side_effect_lock
+        self._attachment_store = attachment_store
 
     async def status(self) -> StatusView:
         counts = await self._repository.runtime_counts()
         pending_approvals = await self._approvals.pending()
+        attachment_status = (
+            self._attachment_store.capacity_status
+            if self._attachment_store is not None
+            else None
+        )
         return StatusView(
             profile=self._profile,
             connector=self._connector_name,
@@ -126,6 +137,17 @@ class RepositoryControl(ControlBackend):
             queue_depth=counts["queue_depth"],
             unknown_outbox=counts["unknown_outbox"],
             pending_approvals=len(pending_approvals),
+            attachment_intake_paused=(
+                attachment_status.paused if attachment_status is not None else False
+            ),
+            attachment_capacity_reason=(
+                attachment_status.reason if attachment_status is not None else None
+            ),
+            attachment_free_bytes=(
+                attachment_status.last_free_bytes
+                if attachment_status is not None
+                else None
+            ),
             started_at=self._started_at,
         )
 
@@ -135,9 +157,7 @@ class RepositoryControl(ControlBackend):
         mapped = (
             None
             if channel is None
-            else {"wecom": "wecom", "wechat_uia": "wechat_personal_lab"}.get(
-                channel, channel
-            )
+            else {"wecom": "wecom", "wechat_uia": "wechat_personal_lab"}.get(channel, channel)
         )
         await self._repository.set_paused(channel=mapped, paused=paused)
         return await self.status()
@@ -201,9 +221,7 @@ class RepositoryControl(ControlBackend):
                     not manifest.side_effect
                     or manifest.name != claim.tool_name
                     or manifest.action_kind != claim.action_kind
-                    or not await self._repository.is_allowlisted(
-                        claim.channel, claim.chat_id
-                    )
+                    or not await self._repository.is_allowlisted(claim.channel, claim.chat_id)
                 ):
                     return
                 try:
@@ -236,9 +254,7 @@ class RepositoryControl(ControlBackend):
                     chat_id=claim.chat_id,
                     event_id=claim.event_id,
                     principal_id=event.sender_id,
-                    granted_scopes=(
-                        self._granted_tool_scopes | manifest.required_scopes
-                    ),
+                    granted_scopes=(self._granted_tool_scopes | manifest.required_scopes),
                 )
                 tool_execution_id, created = await self._repository.begin_tool_execution(
                     profile=claim.profile,
@@ -251,9 +267,7 @@ class RepositoryControl(ControlBackend):
                     arguments=claim.arguments,
                     side_effect=True,
                 )
-                if not created or not await self._repository.mark_tool_executing(
-                    tool_execution_id
-                ):
+                if not created or not await self._repository.mark_tool_executing(tool_execution_id):
                     outcome = ApprovalState.UNKNOWN
                     outcome_code = "tool_execution_state_conflict"
                     return
@@ -333,13 +347,15 @@ class LemonbotRuntime:
         self.proactive_runner: ProactiveRunner | None = None
         self._model_close: Any | None = None
         self._vision_close: Any | None = None
+        self._browser_close: Any | None = None
         self._mcp_clients: list[MCPStdioClient] = []
-        self._mcp_supervisor = WorkerSupervisor()
+        self._worker_supervisor = WorkerSupervisor()
         self._budget: PersistentBudgetManager | None = None
         self._emergency = asyncio.Event()
         self._tools: dict[str, Tool] = {}
         self._tool_scopes: frozenset[str] = frozenset()
         self._policy: DeterministicPolicy | None = None
+        self._uia_stage: PersonalWeChatStage | None = None
         self._side_effect_lock = asyncio.Lock()
 
     async def initialize(self) -> None:
@@ -349,13 +365,18 @@ class LemonbotRuntime:
         await self.memory.initialize()
         await self.attachments.initialize()
         await self.proactive_store.initialize()
+        if self.settings.runtime.connector == "wechat_uia":
+            self._uia_stage = PersonalWeChatStage(
+                await effective_uia_stage(
+                    self.repository,
+                    self.settings.wechat_uia,
+                )
+            )
         # RuntimeLock guarantees this is the only live core for the profile.
         # Every processing/reserved row therefore belongs to the previous
         # process, even if it crashed only milliseconds ago. Startup recovery
         # runs once, so applying a staleness grace period would strand it.
-        recovery = await self.repository.recover_interrupted(
-            stale_after=timedelta(0)
-        )
+        recovery = await self.repository.recover_interrupted(stale_after=timedelta(0))
         recovered_approvals = await self.approval_service.recover_interrupted()
         if recovered_approvals:
             recovery["approvals_unknown"] = recovered_approvals
@@ -391,13 +412,15 @@ class LemonbotRuntime:
                     else None
                 ),
                 max_task_seconds=self.settings.limits.event_timeout_seconds,
+                delivery_timeout_seconds=(self.settings.limits.delivery_timeout_seconds),
                 max_model_turns=self.settings.limits.max_model_turns,
+                max_task_input_tokens=(self.settings.limits.max_task_input_tokens),
+                max_task_output_tokens=(self.settings.limits.max_task_output_tokens),
                 max_tool_calls=self.settings.limits.max_tool_calls,
                 max_navigations=self.settings.limits.max_navigations,
                 max_downloads=self.settings.limits.max_downloads,
                 max_reply_chars=(
-                    self.settings.limits.max_reply_chunks
-                    * self.settings.limits.max_chunk_chars
+                    self.settings.limits.max_reply_chunks * self.settings.limits.max_chunk_chars
                 ),
                 chunk_chars=self.settings.limits.max_chunk_chars,
                 model_max_tokens=self.settings.models.max_output_tokens,
@@ -410,7 +433,7 @@ class LemonbotRuntime:
                     if self.settings.runtime.connector == "wechat_uia"
                     else ()
                 ),
-                output_mode=_pipeline_output_mode(self.settings),
+                output_mode=_pipeline_output_mode(self.settings, self._uia_stage),
             ),
         )
         self.proactive_runner = ProactiveRunner(
@@ -418,7 +441,12 @@ class LemonbotRuntime:
             self.repository,
             policy,
             self.model,
-            max_output_tokens=min(1500, self.settings.models.max_output_tokens),
+            max_output_tokens=min(
+                1500,
+                self.settings.models.max_output_tokens,
+                self.settings.limits.max_task_output_tokens,
+            ),
+            max_input_tokens=self.settings.limits.max_task_input_tokens,
             side_effect_lock=self._side_effect_lock,
         )
         await self._seed_allowlist()
@@ -447,7 +475,7 @@ class LemonbotRuntime:
                 proactive_cooldown_hours=limits.wechat_proactive.period_hours,
                 proactive_per_day=limits.wechat_proactive.per_day,
                 proactive_global_per_day=limits.wechat_proactive.global_per_day,
-                proactive_enabled=self.settings.wechat_uia.stage == "proactive",
+                proactive_enabled=self._uia_stage is PersonalWeChatStage.PROACTIVE,
             ),
         )
 
@@ -458,8 +486,12 @@ class LemonbotRuntime:
             channel, chats = "wechat_personal_lab", self.settings.wechat_uia.allow_chat_ids
         else:
             channel, chats = "fake", ()
-        for chat_id in chats:
-            await self.repository.set_allowlisted(channel, chat_id, label="config allowlist")
+        if channel != "fake":
+            await self.repository.reconcile_allowlist(
+                channel,
+                frozenset(chats),
+                label="config allowlist",
+            )
 
     def _credential_store(self) -> NamespacedSecretStore:
         return NamespacedSecretStore(WindowsCredentialStore(), self.settings.profile)
@@ -470,6 +502,7 @@ class LemonbotRuntime:
             return FakeConnector(channel="fake")
         secrets = self._credential_store()
         if selected == "wecom":
+
             async def store_attachment(
                 event: InboundEvent,
                 content: bytes,
@@ -517,7 +550,7 @@ class LemonbotRuntime:
         return PersonalWeChatConnector(
             PersonalWeChatConfig(
                 enabled=uia.enabled,
-                stage=PersonalWeChatStage(uia.stage),
+                stage=self._uia_stage or PersonalWeChatStage.OBSERVE,
                 expected_process_name=uia.expected_process_name,
                 expected_executable_path=uia.expected_executable_path or None,
                 expected_executable_sha256=uia.expected_executable_sha256 or None,
@@ -600,6 +633,7 @@ class LemonbotRuntime:
                 verify_models_on_startup=self.settings.models.verify_models_on_startup,
             ),
             budget=budget,
+            supervisor=self._worker_supervisor,
             python_executable=Path(sys.executable),
             cwd=Path(__file__).resolve().parent,
         )
@@ -610,37 +644,47 @@ class LemonbotRuntime:
         tools: dict[str, Tool] = {}
         scopes: set[str] = set()
         if self.settings.browser.enabled:
-            browser = BrowserReadTool(
-                enabled=True,
-                max_text_chars=self.settings.browser.max_text_chars,
-                timeout_seconds=self.settings.browser.navigation_timeout_seconds,
+            browser = await IsolatedBrowserReadTool.create(
+                config=BrowserWorkerConfig(
+                    max_text_chars=self.settings.browser.max_text_chars,
+                    timeout_seconds=(
+                        self.settings.browser.navigation_timeout_seconds
+                    ),
+                ),
+                supervisor=self._worker_supervisor,
+                python_executable=Path(sys.executable),
+                cwd=Path(__file__).resolve().parent,
             )
             tools[browser.manifest().name] = browser
             scopes.add("browser.read_public")
+            self._browser_close = browser.aclose
         if self.settings.vision.enabled:
             if self._budget is None:
                 raise RuntimeError("vision requires the persistent cloud budget")
-            vision_adapter = ZhipuVisionAdapter(
-                secret_store=AsyncSecretStoreAdapter(self._credential_store()),
+            vision_backend = await IsolatedVisionBackend.create(
                 budget=self._budget,
-                config=VisionProviderConfig(
-                    base_url=str(self.settings.vision.base_url),
-                    model=self.settings.vision.model,
-                    image_token_reserve=self.settings.vision.image_token_reserve,
-                ),
-            )
-            vision = ImageUnderstandingTool(
-                self.attachments,
-                ImagePreprocessor(
+                config=VisionWorkerConfig(
+                    profile=self.settings.profile,
+                    objects_root=str(self.paths.objects.resolve()),
+                    provider=VisionProviderConfig(
+                        base_url=str(self.settings.vision.base_url),
+                        model=self.settings.vision.model,
+                        image_token_reserve=(self.settings.vision.image_token_reserve),
+                    ),
                     max_file_bytes=self.settings.vision.max_file_bytes,
                     max_pixels=self.settings.vision.max_pixels,
                 ),
-                RapidOCRReader(),
-                VisionService(vision_adapter),
+                supervisor=self._worker_supervisor,
+                python_executable=Path(sys.executable),
+                cwd=Path(__file__).resolve().parent,
+            )
+            vision = ImageUnderstandingTool(
+                self.attachments,
+                isolated_backend=vision_backend,
             )
             tools[vision.manifest().name] = vision
             scopes.add("vision.read")
-            self._vision_close = vision_adapter.aclose
+            self._vision_close = vision_backend.aclose
         roots: list[VaultRoot] = []
         roots.extend(
             VaultRoot(f"read{index}", Path(path), writable=False)
@@ -670,7 +714,7 @@ class LemonbotRuntime:
                     )
                     client = MCPStdioClient(
                         server,
-                        supervisor=self._mcp_supervisor,
+                        supervisor=self._worker_supervisor,
                     )
                     # Startup verifies the executable hash, exact protocol/server
                     # version and Job Object assignment before any manifest is exposed.
@@ -704,13 +748,13 @@ class LemonbotRuntime:
             close_operations.append(self._model_close())
         if self._vision_close is not None:
             close_operations.append(self._vision_close())
+        if self._browser_close is not None:
+            close_operations.append(self._browser_close())
         clients, self._mcp_clients = self._mcp_clients, []
         close_operations.extend(client.close() for client in clients)
-        results = list(
-            await asyncio.gather(*close_operations, return_exceptions=True)
-        )
+        results = list(await asyncio.gather(*close_operations, return_exceptions=True))
         try:
-            await self._mcp_supervisor.stop_all()
+            await self._worker_supervisor.stop_all()
         except BaseException as exc:
             results.append(exc)
         try:
@@ -736,6 +780,7 @@ class LemonbotRuntime:
             policy=self._policy,
             granted_tool_scopes=self._tool_scopes,
             side_effect_lock=self._side_effect_lock,
+            attachment_store=self.attachments,
         )
         app = create_admin_app(
             control,
@@ -759,13 +804,12 @@ class LemonbotRuntime:
         )
         loop = asyncio.get_running_loop()
         if enable_tray:
+
             def emergency_stop_from_tray() -> None:
                 asyncio.run_coroutine_threadsafe(control.emergency_stop(), loop)
 
             def set_pause_from_tray(channel: str | None, paused: bool) -> None:
-                asyncio.run_coroutine_threadsafe(
-                    control.set_pause(channel, paused), loop
-                )
+                asyncio.run_coroutine_threadsafe(control.set_pause(channel, paused), loop)
 
             start_tray(
                 tokens,
@@ -807,8 +851,11 @@ class LemonbotRuntime:
             else getattr(self.connector, "channel", self.settings.runtime.connector)
         )
         while True:
+            if await self.repository.is_paused(channel):
+                await asyncio.sleep(1)
+                continue
             result = await self.pipeline.dispatch_once(self.connector, channel=channel)
-            await asyncio.sleep(0.2 if result.status is PipelineStatus.IDLE else 0)
+            await asyncio.sleep(1 if result.status is PipelineStatus.IDLE else 0)
 
     async def _proactive_loop(self) -> None:
         assert self.proactive_runner is not None

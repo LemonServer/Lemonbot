@@ -61,10 +61,7 @@ def test_chromium_is_pinned_to_validated_dns_and_has_no_proxy() -> None:
 
     assert "--no-proxy-server" in arguments
     assert "--disable-quic" in arguments
-    assert (
-        "--host-resolver-rules=MAP example.com 93.184.216.34, MAP * ~NOTFOUND"
-        in arguments
-    )
+    assert "--host-resolver-rules=MAP example.com 93.184.216.34, MAP * ~NOTFOUND" in arguments
 
 
 class _FakeLocator:

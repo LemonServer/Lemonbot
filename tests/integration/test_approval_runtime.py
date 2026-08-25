@@ -40,9 +40,7 @@ class _AmbiguousTool:
             idempotent=False,
         )
 
-    async def invoke(
-        self, context: ToolContext, arguments: dict[str, object]
-    ) -> ToolResult:
+    async def invoke(self, context: ToolContext, arguments: dict[str, object]) -> ToolResult:
         del context, arguments
         self.calls += 1
         await asyncio.sleep(0)
@@ -56,9 +54,7 @@ async def test_approved_file_create_is_bound_revalidated_and_executed_once(tmp_p
     approvals = ApprovalService(ApprovalRepository(database), profile="lab")
     policy = DeterministicPolicy(repository)
     target_root = tmp_path / "approved-output"
-    create_tool = VaultCreateTool(
-        FileVault([VaultRoot("out", target_root, writable=True)])
-    )
+    create_tool = VaultCreateTool(FileVault([VaultRoot("out", target_root, writable=True)]))
     tools = {create_tool.manifest().name: create_tool}
     side_effect_lock = asyncio.Lock()
     model = FakeModelBackend(
@@ -126,9 +122,7 @@ async def test_approved_file_create_is_bound_revalidated_and_executed_once(tmp_p
         assert (target_root / "note.txt").read_text(encoding="utf-8") == "approved content"
         status = await approvals.status(pending[0].approval_id)
         assert status is not None and status.state is ApprovalState.APPROVED
-        assert not await control.decide_approval(
-            str(pending[0].approval_id), "approve_once"
-        )
+        assert not await control.decide_approval(str(pending[0].approval_id), "approve_once")
         assert not (target_root / "note.v1.txt").exists()
         status_view = await control.status()
         assert isinstance(status_view, StatusView)
@@ -183,9 +177,7 @@ async def test_approval_execution_exception_becomes_unknown_and_is_never_retried
         status = await approvals.status(approval.approval_id)
         assert status is not None and status.state is ApprovalState.UNKNOWN
         assert tool.calls == 1
-        assert not await control.decide_approval(
-            str(approval.approval_id), "approve_once"
-        )
+        assert not await control.decide_approval(str(approval.approval_id), "approve_once")
         assert tool.calls == 1
     finally:
         await database.close()

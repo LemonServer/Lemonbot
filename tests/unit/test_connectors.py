@@ -224,9 +224,7 @@ def test_wecom_proactive_send_and_welcome_callback_has_no_direct_side_effect() -
         )
         assert (await connector.deliver(welcome)).status is DeliveryStatus.ACKNOWLEDGED
         assert len(sdk.welcome_calls) == 1
-        proactive = OutboundMessage(
-            channel="wecom", chat_id="user-alice", text="已订阅的提醒"
-        )
+        proactive = OutboundMessage(channel="wecom", chat_id="user-alice", text="已订阅的提醒")
         receipt = await connector.deliver(proactive)
         assert receipt.status is DeliveryStatus.ACKNOWLEDGED
         assert sdk.send_calls == [
@@ -280,9 +278,7 @@ def test_wecom_media_is_materialized_to_scoped_ids_without_persisting_credential
         await connector.start()
         assert await connector.ingest_frame(WECOM.image_frame())
         event = await anext(connector.events())
-        assert event.metadata["attachment_ids"] == [
-            "00000000-0000-0000-0000-000000000123"
-        ]
+        assert event.metadata["attachment_ids"] == ["00000000-0000-0000-0000-000000000123"]
         assert received == [
             (
                 "msg-image-001",
@@ -354,9 +350,7 @@ def test_wecom_missing_official_sdk_has_clear_diagnostic(monkeypatch: pytest.Mon
             raise ModuleNotFoundError(name)
 
         monkeypatch.setattr(module.importlib, "import_module", missing)
-        connector = WeComConnector(
-            WeComConfig(bot_id="bot", secret=_credential())
-        )
+        connector = WeComConnector(WeComConfig(bot_id="bot", secret=_credential()))
         with pytest.raises(ConnectorDependencyError, match="official SDK"):
             await connector.start()
 

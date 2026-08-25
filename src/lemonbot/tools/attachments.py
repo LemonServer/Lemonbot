@@ -78,9 +78,7 @@ class AttachmentStore:
         )
         self._max_attachment_bytes = max_attachment_bytes
         self._minimum_free_bytes = minimum_free_bytes
-        self._capacity_status = AttachmentCapacityStatus(
-            minimum_free_bytes=minimum_free_bytes
-        )
+        self._capacity_status = AttachmentCapacityStatus(minimum_free_bytes=minimum_free_bytes)
         self._lock = asyncio.Lock()
 
     @property

@@ -126,4 +126,3 @@ class ContextBundle(BaseModel):
         if self.truncated != expected:
             raise ValueError("truncated must reflect omitted context")
         return self
-

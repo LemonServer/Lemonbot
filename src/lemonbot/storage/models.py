@@ -60,9 +60,7 @@ class DraftRow(Base):
     __tablename__ = "drafts"
     __table_args__ = (
         UniqueConstraint("draft_id", name="uq_drafts_draft_id"),
-        UniqueConstraint(
-            "channel", "reply_to_event_id", name="uq_drafts_one_reply_per_event"
-        ),
+        UniqueConstraint("channel", "reply_to_event_id", name="uq_drafts_one_reply_per_event"),
         CheckConstraint("state IN ('pending')", name="ck_drafts_state"),
         Index("ix_drafts_pending", "state", "created_at", "id"),
         Index("ix_drafts_scope", "channel", "chat_id", "state", "created_at", "id"),
@@ -88,6 +86,7 @@ class OutboxRow(Base):
         UniqueConstraint("message_id", name="uq_outbox_message_id"),
         UniqueConstraint("channel", "reply_to_event_id", name="uq_outbox_one_reply_per_event"),
         Index("ix_outbox_dispatch", "state", "created_at", "id"),
+        Index("ix_outbox_eligibility", "state", "next_attempt_at", "created_at", "id"),
         Index("ix_outbox_rate", "channel", "chat_id", "created_at", "state"),
     )
 
@@ -103,6 +102,7 @@ class OutboxRow(Base):
         String(32), default=OutboxState.PENDING.value, nullable=False
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dispatch_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -265,9 +265,7 @@ class ToolExecutionRow(Base):
     side_effect: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     outcome_code: Mapped[str | None] = mapped_column(String(128))
-    result_summary_json: Mapped[dict[str, Any]] = mapped_column(
-        JSON, default=dict, nullable=False
-    )
+    result_summary_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

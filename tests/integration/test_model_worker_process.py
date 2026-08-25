@@ -151,8 +151,7 @@ async def test_real_model_worker_calls_provider_without_core_credential() -> Non
                 "/v1/chat/completions",
             ]
             assert all(
-                "authorization" not in headers
-                for _path, headers, _body in provider.requests
+                "authorization" not in headers for _path, headers, _body in provider.requests
             )
             assert provider.requests[-1][2]["model"] == "flash"
         finally:
@@ -216,9 +215,7 @@ async def test_real_worker_rejects_secret_payload_without_stdout_or_stderr_echo(
         assert worker.process.stdin is not None
         assert worker.process.stdout is not None
         assert worker.process.stderr is not None
-        payload = _config("http://127.0.0.1:11434/v1", verify=False).model_dump(
-            mode="json"
-        )
+        payload = _config("http://127.0.0.1:11434/v1", verify=False).model_dump(mode="json")
         payload["api_key"] = canary
         await write_frame(
             worker.process.stdin,

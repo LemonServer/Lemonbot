@@ -35,7 +35,8 @@ class RuntimeLock:
 
                 try:
                     fcntl.flock(  # type: ignore[attr-defined]
-                        stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB  # type: ignore[attr-defined]
+                        stream.fileno(),
+                        fcntl.LOCK_EX | fcntl.LOCK_NB,  # type: ignore[attr-defined]
                     )
                 except OSError as exc:
                     raise AlreadyRunningError("this Lemonbot profile is already running") from exc
@@ -63,7 +64,8 @@ class RuntimeLock:
                 import fcntl
 
                 fcntl.flock(  # type: ignore[attr-defined]
-                    stream.fileno(), fcntl.LOCK_UN  # type: ignore[attr-defined]
+                    stream.fileno(),
+                    fcntl.LOCK_UN,  # type: ignore[attr-defined]
                 )
         finally:
             stream.close()

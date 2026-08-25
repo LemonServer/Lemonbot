@@ -25,9 +25,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("draft_id", name="uq_drafts_draft_id"),
-        sa.UniqueConstraint(
-            "channel", "reply_to_event_id", name="uq_drafts_one_reply_per_event"
-        ),
+        sa.UniqueConstraint("channel", "reply_to_event_id", name="uq_drafts_one_reply_per_event"),
         sa.CheckConstraint("state IN ('pending')", name="ck_drafts_state"),
     )
     op.create_index("ix_drafts_pending", "drafts", ["state", "created_at", "id"])

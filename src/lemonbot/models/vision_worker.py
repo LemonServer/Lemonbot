@@ -219,15 +219,11 @@ class VisionWorkerRuntime:
     ) -> VisionWorkerResult:
         if pending.ocr_available:
             description = (
-                "视觉语义分析当前不可用。以下仅为本地 OCR 结果，"
-                "不能据此推断图片的其他内容。"
+                "视觉语义分析当前不可用。以下仅为本地 OCR 结果，不能据此推断图片的其他内容。"
             )
             limitation = "semantic vision unavailable; OCR-only fallback"
         else:
-            description = (
-                "视觉语义分析当前不可用，且本地 OCR 引擎不可用；"
-                "无法可靠描述图片内容。"
-            )
+            description = "视觉语义分析当前不可用，且本地 OCR 引擎不可用；无法可靠描述图片内容。"
             limitation = "semantic vision and local OCR unavailable"
         return VisionWorkerResult(
             operation_id=pending.operation_id,

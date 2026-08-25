@@ -199,9 +199,7 @@ class IsolatedVisionBackend:
                 error = validate_vision_payload(VisionWorkerError, response.payload)
             except ValueError:
                 await self._terminate()
-                raise VisionWorkerUnavailable(
-                    "vision worker error payload was invalid"
-                ) from None
+                raise VisionWorkerUnavailable("vision worker error payload was invalid") from None
             raise _RemoteFailure(error)
         if response.message_type != expected:
             await self._terminate()
@@ -225,13 +223,9 @@ class IsolatedVisionBackend:
             provider_call_started=error.provider_call_started,
         )
 
-    def _validate_prepared(
-        self, request: VisionFileRequest, prepared: VisionPrepared
-    ) -> None:
+    def _validate_prepared(self, request: VisionFileRequest, prepared: VisionPrepared) -> None:
         minimum = (
-            self._config.provider.image_token_reserve
-            + len(request.prompt.encode("utf-8"))
-            + 512
+            self._config.provider.image_token_reserve + len(request.prompt.encode("utf-8")) + 512
         )
         maximum = minimum + 400_000
         if not minimum <= prepared.estimated_prompt_tokens <= maximum:
@@ -324,11 +318,7 @@ class IsolatedVisionBackend:
 
     async def analyze_file(self, request: VisionFileRequest) -> VisionWorkerResult:
         async with self._request_lock:
-            if (
-                self._closed
-                or self._poisoned
-                or self._worker.process.returncode is not None
-            ):
+            if self._closed or self._poisoned or self._worker.process.returncode is not None:
                 await self._terminate()
                 raise VisionWorkerUnavailable("vision worker is unavailable")
             try:
@@ -384,17 +374,13 @@ class IsolatedVisionBackend:
                 self._raise_remote(exc.error)
             except asyncio.CancelledError:
                 try:
-                    await asyncio.shield(
-                        self._charge_budget_unknown(reservation.reservation_id)
-                    )
+                    await asyncio.shield(self._charge_budget_unknown(reservation.reservation_id))
                 finally:
                     await asyncio.shield(self._terminate())
                 raise
             except BaseException:
                 try:
-                    await asyncio.shield(
-                        self._charge_budget_unknown(reservation.reservation_id)
-                    )
+                    await asyncio.shield(self._charge_budget_unknown(reservation.reservation_id))
                 finally:
                     await asyncio.shield(self._terminate())
                 raise VisionWorkerUnavailable(

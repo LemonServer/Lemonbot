@@ -21,11 +21,7 @@ def test_redacts_known_and_structured_credentials() -> None:
 
 def test_redacts_json_quoted_values_basic_auth_and_private_keys() -> None:
     redactor = SecretRedactor()
-    private_key = (
-        "-----BEGIN "
-        + "PRIVATE KEY-----\nnot-a-real-key\n-----END "
-        + "PRIVATE KEY-----"
-    )
+    private_key = "-----BEGIN " + "PRIVATE KEY-----\nnot-a-real-key\n-----END " + "PRIVATE KEY-----"
     value = (
         '{"client_secret": "secret with spaces", "access_token":"token-value"} '
         + "Authorization: "

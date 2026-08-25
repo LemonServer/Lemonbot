@@ -11,10 +11,7 @@ def test_invalid_config_never_echoes_an_accidentally_embedded_secret(tmp_path: P
     marker = "sk-" + "test-value-that-must-never-be-echoed"
     config = tmp_path / "unsafe.toml"
     config.write_text(
-        "schema_version = 1\n"
-        "profile = 'prod'\n"
-        "[models]\n"
-        f"api_key = '{marker}'\n",
+        f"schema_version = 1\nprofile = 'prod'\n[models]\napi_key = '{marker}'\n",
         encoding="utf-8",
     )
 

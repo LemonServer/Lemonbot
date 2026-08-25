@@ -14,7 +14,7 @@ Automation 放在完全隔离、默认关闭的实验通道中。
 - DeepSeek 优先的 OpenAI-compatible 模型网关及硬预算。
 - SQLite WAL、FTS5 长期记忆、摘要和来源追踪。
 - 企业微信官方长连接适配器、假连接器和个人微信实验性 UIA 适配器。
-- 只读 HTTPS 浏览器、图片净化/OCR/智谱视觉、路径受限文件保险库。
+- 隔离工作进程中的只读 HTTPS 浏览器与图片净化/OCR/智谱视觉、路径受限文件保险库。
 - 附件写入前磁盘余量熔断，默认保留至少 1 GiB，不自动清理原始数据。
 - 固定清单 MCP、白名单、静默期、限频、主动任务来源约束和全局急停。
 - 仅监听回环地址的本地管理台、诊断、备份、数据导出与显式删除命令。
@@ -58,6 +58,13 @@ uv run lemonbot run
 UIA 没有通用选择器。请复制
 [`config/wechat_uia_selectors.example.json`](config/wechat_uia_selectors.example.json)，在目标虚拟机上完成账号、客户端版本和 UI 树登记后再启用。样例中的 `__ENROLL__` 值故意不能匹配真实控件；未登记时会安全停止。详见[运行手册](docs/operations.md#个人微信-uia-登记与分阶段上线)。
 
+配置中的 `stage` 只是管理员请求的上限。实际阶段还受 lab 数据库中的持久化门禁约束，首次
+运行和任何登记指纹变化都会回到 `observe`。每次只允许晋级一级：
+
+```powershell
+uv run lemonbot uia promote --to draft --config <path> --confirm
+```
+
 ## 管理员数据操作
 
 停止 Lemonbot 后，可以导出当前 profile 的一致性数据归档，或显式永久删除一个精确会话：
@@ -78,6 +85,9 @@ Credential Manager、配置或日志。删除命令只存在于管理员 CLI，�
 - 浏览器只允许公开 HTTPS GET/HEAD，阻断私网、回环地址、异常端口和重定向绕过。
 - 个人微信仅支持独立测试号；不含 Hook、DLL 注入、协议逆向、WCFerry 或风控规避。
 - 任何出站状态不确定的消息进入 `unknown`，不自动重发。
+
+停止服务并人工核对真实会话后，可使用 `lemonbot outbox unknown` 和
+`lemonbot outbox resolve` 关闭不确定记录；该流程不会把记录重新排队。
 
 更多部署和威胁模型见 [docs/operations.md](docs/operations.md) 与
 [docs/security.md](docs/security.md)。
