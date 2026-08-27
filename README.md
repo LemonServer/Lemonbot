@@ -1,8 +1,13 @@
 # Lemonbot 2026
 
-Lemonbot 是一个面向 Windows 11 x64 的、能力受控的自主聊天代理。它以 DeepSeek API
-作为默认文本与工具模型，以企业微信智能机器人作为生产消息通道，并把个人微信 UI
-Automation 放在完全隔离、默认关闭的实验通道中。
+> 通道研发状态（2026-08-27）：企业微信不符合最终的个人聊天目标；现代 Windows 微信在
+> 当前测试账号上没有暴露可用 UIA 树，相关动作研发已暂停；下一条优先路线是官方 Linux
+> 微信的纯 AT-SPI 只读验证。完整证据、历史、禁止重复的实验和接手步骤见
+> [研发沿革与工程交接](docs/research-handoff.md)。
+
+Lemonbot 当前实现是一个面向 Windows 11 x64 的、能力受控的自主聊天代理。它以 DeepSeek
+API 作为默认文本与工具模型；现有企业微信和个人微信 UI Automation 连接器予以保留，但
+不再把企业微信视为最终默认通道，个人微信连接器仍完全隔离并默认关闭。
 
 > 这不是“让模型随意控制电脑”的程序。所有外部动作都必须经过独立策略引擎；支付、
 > 转账、购买、订阅、账号安全、凭据、提权、安装、永久删除、任意命令执行及批量外发
@@ -58,6 +63,13 @@ uv run lemonbot run
 UIA 没有通用选择器。请复制
 [`config/wechat_uia_selectors.example.json`](config/wechat_uia_selectors.example.json)，在目标虚拟机上完成账号、客户端版本和 UI 树登记后再启用。样例中的 `__ENROLL__` 值故意不能匹配真实控件；未登记时会安全停止。详见[运行手册](docs/operations.md#个人微信-uia-登记与分阶段上线)。
 
+微信 4.x 可先用审计过的 pywechat selector 子集执行只读兼容性探测；该命令不会导入上游
+PyAutoGUI/剪贴板动作，也不会点击、输入或发送：
+
+```powershell
+uv run lemonbot uia pywechat-probe --process-name Weixin.exe
+```
+
 配置中的 `stage` 只是管理员请求的上限。实际阶段还受 lab 数据库中的持久化门禁约束，首次
 运行和任何登记指纹变化都会回到 `observe`。每次只允许晋级一级：
 
@@ -89,8 +101,8 @@ Credential Manager、配置或日志。删除命令只存在于管理员 CLI，�
 停止服务并人工核对真实会话后，可使用 `lemonbot outbox unknown` 和
 `lemonbot outbox resolve` 关闭不确定记录；该流程不会把记录重新排队。
 
-更多部署和威胁模型见 [docs/operations.md](docs/operations.md) 与
-[docs/security.md](docs/security.md)。
+更多部署和威胁模型见 [docs/operations.md](docs/operations.md)、
+[docs/security.md](docs/security.md) 与 [docs/research-handoff.md](docs/research-handoff.md)。
 
 ## 开发
 

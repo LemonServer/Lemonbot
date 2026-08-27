@@ -38,6 +38,7 @@ vision = [
 windows = [
   "pystray>=0.19.5,<1; sys_platform == 'win32'",
   "pywin32>=311; sys_platform == 'win32'",
+  "pywinauto>=0.6.9,<0.7; sys_platform == 'win32'",
   "uiautomation>=2.0.29,<3; sys_platform == 'win32'",
 ]
 dev = [

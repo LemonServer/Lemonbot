@@ -1,5 +1,10 @@
 # Lemonbot 2026 重构计划（DeepSeek API 优先）
 
+> 历史基线说明（2026-08-27）：本文保留最初获批的绿地重构方案。核心架构和安全边界仍然
+> 有效，但“企业微信作为生产通道”和“Windows 个人微信 UIA 为主要实验路线”已被后续实证
+> 调整。当前通道结论、Windows 失败实验和 Linux AT-SPI 下一步见
+> [`docs/research-handoff.md`](docs/research-handoff.md)。
+
 ## 总体方案
 
 将现有代码视为原型并进行绿地重构，目标是在 Windows 11 x64 虚拟机中运行一个具备长期记忆、网页访问、图片理解和受控工具调用能力的自主聊天代理。

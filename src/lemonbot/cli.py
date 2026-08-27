@@ -131,6 +131,30 @@ def uia_inspect(
     typer.echo(json.dumps(result, ensure_ascii=True, sort_keys=True))
 
 
+@uia_app.command("pywechat-probe")
+def uia_pywechat_probe(
+    process_name: str = typer.Option(
+        "Weixin.exe",
+        "--process-name",
+        help="Weixin.exe for WeChat 4.x; WeChat.exe for older clients",
+    ),
+    max_nodes: int = typer.Option(5_000, "--max-nodes", min=100, max=20_000),
+) -> None:
+    """Run a sanitized, read-only probe using audited pywechat 4.x selectors."""
+    try:
+        from lemonbot.connectors.pywechat_probe import probe_pywechat_surface
+
+        report = probe_pywechat_surface(
+            expected_process_name=process_name,
+            max_nodes=max_nodes,
+        )
+    except Exception as exc:
+        # Never echo UIA exception text: it can include contact or message text.
+        typer.echo(f"pywechat 只读探测失败：{type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(report.safe_dict(), ensure_ascii=True, sort_keys=True))
+
+
 @uia_app.command("promote")
 def uia_promote(
     target: str = typer.Option(..., "--to", help="Next stage: draft, reply, or proactive"),

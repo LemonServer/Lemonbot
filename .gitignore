@@ -9,6 +9,7 @@ htmlcov/
 .venv/
 .venv*/
 .uv-cache/
+.vendor-review/
 dist/
 build/
 

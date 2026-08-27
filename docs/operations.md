@@ -2,6 +2,10 @@
 
 ## 推荐部署
 
+> 本手册描述当前 Windows 实现。聊天通道的最新研发决策和 Linux AT-SPI 实验计划见
+> [研发沿革与工程交接](research-handoff.md)；在该探针通过前，不要把本文的 Windows UIA
+> 登记步骤理解为当前推荐的个人微信上线方案。
+
 - Windows 11 x64 虚拟机，Python 3.12 x64。
 - 固定时区 `Asia/Shanghai`，开启系统更新和磁盘加密。
 - UIA 实验需要交互桌面保持解锁、固定 DPI/分辨率并禁用休眠；不要使用生产微信账号。
@@ -12,7 +16,8 @@
 1. `lemonbot doctor` 全部必需检查通过。
 2. 在 Credential Manager 中配置对应 profile 的密钥。
 3. 云 API 的价格、每日和月度硬上限均为正数后，才能设置 `budget.enabled=true`。
-4. 先使用 `fake` 连接器验证，再启用企业微信；个人微信从 `observe` 开始。
+4. 先使用 `fake` 连接器验证。企业微信只在明确选择企业场景时启用；Windows 个人微信动作
+   研发当前暂停，若保留实验必须从 `observe` 开始。
 5. 备份 `prod.db`、`lab.db` 与对象目录，执行一次恢复演练。
 
 ## 个人微信 UIA 登记与分阶段上线
@@ -20,6 +25,34 @@
 个人微信自动化只用于 `profile = "lab"` 的独立测试号。它不能保证零封号风险，也不使用
 Hook、注入、协议逆向、客户端降级或风控规避。微信出现登录验证、锁屏、升级、同名会话、
 控件漂移或目标不唯一时，应保持停止状态，不要通过放宽选择器继续运行。
+
+### 微信 4.x 的 pywechat 只读兼容性探测
+
+微信 4.x 可能只向普通 UIA 客户端暴露 `Qt*QWindowIcon` 和
+`MMUIRenderSubWindowHW` 外壳。Lemonbot 提供一个只读探测命令，使用审计并固定到
+`wuchaooooo/pywechat-windows-ui-auto` 提交
+`363f9139abd419c1289a27391890c62112589030` 的控件结构：
+
+```powershell
+uv run lemonbot uia pywechat-probe --process-name Weixin.exe
+```
+
+命令不会激活窗口、点击、输入、读取微信数据库或操作剪贴板；输出只包含节点数、固定
+selector 的匹配数和结构哈希，不包含账号、联系人、群名、消息或草稿正文。不要直接安装或
+导入上游整包：其动作路径会使用 PyAutoGUI、全局键盘、坐标点击、系统剪贴板并禁用鼠标角落
+急停，不符合 Lemonbot 的门禁。
+
+如果初次结果为 `accessibility_tree_not_exposed`，只能在独立测试号虚拟机中做以下可逆实验：
+
+1. 完全退出微信，确认没有 `Weixin.exe` 进程。
+2. 启动 Windows 讲述人，再启动并登录微信。
+3. 保持桌面解锁和讲述人运行至少 5 分钟，不操作联系人或发送消息。
+4. 再次运行只读探测，随后关闭讲述人。
+5. 只有结果至少为 `pywechat_read_surface_visible`，才可开始登记 selector；
+   `pywechat_action_surface_visible` 也只表示控件可见，不会自动解锁草稿或发送。
+
+客户端升级或重新登录后必须重新执行探测。该可访问性行为不是微信官方接口，任何时候失效
+都应回退到停止状态，不得改用坐标或剪贴板绕过。
 
 ### 登记环境
 
