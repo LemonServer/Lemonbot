@@ -39,7 +39,7 @@ Lemonbot 起源于 2024 年的个人微信 AI 插件。目标不是做客服群�
 
 ## 当前工程已经具备什么
 
-截至 2026-08-29 实验环境的基线提交为 `670d165`（`develop0827`）。现有工程不是 2024 原型的简单
+2026-08-29 的 Linux 部署成果已在 `188ae10` 提交。现有工程不是 2024 原型的简单
 修补，而是已经完成绿地重构的大部分基础设施：
 
 - 持久化 inbox/outbox、单会话 FIFO、去重、审计和崩溃恢复。
@@ -377,41 +377,14 @@ Lemonbot core
 - 不要把显示名当稳定 `chat_id`；同名时必须拒绝。
 - 不要因企业微信代码已经完成而把它重新定义成个人微信的等价产品。
 
-## 当前工作树和验证状态
+## 当前提交和验证状态
 
-2026-08-29 的 Linux VM 基线为 `670d165`，部署工作树包含尚未提交的 Linux 兼容与探针变更：
+Linux AT-SPI 探针、跨平台 worker 修复、Linux Secret Service、systemd 单元、Ubuntu CI、测试
+及本文档已提交为 `188ae10`。本地与 Linux VM 的成果文件在提交前逐文件校验 SHA-256 一致；
+整合完成后两个工作树都应保持 clean 并指向同一 `main`。
 
-```text
-M  .github/workflows/ci.yml
-M  README.md
-M  docs/operations.md
-M  docs/research-handoff.md
-M  src/lemonbot/cli.py
-M  src/lemonbot/doctor.py
-M  src/lemonbot/models/vision_worker.py
-M  src/lemonbot/models/vision_worker_proxy.py
-M  src/lemonbot/models/worker.py
-M  src/lemonbot/models/worker_proxy.py
-M  src/lemonbot/runtime.py
-M  src/lemonbot/security/__init__.py
-M  src/lemonbot/security/secrets.py
-M  src/lemonbot/supervisor/processes.py
-M  src/lemonbot/tools/browser_worker_proxy.py
-M  tests/security/test_mcp.py
-M  tests/security/test_secret_isolation.py
-M  pyproject.toml
-M  uv.lock
-?? src/lemonbot/connectors/linux_atspi_probe.py
-?? tests/unit/test_linux_atspi_probe.py
-?? tests/unit/test_supervisor_paths.py
-?? PLAN_linux.md
-?? deploy/systemd/lemonbot-wechat-accessible.service
-```
-
-这些改动属于当前研发成果，不应被 `git reset --hard` 或覆盖。最后一次 Linux 完整验证结果为
 最终 Linux 回归为 236 passed、11 个 Windows 专属测试 skipped；Windows 回归为 243 passed、
-4 skipped。Ruff 与变更源码 mypy 检查通过。
-变更源码的 mypy 检查通过；接手后仍应在自己的 checkout 重新运行：
+4 skipped。Ruff 与变更源码 mypy 检查通过。接手后仍应在自己的 checkout 重新运行：
 
 ```powershell
 uv sync --all-extras --locked
