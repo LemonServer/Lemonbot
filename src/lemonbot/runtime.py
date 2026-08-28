@@ -60,7 +60,7 @@ from lemonbot.policy import DeterministicPolicy, PolicyConfig, RateLimitProfile
 from lemonbot.proactive import ProactiveJobStore, ProactiveRunner
 from lemonbot.runtime_lock import RuntimeLock
 from lemonbot.security.redaction import configure_logging
-from lemonbot.security.secrets import NamespacedSecretStore, WindowsCredentialStore
+from lemonbot.security.secrets import NamespacedSecretStore, platform_secret_store
 from lemonbot.storage import CoreRepository, Database
 from lemonbot.storage.migrate import upgrade_database
 from lemonbot.supervisor import WorkerSupervisor
@@ -494,7 +494,7 @@ class LemonbotRuntime:
             )
 
     def _credential_store(self) -> NamespacedSecretStore:
-        return NamespacedSecretStore(WindowsCredentialStore(), self.settings.profile)
+        return NamespacedSecretStore(platform_secret_store(), self.settings.profile)
 
     async def _build_connector(self) -> Connector:
         selected = self.settings.runtime.connector

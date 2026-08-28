@@ -113,7 +113,9 @@ class IsolatedModelBackend:
         rpc_timeout_seconds: float | None = None,
     ) -> IsolatedModelBackend:
         selected_supervisor = supervisor or WorkerSupervisor()
-        executable = (python_executable or Path(sys.executable)).resolve(strict=True)
+        # Keep a POSIX virtualenv's python symlink intact. WorkerSupervisor
+        # validates and absolutizes the path without resolving that symlink.
+        executable = python_executable or Path(sys.executable)
         working_directory = (cwd or Path.cwd()).resolve(strict=True)
         timeout = rpc_timeout_seconds or config.provider.timeout_seconds + 15
         if timeout <= 0 or timeout > 900:

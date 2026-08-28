@@ -1,3 +1,13 @@
-from lemonbot.security.secrets import SecretStore, WindowsCredentialStore
+from lemonbot.security.secrets import (
+    LinuxSecretServiceStore,
+    SecretStore,
+    WindowsCredentialStore,
+    platform_secret_store,
+)
 
-__all__ = ["SecretStore", "WindowsCredentialStore"]
+__all__ = [
+    "LinuxSecretServiceStore",
+    "SecretStore",
+    "WindowsCredentialStore",
+    "platform_secret_store",
+]

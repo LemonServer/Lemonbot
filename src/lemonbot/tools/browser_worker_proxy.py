@@ -62,7 +62,8 @@ class IsolatedBrowserReadTool:
         selected_supervisor = supervisor or WorkerSupervisor()
         worker = await selected_supervisor.spawn(
             f"browser-{uuid4().hex}",
-            (python_executable or Path(sys.executable)).resolve(strict=True),
+            # Keep a POSIX virtualenv's python symlink intact.
+            python_executable or Path(sys.executable),
             "-I",
             "-m",
             "lemonbot.tools.browser_worker",

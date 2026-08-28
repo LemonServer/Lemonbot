@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
+import psutil  # type: ignore[import-untyped]
 import typer
 from pydantic import ValidationError
 
@@ -24,10 +25,14 @@ from lemonbot.orchestration import EventPipeline, FakeModelBackend
 from lemonbot.policy import DeterministicPolicy
 from lemonbot.proactive import JobSource, ProactiveJob, ProactiveJobStore
 from lemonbot.runtime_lock import AlreadyRunningError, RuntimeLock
-from lemonbot.security.secrets import NamespacedSecretStore, WindowsCredentialStore
+from lemonbot.security.secrets import (
+    NamespacedSecretStore,
+    SecretStoreError,
+    platform_secret_store,
+)
 
 app = typer.Typer(no_args_is_help=True, help="Lemonbot 2026 local runtime")
-secret_app = typer.Typer(no_args_is_help=True, help="Manage Windows Credential Manager entries")
+secret_app = typer.Typer(no_args_is_help=True, help="Manage platform credential-store entries")
 schedule_app = typer.Typer(no_args_is_help=True, help="Manage bounded proactive jobs")
 uia_app = typer.Typer(
     no_args_is_help=True,
@@ -35,11 +40,13 @@ uia_app = typer.Typer(
 )
 data_app = typer.Typer(no_args_is_help=True, help="Offline administrator data operations")
 outbox_app = typer.Typer(no_args_is_help=True, help="Reconcile ambiguous outbound sends")
+channel_app = typer.Typer(no_args_is_help=True, help="Inspect and manage chat channels")
 app.add_typer(secret_app, name="secret")
 app.add_typer(schedule_app, name="schedule")
 app.add_typer(uia_app, name="uia")
 app.add_typer(data_app, name="data")
 app.add_typer(outbox_app, name="outbox")
+app.add_typer(channel_app, name="channel")
 
 ConfigOption = Annotated[
     Path | None,
@@ -54,8 +61,79 @@ SelectorBundleOption = Annotated[
         help="Override the selector bundle path from config for read-only enrollment",
     ),
 ]
+LinuxProbePidOption = Annotated[
+    list[int] | None,
+    typer.Option("--pid", help="Exact WeChat PID; repeatable"),
+]
+LinuxProbeMaxNodesOption = Annotated[
+    int,
+    typer.Option("--max-nodes", min=100, max=20_000),
+]
 
 _SECRET_NAMES = {"deepseek_api_key", "zhipu_api_key", "wecom_bot_secret"}
+
+
+@channel_app.command("linux-atspi-probe")
+def linux_atspi_probe(
+    pid: LinuxProbePidOption = None,
+    max_nodes: LinuxProbeMaxNodesOption = 10_000,
+) -> None:
+    """Run the sanitized, read-only AT-SPI probe with system Python."""
+    if not sys.platform.startswith("linux"):
+        typer.echo("Linux AT-SPI 探针只能在 Linux 图形会话中运行。", err=True)
+        raise typer.Exit(2)
+
+    target_pids = set(pid or [])
+    if not target_pids:
+        for process in psutil.process_iter(("pid", "name", "exe")):
+            try:
+                name = str(process.info.get("name") or "").casefold()
+                executable = str(process.info.get("exe") or "")
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                continue
+            if name in {"wechat", "weixin"} or executable == "/opt/wechat/wechat":
+                target_pids.add(int(process.info["pid"]))
+    if not target_pids or len(target_pids) > 16 or any(value <= 0 for value in target_pids):
+        typer.echo("未找到唯一可审计的微信进程集合；请使用 --pid 指定。", err=True)
+        raise typer.Exit(2)
+
+    system_python = Path("/usr/bin/python3")
+    helper = Path(__file__).with_name("connectors") / "linux_atspi_probe.py"
+    if not system_python.is_file() or not helper.is_file():
+        typer.echo("系统 Python 或 AT-SPI 探针文件不可用。", err=True)
+        raise typer.Exit(1)
+    command = [str(system_python), "-I", str(helper)]
+    for target_pid in sorted(target_pids):
+        command.extend(("--pid", str(target_pid)))
+    command.extend(("--max-nodes", str(max_nodes)))
+    allowed_environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key
+        in {
+            "DBUS_SESSION_BUS_ADDRESS",
+            "DISPLAY",
+            "LANG",
+            "LC_ALL",
+            "WAYLAND_DISPLAY",
+            "XDG_RUNTIME_DIR",
+        }
+    }
+    try:
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+            capture_output=True,
+            env=allowed_environment,
+            timeout=30,
+        )
+        report = json.loads(completed.stdout.decode("utf-8"))
+        if completed.returncode != 0 or not isinstance(report, dict):
+            raise ValueError("probe failed")
+    except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo("Linux AT-SPI 只读探测失败（输出已隐藏）。", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
 
 
 def _settings(config: Path | None):  # type: ignore[no-untyped-def]
@@ -547,17 +625,26 @@ def secret_set(
     if value != confirmation:
         typer.echo("两次输入不一致。", err=True)
         raise typer.Exit(2)
-    NamespacedSecretStore(WindowsCredentialStore(), profile).set(name, value)
-    typer.echo("密钥已写入 Windows Credential Manager。")
+    try:
+        NamespacedSecretStore(platform_secret_store(), profile).set(name, value)
+    except SecretStoreError:
+        typer.echo("安全凭据存储不可用或仍处于锁定状态。", err=True)
+        raise typer.Exit(1) from None
+    typer.echo("密钥已写入系统安全凭据存储。")
 
 
 @secret_app.command("status")
 def secret_status(profile: str = typer.Option("prod", "--profile")) -> None:
     if profile not in {"prod", "lab"}:
         raise typer.BadParameter("profile must be prod or lab")
-    store = NamespacedSecretStore(WindowsCredentialStore(), profile)
-    for name in sorted(_SECRET_NAMES):
-        typer.echo(f"{name}: {'configured' if store.get(name) is not None else 'missing'}")
+    try:
+        store = NamespacedSecretStore(platform_secret_store(), profile)
+        statuses = {name: store.get(name) is not None for name in sorted(_SECRET_NAMES)}
+    except SecretStoreError:
+        typer.echo("安全凭据存储不可用或仍处于锁定状态。", err=True)
+        raise typer.Exit(1) from None
+    for name, configured in statuses.items():
+        typer.echo(f"{name}: {'configured' if configured else 'missing'}")
 
 
 @secret_app.command("delete")
@@ -569,7 +656,11 @@ def secret_delete(
     if name not in _SECRET_NAMES or profile not in {"prod", "lab"} or not confirm:
         typer.echo("请指定有效名称/profile，并用 --confirm 确认删除凭据。", err=True)
         raise typer.Exit(2)
-    deleted = NamespacedSecretStore(WindowsCredentialStore(), profile).delete(name)
+    try:
+        deleted = NamespacedSecretStore(platform_secret_store(), profile).delete(name)
+    except SecretStoreError:
+        typer.echo("安全凭据存储不可用或仍处于锁定状态。", err=True)
+        raise typer.Exit(1) from None
     typer.echo("已删除。" if deleted else "该凭据不存在。")
 
 

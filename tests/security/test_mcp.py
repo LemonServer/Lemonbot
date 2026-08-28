@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, cast
 
@@ -18,6 +19,9 @@ from lemonbot.tools.mcp import (
     PinnedMCPServer,
     PinnedMCPTool,
 )
+
+_PINNED_DIRECTORY = Path("C:/pinned") if os.name == "nt" else Path("/opt/pinned")
+_PINNED_EXECUTABLE = _PINNED_DIRECTORY / "server.exe"
 
 
 class FakeWriter:
@@ -73,9 +77,9 @@ def client_with_tool_response(
     server = PinnedMCPServer(
         name="test",
         enabled=True,
-        executable=Path("C:/pinned/server.exe"),
+        executable=_PINNED_EXECUTABLE,
         executable_sha256="0" * 64,
-        working_directory=Path("C:/pinned"),
+        working_directory=_PINNED_DIRECTORY,
         expected_server_name="test-server",
         expected_server_version="1.0.0",
         tools={
@@ -93,9 +97,9 @@ def client_with_tool_response(
 def client_with_response(response: dict[str, Any]) -> MCPStdioClient:
     server = PinnedMCPServer(
         name="test",
-        executable=Path("C:/pinned/server.exe"),
+        executable=_PINNED_EXECUTABLE,
         executable_sha256="0" * 64,
-        working_directory=Path("C:/pinned"),
+        working_directory=_PINNED_DIRECTORY,
     )
     client = MCPStdioClient(server)
     client._process = cast(Any, FakeProcess(response))
@@ -312,9 +316,9 @@ async def test_mcp_start_uses_supervisor_and_checks_exact_server_version(tmp_pat
 def test_mcp_rejects_server_version_drift() -> None:
     server = PinnedMCPServer(
         name="catalog",
-        executable=Path("C:/pinned/server.exe"),
+        executable=_PINNED_EXECUTABLE,
         executable_sha256="0" * 64,
-        working_directory=Path("C:/pinned"),
+        working_directory=_PINNED_DIRECTORY,
         expected_server_name="catalog-server",
         expected_server_version="1.2.3",
     )

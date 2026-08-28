@@ -1,5 +1,31 @@
 # 运行手册
 
+## Linux 微信只读探针（实验）
+
+Ubuntu 24.04 本地图形会话已经验证官方微信 4.1.1.8 可暴露完整 AT-SPI 树。首先安装发行版
+组件 `python3-gi`、`gir1.2-atspi-2.0`、`at-spi2-core`，启用
+`org.gnome.desktop.interface toolkit-accessibility`，并在微信启动环境中设置
+`QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1`。登录独立测试账号后运行：
+
+```bash
+uv run lemonbot channel linux-atspi-probe
+```
+
+探针固定使用 `/usr/bin/python3 -I`，仅继承 D-Bus/显示/locale 所需环境变量。它不输出可见
+文本、不读取微信数据库、不点击、不输入且不发送。`match_count=1`、节点数显著大于 1、存在
+`Text`/`EditableText` 只能证明读取路径可行，不能证明目标身份或发送安全。当前不得启动
+Linux 自动回复；下一步须先完成事件、消息方向、群发送者和稳定会话身份验证。
+
+Linux 模型密钥存入图形会话的 Freedesktop Secret Service。先确认默认 keyring 已由登录解锁，
+再在 VM 本机终端执行 `uv run lemonbot secret set deepseek_api_key --profile lab`。服务不会主动
+显示解锁提示；keyring 锁定或 D-Bus 服务不可用时会安全停止，不回退到环境变量或 TOML。
+
+仓库中的 `deploy/systemd/lemonbot-wechat-accessible.service` 是当前实验启动单元。它只为微信设置
+accessibility 环境并施加基础资源/权限限制，不启动 Lemonbot core，也不授予动作能力。部署时
+把它复制到 `~/.config/systemd/user/` 后执行 `systemctl --user daemon-reload` 和
+`systemctl --user enable lemonbot-wechat-accessible.service`；不要启用 linger，图形会话结束后应停止。
+首次切换启动方式可能要求重新登录微信，应由管理员在场完成，不要用脚本反复尝试登录。
+
 ## 推荐部署
 
 > 本手册描述当前 Windows 实现。聊天通道的最新研发决策和 Linux AT-SPI 实验计划见
@@ -275,7 +301,7 @@ uv run lemonbot outbox resolve <item-id> --as dead `
 ## 事故处理
 
 - 误发风险：立即点击托盘“紧急停止”，保留数据库和日志，不删除 `unknown` outbox。
-- API Key 泄漏：在供应商控制台撤销，然后更新 Credential Manager；不要只修改配置。
+- API Key 泄漏：在供应商控制台撤销，然后更新系统安全凭据存储；不要只修改配置。
 - 个人微信风控：停止实验 worker，不重试登录或尝试绕过验证。
 - 磁盘不足：系统会暂停大附件；扩容或显式导出后由管理员决定删除，程序不自动清理。
 - `dispatching` 状态崩溃：重启后标记 `unknown`，由管理员核对真实会话后处理。
@@ -305,8 +331,9 @@ uv run lemonbot outbox resolve <item-id> --as dead `
 
 ## CI 与密钥门禁
 
-`.github/workflows/ci.yml` 使用 Windows Server 2025、Python 3.12 和锁定版本的 `uv`，执行
-`uv sync --all-extras --locked`、pytest、Ruff 与 mypy。第三方 Actions 均固定为完整提交
+`.github/workflows/ci.yml` 使用 Windows Server 2025 与 Ubuntu 24.04、Python 3.12 和锁定版本
+的 `uv`。两端都执行锁定安装、pytest 与 Ruff；mypy 暂由装有 Win32 类型依赖的 Windows job
+执行。第三方 Actions 均固定为完整提交
 SHA，以减少可变标签带来的供应链风险。
 
 Gitleaks 作业故意只检出和扫描当前 revision。旧原型的 Git 历史按项目约定不改写，不能

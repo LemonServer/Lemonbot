@@ -8,6 +8,20 @@ from pathlib import Path
 from lemonbot.supervisor.windows_job import WindowsJobObject
 
 
+def _absolute_executable(path: Path) -> Path:
+    """Validate an executable without resolving a virtualenv symlink.
+
+    POSIX virtual environments normally expose ``bin/python`` as a symlink.
+    Resolving it changes Python's executable location to ``/usr/bin`` and
+    silently disables the virtual environment for the child process.
+    """
+
+    absolute = Path(os.path.abspath(path.expanduser()))
+    if not absolute.is_file():
+        raise ValueError("worker executable is invalid")
+    return absolute
+
+
 @dataclass(slots=True)
 class WorkerProcess:
     name: str
@@ -51,9 +65,9 @@ class WorkerSupervisor:
     ) -> WorkerProcess:
         if name in self._workers:
             raise ValueError(f"worker already exists: {name}")
-        executable = executable.resolve(strict=True)
+        executable = _absolute_executable(executable)
         cwd = cwd.resolve(strict=True)
-        if not executable.is_file() or not cwd.is_dir():
+        if not cwd.is_dir():
             raise ValueError("worker executable or working directory is invalid")
         if stream_limit_bytes < 1024 or stream_limit_bytes > 8 * 1024 * 1024:
             raise ValueError("worker stream limit is outside the safe range")

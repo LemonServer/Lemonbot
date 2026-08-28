@@ -13,7 +13,7 @@ from lemonbot.config import AppSettings, RuntimePaths
 from lemonbot.security.secrets import (
     NamespacedSecretStore,
     SecretStoreError,
-    WindowsCredentialStore,
+    platform_secret_store,
 )
 from lemonbot.tools.attachments import DEFAULT_MINIMUM_FREE_BYTES
 
@@ -34,8 +34,14 @@ def run_checks(settings: AppSettings, paths: RuntimePaths) -> list[Check]:
             platform.python_version(),
         ),
         Check(
-            "windows",
-            os.name == "nt" and platform.release() in {"10", "11"},
+            "platform",
+            (
+                os.name == "nt" and platform.release() in {"10", "11"}
+            )
+            or (
+                sys.platform.startswith("linux")
+                and platform.machine().casefold() in {"x86_64", "amd64"}
+            ),
             f"{platform.system()} {platform.release()} ({platform.machine()})",
         ),
         Check(
@@ -157,7 +163,7 @@ def _playwright_check() -> Check:
 
 def _credential_check(profile: str, name: str) -> Check:
     try:
-        store = NamespacedSecretStore(WindowsCredentialStore(), profile)
+        store = NamespacedSecretStore(platform_secret_store(), profile)
         configured = store.get(name) is not None
         return Check(f"credential:{name}", configured, "configured" if configured else "missing")
     except SecretStoreError as exc:

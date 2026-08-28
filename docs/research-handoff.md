@@ -1,9 +1,9 @@
 # Lemonbot 研发沿革、通道决策与工程交接
 
-> 最后更新：2026-08-27（Asia/Shanghai）  
-> 文档性质：当前通道研发的单一交接入口  
+> 最后更新：2026-08-29（Asia/Shanghai）
+> 文档性质：当前通道研发的单一交接入口
 > 当前结论：核心代理框架可继续使用；企业微信不符合最终聊天目标；Windows 个人微信 UIA
-> 已被可访问性层阻塞；下一条优先研发路线是官方 Linux 微信的纯 AT-SPI 自动化。
+> 已被可访问性层阻塞；官方 Linux 微信已经通过第一阶段纯 AT-SPI 只读可行性验证。
 
 ## 先读这里
 
@@ -39,7 +39,7 @@ Lemonbot 起源于 2024 年的个人微信 AI 插件。目标不是做客服群�
 
 ## 当前工程已经具备什么
 
-截至当前 `main` 的基线提交为 `41df66b`（“修复workflow”）。现有工程不是 2024 原型的简单
+截至 2026-08-29 实验环境的基线提交为 `670d165`（`develop0827`）。现有工程不是 2024 原型的简单
 修补，而是已经完成绿地重构的大部分基础设施：
 
 - 持久化 inbox/outbox、单会话 FIFO、去重、审计和崩溃恢复。
@@ -168,6 +168,43 @@ connector event
 触发风控的[报告](https://github.com/thisnick/agent-wechat/issues/168)。它只能作为 AT-SPI
 结构和状态机的研究证据，不能作为未经审计的运行时依赖，也不能直接拉取 `latest` 镜像运行。
 
+### 2026-08-29 Linux 实机部署验证
+
+已在用户提供的 Ubuntu 24.04.3 x86_64 桌面 VM（`/home/lemon/Lemonbot`）完成第一阶段部署。
+实验使用官方 `wechat 4.1.1.8`，真实可执行文件为 `/opt/wechat/wechat`，SHA-256 为
+`1630e2bf9ad852e4fca938bb83f99c40d5d8acecdd09b6aa4aac53df761377cf`。未安装或运行 Frida、
+Hook、数据库读取、坐标点击或剪贴板动作。
+
+实测图形会话是 GNOME Wayland，而不是原计划的 Xorg。启用 GNOME toolkit accessibility 并仅为
+微信设置 `QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1` 后，AT-SPI 能稳定看到微信主应用。项目已新增：
+
+```bash
+uv run lemonbot channel linux-atspi-probe
+```
+
+该命令使用系统 `/usr/bin/python3 -I` 运行无动作面的独立探针，只继承图形会话所需环境变量；
+不会把模型密钥、联系人名或消息正文传给探针，也不会点击、聚焦、输入或发送。首次实测结果：
+
+- 匹配一个微信 AT-SPI application，PID 7721；共 535 个节点，最大深度 19，无遍历错误。
+- 6 个 list、9 个 list item、3 个 text/EditableText、162 个 push button 和 6 个 scrollbar。
+- 固定词表检测到会话列表标签 1 个、搜索标签 3 个、发送标签 2 个。
+- 去除全部可见文本后的结构签名为
+  `247ceda575a87a49e3118d3aa7e87ebad9f72acbf6c37b51d3470a29a2a9d47b`。
+
+这回答了第一个问题：Linux 微信不是空壳窗口，并具备继续研究消息结构、事件和草稿的基础。
+它尚未回答发送者/方向、稳定会话 ID、事件可靠性和发送回执问题，因此当前能力仍严格停留在
+`observe probe`，不能连接模型、生成回复或执行发送。
+
+部署时还发现并修复了一个通用 Linux 问题：worker supervisor 原先会解析虚拟环境的 Python
+符号链接，导致子进程实际从 `/usr/bin/python3.12` 启动并丢失 `.venv`。修复后保留符号链接和
+`-I` 隔离，浏览器/模型 worker 集成测试恢复。Linux 完整回归为 234 passed、11 个 Windows
+专属测试跳过；本地 Windows 回归为 241 passed、4 skipped。
+
+随后已加入平台密钥工厂：Windows 保持 Credential Manager，Linux 使用 SecretStorage 3.5
+对接 Freedesktop Secret Service。Linux 只接受已解锁的默认 collection；服务不可用或锁定时
+fail closed，不显示后台解锁提示，不回退环境变量或明文文件。真实 DeepSeek key 尚未由部署
+人员提供，因此没有写入或测试任何云凭据，云模型仍保持关闭。
+
 ## Windows 实验的已确认结果
 
 ### 实验环境和现象
@@ -215,41 +252,41 @@ Windows 通道可用。
 | Windows 个人微信 UIA | 暂停 | 当前账号只暴露 7 个外壳节点 | 保留探针和门禁，不再投入动作适配 |
 | Windows OCR/坐标 | 拒绝 | 目标无法可靠证明，误发风险高 | 不实现 |
 | WCFerry/Hook/协议逆向 | 拒绝 | 封号、升级和安全边界冲突 | 不实现 |
-| Linux 纯 AT-SPI | 优先验证 | Qt/AT-SPI 有结构化控件证据 | 先做只读探针 |
+| Linux 纯 AT-SPI | 只读探针已通过 | 实机暴露 535 个结构化节点和关键控件 | 验证事件、消息方向与稳定身份 |
 | Linux AT-SPI + Frida/DB | 拒绝 | 需要 ptrace、密钥提取和逆向数据库 | 不采用完整项目 |
 
 不要删除 Windows 连接器、企业微信连接器或已有门禁。它们仍是测试资产，也为未来微信重新
 开放可访问性树或用户选择企业部署保留路径。新增 Linux 通道时应复用 `Connector`、策略、
 outbox 和四阶段门禁，而不是另起一个绕过核心的机器人进程。
 
-## 下一位工程师的第一项任务：Linux 只读可行性探针
+## 下一位工程师的第一项任务：Linux 事件与消息语义探针
 
 ### 实验环境
 
 建议首次实验使用：
 
 - Ubuntu 24.04 LTS x86_64 虚拟机。
-- 正常 GNOME Xorg 图形会话；首轮不要使用 Wayland、Docker、Xvfb、VNC 或云服务器。
+- 当前已验证 GNOME Wayland 可读取完整树；继续使用同一已登记本地图形会话，不切换 Xorg、
+  Docker、Xvfb、VNC 或云服务器，避免同时改变多个变量。
 - 从 `https://linux.weixin.qq.com/` 获取的官方 Linux 微信安装包，不使用未知镜像或
   第三方重打包；记录版本和安装包 SHA-256。
 - 独立测试微信账号、正常住宅/办公网络、固定时区 `Asia/Shanghai`。
 - 不安装 Frida，不授予 `SYS_PTRACE`/`NET_ADMIN`，不读取或解密微信数据库。
 
-选择 Xorg 是为了减少 Wayland 对合成输入和窗口控制的额外限制；它不是要求永久停留在 Xorg。
-待 AT-SPI 读取路径成立后，再单独评估 Wayland。
+早期计划优先 Xorg 是为了减少变量；实机 Wayland 已证明读取路径成立。Wayland 下的动作路径
+仍未验证，不应从“可读”推断为“可安全发送”。
 
 ### 探针边界
 
-建议新增命令名：
+现有只读快照命令：
 
 ```bash
 lemonbot channel linux-atspi-probe
 ```
 
-第一版只能：
+下一版仍然只能：
 
-- 枚举微信进程、顶层 frame、控件 role、state、action 和结构关系。
-- 计算去除可见文本后的结构签名。
+- 复用现有进程、控件 role/interface/action 计数和无文本结构签名。
 - 订阅 AT-SPI 的 window、children、text、state 和 property change 事件。
 - 报告固定控件是否存在，不输出联系人、群名、消息或草稿正文。
 
@@ -270,7 +307,7 @@ lemonbot channel linux-atspi-probe
 
 探针完成后需要用脱敏 JSON 和人工观察回答：
 
-1. 微信是否稳定暴露完整 AT-SPI 应用树，而不是只有顶层 frame。
+1. 微信是否稳定暴露完整 AT-SPI 应用树，而不是只有顶层 frame。**已初步回答：是。**
 2. 是否存在会话列表、当前聊天标题、消息列表、输入框和发送按钮。
 3. 新消息到来时是否产生可订阅事件，还是必须低频重新扫描。
 4. 私聊消息是否能区分自己/对方，群聊是否能得到发送者。
@@ -321,8 +358,8 @@ Lemonbot core
 
 需要重新设计而不是照搬 Windows 的部分：
 
-- Windows Credential Manager/DPAPI 应替换为 Linux Secret Service/libsecret 或独立受限密钥
-  worker；密钥仍不得进入 TOML、数据库和日志。
+- 平台密钥工厂已经实现：Windows Credential Manager / Linux Secret Service。后续仍需验证
+  keyring 锁定、图形会话结束和 worker 隔离时的故障行为；密钥不得进入 TOML、数据库和日志。
 - Windows Job Object 应替换为 systemd user service、独立用户/组、`NoNewPrivileges`、资源
   限制和最小文件系统权限。
 - `pystray`、Win32 锁屏/进程/文件身份检查需要 Linux 等价实现。
@@ -342,23 +379,39 @@ Lemonbot core
 
 ## 当前工作树和验证状态
 
-编写本文时工作树包含尚未提交的 Windows pywechat 只读探针相关变更：
+2026-08-29 的 Linux VM 基线为 `670d165`，部署工作树包含尚未提交的 Linux 兼容与探针变更：
 
 ```text
-M  .gitignore
-M  PLAN.md
+M  .github/workflows/ci.yml
 M  README.md
 M  docs/operations.md
-M  pyproject.toml
+M  docs/research-handoff.md
 M  src/lemonbot/cli.py
+M  src/lemonbot/doctor.py
+M  src/lemonbot/models/vision_worker.py
+M  src/lemonbot/models/vision_worker_proxy.py
+M  src/lemonbot/models/worker.py
+M  src/lemonbot/models/worker_proxy.py
+M  src/lemonbot/runtime.py
+M  src/lemonbot/security/__init__.py
+M  src/lemonbot/security/secrets.py
+M  src/lemonbot/supervisor/processes.py
+M  src/lemonbot/tools/browser_worker_proxy.py
+M  tests/security/test_mcp.py
+M  tests/security/test_secret_isolation.py
+M  pyproject.toml
 M  uv.lock
-?? docs/research-handoff.md
-?? src/lemonbot/connectors/pywechat_probe.py
-?? tests/unit/test_pywechat_probe.py
+?? src/lemonbot/connectors/linux_atspi_probe.py
+?? tests/unit/test_linux_atspi_probe.py
+?? tests/unit/test_supervisor_paths.py
+?? PLAN_linux.md
+?? deploy/systemd/lemonbot-wechat-accessible.service
 ```
 
-这些改动属于当前研发成果，不应被 `git reset --hard` 或覆盖。最后一次完整验证结果为
-`238 passed, 3 skipped`，变更源码的 mypy 检查通过；接手后仍应在自己的 checkout 重新运行：
+这些改动属于当前研发成果，不应被 `git reset --hard` 或覆盖。最后一次 Linux 完整验证结果为
+最终 Linux 回归为 236 passed、11 个 Windows 专属测试 skipped；Windows 回归为 243 passed、
+4 skipped。Ruff 与变更源码 mypy 检查通过。
+变更源码的 mypy 检查通过；接手后仍应在自己的 checkout 重新运行：
 
 ```powershell
 uv sync --all-extras --locked

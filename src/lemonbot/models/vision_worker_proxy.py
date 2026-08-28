@@ -96,7 +96,8 @@ class IsolatedVisionBackend:
         rpc_timeout_seconds: float | None = None,
     ) -> IsolatedVisionBackend:
         selected_supervisor = supervisor or WorkerSupervisor()
-        executable = (python_executable or Path(sys.executable)).resolve(strict=True)
+        # Keep a POSIX virtualenv's python symlink intact.
+        executable = python_executable or Path(sys.executable)
         working_directory = (cwd or Path.cwd()).resolve(strict=True)
         timeout = rpc_timeout_seconds or config.provider.timeout_seconds + 30
         if timeout <= 0 or timeout > 900:

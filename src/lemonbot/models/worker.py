@@ -45,7 +45,7 @@ from lemonbot.security.model_secrets import AsyncSecretStoreAdapter
 from lemonbot.security.secrets import (
     NamespacedSecretStore,
     SecretStoreError,
-    WindowsCredentialStore,
+    platform_secret_store,
 )
 
 
@@ -66,7 +66,7 @@ async def _build_backend(config: ModelWorkerConfig) -> _WorkerBackend:
     if provider.secret_name is None:
         secret_store = MappingSecretStore({})
     else:
-        credential_store = NamespacedSecretStore(WindowsCredentialStore(), config.profile)
+        credential_store = NamespacedSecretStore(platform_secret_store(), config.profile)
         secret_store = AsyncSecretStoreAdapter(credential_store)
     zero = ModelPrice(Decimal(0), Decimal(0))
     budget = BudgetManager(

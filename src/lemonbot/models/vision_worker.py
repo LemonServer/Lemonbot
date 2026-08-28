@@ -50,7 +50,7 @@ from lemonbot.security.model_secrets import AsyncSecretStoreAdapter
 from lemonbot.security.secrets import (
     NamespacedSecretStore,
     SecretStoreError,
-    WindowsCredentialStore,
+    platform_secret_store,
 )
 from lemonbot.tools.object_store import ObjectStoreError
 from lemonbot.tools.vision import ImagePreprocessor, ImageRejected, PreparedImage, RapidOCRReader
@@ -82,7 +82,7 @@ class VisionWorkerRuntime:
         )
         self._ocr = RapidOCRReader()
         if adapter is None:
-            credentials = NamespacedSecretStore(WindowsCredentialStore(), config.profile)
+            credentials = NamespacedSecretStore(platform_secret_store(), config.profile)
             secret_store = AsyncSecretStoreAdapter(credentials)
             zero = ModelPrice(Decimal(0), Decimal(0))
             budget = BudgetManager(

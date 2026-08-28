@@ -1,8 +1,8 @@
 # Lemonbot 2026
 
-> 通道研发状态（2026-08-27）：企业微信不符合最终的个人聊天目标；现代 Windows 微信在
-> 当前测试账号上没有暴露可用 UIA 树，相关动作研发已暂停；下一条优先路线是官方 Linux
-> 微信的纯 AT-SPI 只读验证。完整证据、历史、禁止重复的实验和接手步骤见
+> 通道研发状态（2026-08-29）：企业微信不符合最终的个人聊天目标；现代 Windows 微信在
+> 当前测试账号上没有暴露可用 UIA 树。官方 Linux 微信 4.1.1.8 已在 Ubuntu 24.04 Wayland
+> 上通过纯 AT-SPI 只读快照验证，但消息语义和发送路径尚未开放。完整证据和接手步骤见
 > [研发沿革与工程交接](docs/research-handoff.md)。
 
 Lemonbot 当前实现是一个面向 Windows 11 x64 的、能力受控的自主聊天代理。它以 DeepSeek
@@ -35,7 +35,8 @@ Copy-Item config/lemonbot.example.toml "$env:LOCALAPPDATA\Lemonbot\config.toml"
 uv run lemonbot doctor
 ```
 
-密钥不会写入 TOML。使用 Windows Credential Manager：
+密钥不会写入 TOML。Windows 使用 Credential Manager；Linux 使用已由图形登录解锁的
+Freedesktop Secret Service，后台进程不会弹出解锁提示或退回明文文件：
 
 ```powershell
 uv run lemonbot secret set deepseek_api_key
@@ -113,9 +114,22 @@ uv run ruff check .
 uv run mypy src
 ```
 
-GitHub CI 在 Windows Server 2025 / Python 3.12 上按 `uv.lock` 安装并执行同一组检查；
+GitHub CI 在 Windows Server 2025 和 Ubuntu 24.04 / Python 3.12 上按 `uv.lock` 安装并执行
+pytest 与 Ruff；mypy 由 Windows job 执行。
 另有只扫描当前检出树的 Gitleaks 作业。旧 Git 历史按约定不改写，因此历史审计与当前树
 门禁应分开理解。
 
 旧版原型中的密钥、私钥、浏览器扩展、驱动和日志已从当前工作树移除；按项目约定未改写
 旧 Git 历史。旧凭据即使已失效，也不应再次使用。
+
+## Linux 微信只读探针
+
+Ubuntu 24.04 安装发行版的 `python3-gi`、`gir1.2-atspi-2.0` 和 `at-spi2-core`，为官方微信
+启用 Qt accessibility 后，可在本地图形会话执行：
+
+```bash
+uv run lemonbot channel linux-atspi-probe
+```
+
+命令只输出结构、接口和固定控件计数，不输出聊天文本，也不执行任何动作。当前它只是
+connector 上线前的 `observe` 探针，不会接入 DeepSeek 或发送微信消息。

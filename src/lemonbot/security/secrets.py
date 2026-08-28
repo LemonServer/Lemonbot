@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import ctypes
+import importlib
 import os
+import sys
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from ctypes import wintypes
 from dataclasses import dataclass
+from typing import Any
 
 
 class SecretStoreError(RuntimeError):
@@ -77,6 +81,120 @@ class EnvironmentSecretStore(SecretStore):
 
     def delete(self, name: str) -> bool:
         raise SecretStoreError("environment store is read-only")
+
+
+class LinuxSecretServiceStore(SecretStore):
+    """Stores secrets in the unlocked Freedesktop Secret Service collection.
+
+    Lemonbot never opens an unlock prompt from a background process. The
+    graphical login must already have unlocked the default collection.
+    """
+
+    _APPLICATION = "org.lemonbot.Lemonbot"
+    _MAX_SECRET_BYTES = 5120
+
+    @staticmethod
+    def _module() -> Any:
+        try:
+            return importlib.import_module("secretstorage")
+        except ImportError:
+            raise SecretStoreError("Linux Secret Service support is not installed") from None
+
+    def _with_collection(self, operation: Callable[[Any], object]) -> object:
+        if not sys.platform.startswith("linux"):
+            raise SecretStoreError("Linux Secret Service is only available on Linux")
+        secretstorage = self._module()
+        connection = None
+        try:
+            connection = secretstorage.dbus_init()
+            if not secretstorage.check_service_availability(connection):
+                raise SecretStoreError("Linux Secret Service is unavailable")
+            collection = secretstorage.get_collection_by_alias(connection, "default")
+            if collection.is_locked():
+                raise SecretStoreError("Linux Secret Service default collection is locked")
+            return operation(collection)
+        except SecretStoreError:
+            raise
+        except Exception:
+            raise SecretStoreError("Linux Secret Service operation failed") from None
+        finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    raise SecretStoreError(
+                        "Linux Secret Service connection cleanup failed"
+                    ) from None
+
+    @classmethod
+    def _attributes(cls, name: str) -> dict[str, str]:
+        _validate_name(name)
+        return {"application": cls._APPLICATION, "credential": name}
+
+    def get(self, name: str) -> str | None:
+        attributes = self._attributes(name)
+
+        def read(collection: Any) -> str | None:
+            items = list(collection.search_items(attributes))
+            if not items:
+                return None
+            if len(items) != 1:
+                raise SecretStoreError("Linux Secret Service credential identity is ambiguous")
+            try:
+                raw = items[0].get_secret()
+                if not isinstance(raw, bytes):
+                    raise AttributeError
+                return raw.decode("utf-8")
+            except (UnicodeError, AttributeError):
+                raise SecretStoreError(
+                    "Linux Secret Service credential encoding is invalid"
+                ) from None
+
+        result = self._with_collection(read)
+        if result is not None and not isinstance(result, str):
+            raise SecretStoreError("Linux Secret Service returned an invalid credential")
+        return result
+
+    def set(self, name: str, value: str) -> None:
+        attributes = self._attributes(name)
+        if not value:
+            raise ValueError("refusing to store an empty credential")
+        encoded = value.encode("utf-8")
+        if len(encoded) > self._MAX_SECRET_BYTES:
+            raise ValueError("credential is too large for Linux Secret Service")
+
+        def write(collection: Any) -> None:
+            collection.create_item(
+                "Lemonbot credential",
+                attributes,
+                encoded,
+                replace=True,
+                content_type="text/plain; charset=utf-8",
+            )
+
+        self._with_collection(write)
+
+    def delete(self, name: str) -> bool:
+        attributes = self._attributes(name)
+
+        def remove(collection: Any) -> bool:
+            items = list(collection.search_items(attributes))
+            for item in items:
+                item.delete()
+            return bool(items)
+
+        result = self._with_collection(remove)
+        if not isinstance(result, bool):
+            raise SecretStoreError("Linux Secret Service returned an invalid deletion result")
+        return result
+
+
+def platform_secret_store() -> SecretStore:
+    if os.name == "nt":
+        return WindowsCredentialStore()
+    if sys.platform.startswith("linux"):
+        return LinuxSecretServiceStore()
+    raise SecretStoreError("this platform has no configured secure credential store")
 
 
 if os.name == "nt":
