@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import io
 
 import pytest
@@ -17,6 +18,7 @@ from lemonbot.connectors.atspi_worker import (
     AtspiWorkerService,
     _structure_fingerprint,
 )
+from lemonbot.connectors.linux_atspi_probe import semantic_probe
 
 
 class _Text:
@@ -147,3 +149,8 @@ def test_atspi_protocol_rejects_extra_fields_and_display_sender_identity() -> No
 def test_worker_protocol_defines_no_action_message_type() -> None:
     message_types = {INIT, READY, SNAPSHOT, HEALTH, ERROR, SHUTDOWN}
     assert not any(word in value for value in message_types for word in ("click", "send", "input"))
+
+
+def test_atspi_paths_never_start_an_unsafe_background_event_loop() -> None:
+    assert "event_main" not in inspect.getsource(AtspiWorkerService.run)
+    assert "event_main" not in inspect.getsource(semantic_probe)

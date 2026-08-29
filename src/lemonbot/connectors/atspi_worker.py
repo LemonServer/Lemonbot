@@ -256,7 +256,6 @@ class AtspiWorkerService:
                 READY,
                 AtspiReady(worker_version="1", matched_pids=matched_pids),
             )
-            threading.Thread(target=atspi.event_main, daemon=True).start()
             threading.Thread(
                 target=self._reader_loop,
                 args=(request.request_id,),
@@ -278,7 +277,6 @@ class AtspiWorkerService:
                                 payload=snapshot.model_dump(mode="json"),
                             )
                         )
-            _safe(atspi.event_quit)
             self._write(Envelope(message_type=STOPPED, payload={"stopped": True}))
             return 0
         except (IPCError, ValidationError, OSError):

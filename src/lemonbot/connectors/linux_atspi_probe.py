@@ -16,7 +16,6 @@ import json
 import queue
 import secrets
 import sys
-import threading
 import time
 from collections import Counter
 from collections.abc import Callable, Sequence
@@ -374,7 +373,6 @@ def semantic_probe(
                 continue
     if registered == 0:
         raise RuntimeError("scoped AT-SPI event registration unavailable")
-    threading.Thread(target=atspi.event_main, daemon=True).start()
     deadline = time.monotonic() + duration_seconds
     latest: dict[str, list[dict[str, object]]] = {"self": [], "inbound": []}
     while time.monotonic() < deadline:
@@ -386,7 +384,6 @@ def semantic_probe(
         latest = _canary_matches(apps, tokens, max_nodes=max_nodes)
         if len(latest["self"]) == 1 and len(latest["inbound"]) == 1:
             break
-    _safe(atspi.event_quit)
     self_signature = latest["self"][0]["item_signature"] if len(latest["self"]) == 1 else None
     inbound_signature = (
         latest["inbound"][0]["item_signature"] if len(latest["inbound"]) == 1 else None
