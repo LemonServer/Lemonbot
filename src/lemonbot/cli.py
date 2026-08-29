@@ -66,6 +66,19 @@ LinuxProbeMaxNodesOption = Annotated[
 ]
 
 _SECRET_NAMES = {"deepseek_api_key", "zhipu_api_key"}
+_SAFE_SEMANTIC_PROBE_ERROR_CODES = frozenset(
+    {
+        "AttributeError",
+        "EOFError",
+        "IndexError",
+        "KeyError",
+        "RuntimeError",
+        "SystemError",
+        "TypeError",
+        "UnicodeError",
+        "ValueError",
+    }
+)
 
 
 def _write_private_new(destination: Path, payload: bytes) -> None:
@@ -170,6 +183,7 @@ def linux_atspi_semantic_probe(
     output: SemanticOutputOption = None,
 ) -> None:
     """Observe two one-time canaries without persisting chat text."""
+    error_code = "unknown"
     try:
         command, environment = _probe_command(_wechat_pids(pid), max_nodes)
         command.extend(("--semantic-kind", kind, "--duration-seconds", str(duration_seconds)))
@@ -182,9 +196,16 @@ def linux_atspi_semantic_probe(
         )
         report = json.loads(completed.stdout.decode("utf-8"))
         if completed.returncode != 0 or not isinstance(report, dict):
+            child_error = report.get("error") if isinstance(report, dict) else None
+            if isinstance(child_error, str) and child_error in _SAFE_SEMANTIC_PROBE_ERROR_CODES:
+                error_code = child_error
             raise ValueError("semantic probe failed")
     except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
-        typer.echo("Linux AT-SPI 语义探测失败；正文和异常详情均未记录。", err=True)
+        typer.echo(
+            f"Linux AT-SPI 语义探测失败（安全代码：{error_code}）；"
+            "正文和异常详情均未记录。",
+            err=True,
+        )
         raise typer.Exit(1) from None
     encoded = json.dumps(report, ensure_ascii=True, sort_keys=True)
     if output is None:

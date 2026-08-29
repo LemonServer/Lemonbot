@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
+from lemonbot import cli
 from lemonbot.cli import app
 from lemonbot.connectors import AtspiEnrollment
 from lemonbot.connectors.linux_atspi_probe import _inspect_app, probe
@@ -165,3 +167,25 @@ def test_enroll_rejects_structural_drift_without_creating_bundle(tmp_path: Path)
     )
     assert result.exit_code == 1
     assert not output.exists()
+
+
+def test_semantic_probe_exposes_only_allowlisted_child_error_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli, "_wechat_pids", lambda _pid: (1234,))
+    monkeypatch.setattr(cli, "_probe_command", lambda _pids, _max_nodes: (["probe"], {}))
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout=b'{"error":"RuntimeError","untrusted":"do not show this"}',
+        ),
+    )
+
+    result = CliRunner().invoke(app, ["channel", "linux-atspi-semantic-probe", "--kind", "private"])
+
+    assert result.exit_code == 1
+    assert "安全代码：RuntimeError" in result.output
+    assert "do not show this" not in result.output
