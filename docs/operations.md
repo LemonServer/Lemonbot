@@ -23,10 +23,9 @@ gsettings set org.gnome.desktop.interface toolkit-accessibility true
 `linux-atspi-probe` 只输出角色、接口、固定控件计数和剔除可见文本后的结构摘要。节点数和
 `Text/EditableText` 只能证明 AT-SPI 可读，不能解锁 connector。
 
-`linux-atspi-semantic-probe` 在进程内生成 self/inbound canary，并验证限定到微信应用的
-`EventListener.register_with_app` 可用。Ubuntu 的 AT-SPI Python 绑定不安全地支持后台事件主循环，
-所以当前版本以有限周期重新读取结构发现 canary；账号登记短语与当前聊天标题由隐藏输入读取，
-只用于本次内存匹配；报告不含真实值或 canary。
+`linux-atspi-semantic-probe` 在进程内生成 self/inbound canary，并以有限周期、只读地重新读取
+结构发现 canary。Ubuntu 的 AT-SPI Python 事件绑定曾出现原生崩溃，因此语义探测不注册事件监听器；
+账号登记短语与当前聊天标题由隐藏输入读取，只用于本次内存匹配；报告不含真实值或 canary。
 
 每种聊天必须有两份 `passed=true` 报告，并满足：
 

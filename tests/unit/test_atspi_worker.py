@@ -154,3 +154,4 @@ def test_worker_protocol_defines_no_action_message_type() -> None:
 def test_atspi_paths_never_start_an_unsafe_background_event_loop() -> None:
     assert "event_main" not in inspect.getsource(AtspiWorkerService.run)
     assert "event_main" not in inspect.getsource(semantic_probe)
+    assert "EventListener" not in inspect.getsource(semantic_probe)

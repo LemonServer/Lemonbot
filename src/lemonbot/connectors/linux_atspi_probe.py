@@ -13,7 +13,6 @@ import getpass
 import hashlib
 import importlib
 import json
-import queue
 import secrets
 import sys
 import time
@@ -341,48 +340,17 @@ def semantic_probe(
         file=sys.stderr,
         flush=True,
     )
-    event_counts: Counter[str] = Counter()
-    triggers: queue.Queue[None] = queue.Queue(maxsize=1)
-
-    def on_event(event: Any, *_args: object) -> None:
-        event_counts[str(_safe(lambda: event.type, "unknown") or "unknown")] += 1
-        try:
-            triggers.put_nowait(None)
-        except queue.Full:
-            pass
-
-    listener = atspi.EventListener.new(on_event, None)
-    registered_types: list[str] = []
-    for app in apps:
-        for event_type in (
-            "object:text-changed",
-            "object:children-changed",
-            "object:property-change",
-            "object:state-changed",
-            "window",
-        ):
-            try:
-                listener.register_with_app(event_type, [], app)
-                registered_types.append(event_type)
-            except Exception:  # noqa: S112 - each event family is capability-probed
-                continue
-    if not registered_types:
-        raise RuntimeError("scoped AT-SPI event registration unavailable")
-    try:
-        deadline = time.monotonic() + duration_seconds
-        latest: dict[str, list[dict[str, object]]] = {"self": [], "inbound": []}
-        while time.monotonic() < deadline:
-            try:
-                triggers.get(timeout=min(1.0, max(0.01, deadline - time.monotonic())))
-                time.sleep(0.5)
-            except queue.Empty:
-                pass
-            latest = _canary_matches(apps, tokens, max_nodes=max_nodes)
-            if len(latest["self"]) == 1 and len(latest["inbound"]) == 1:
-                break
-    finally:
-        for event_type in sorted(set(registered_types)):
-            _safe(partial(listener.deregister, event_type))
+    # AT-SPI's Python event bindings have caused native crashes in the Linux
+    # client despite bounded, explicit deregistration.  Enrollment is rare
+    # and has a fixed duration, so a bounded read-only polling loop is safer
+    # than registering callbacks in the accessibility process.
+    deadline = time.monotonic() + duration_seconds
+    latest: dict[str, list[dict[str, object]]] = {"self": [], "inbound": []}
+    while time.monotonic() < deadline:
+        latest = _canary_matches(apps, tokens, max_nodes=max_nodes)
+        if len(latest["self"]) == 1 and len(latest["inbound"]) == 1:
+            break
+        time.sleep(min(1.0, max(0.01, deadline - time.monotonic())))
     self_signature = latest["self"][0]["item_signature"] if len(latest["self"]) == 1 else None
     inbound_signature = (
         latest["inbound"][0]["item_signature"] if len(latest["inbound"]) == 1 else None
@@ -475,8 +443,8 @@ def semantic_probe(
         "schema_version": 1,
         "kind": kind,
         "matched_app_count": len(apps),
-        "registered_event_scopes": len(registered_types),
-        "event_counts": dict(sorted(event_counts.items())),
+        "registered_event_scopes": 0,
+        "event_counts": {},
         "self_match_count": len(latest["self"]),
         "inbound_match_count": len(latest["inbound"]),
         "self_evidence": latest["self"][:1],
