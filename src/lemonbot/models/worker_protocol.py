@@ -52,11 +52,11 @@ class ModelWorkerConfig(WorkerPayload):
             if self.provider.base_url != DEEPSEEK_BASE_URL:
                 raise ValueError("DeepSeek worker requires the official API endpoint")
             if self.provider.secret_name is None:
-                raise ValueError("DeepSeek worker requires a Credential Manager lookup name")
+                raise ValueError("DeepSeek worker requires a Secret Service lookup name")
         if parsed.scheme == "http" and not loopback:
             raise ValueError("plaintext OpenAI-compatible workers are loopback-only")
         if not loopback and self.provider.secret_name is None:
-            raise ValueError("remote model workers require a Credential Manager lookup name")
+            raise ValueError("remote model workers require a Secret Service lookup name")
         if (
             self.provider.secret_name is not None
             and _SECRET_NAME.fullmatch(self.provider.secret_name) is None

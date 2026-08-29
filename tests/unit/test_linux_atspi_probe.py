@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
+from lemonbot.cli import app
+from lemonbot.connectors import AtspiEnrollment
 from lemonbot.connectors.linux_atspi_probe import _inspect_app, probe
 
 
@@ -62,3 +66,102 @@ def test_probe_report_never_emits_or_hashes_visible_text() -> None:
 def test_probe_requires_explicit_positive_target_pids() -> None:
     with pytest.raises(ValueError, match="positive target PIDs"):
         probe(frozenset(), max_nodes=100, max_depth=10)
+
+
+def _semantic_report(kind: str) -> dict[str, object]:
+    group = kind == "group"
+    return {
+        "schema_version": 1,
+        "kind": kind,
+        "passed": True,
+        "account_fingerprint": "a" * 64,
+        "enrollment_candidate": {
+            "chat_kind": kind,
+            "header_selector": [0, 1],
+            "header_fingerprint": ("b" if group else "c") * 64,
+            "transcript_selector": [0, 2],
+            "self_item_signature": "d" * 64,
+            "inbound_item_signature": "e" * 64,
+            "self_body_relative_path": [0],
+            "inbound_body_relative_path": [0],
+            "sender_relative_path": [1] if group else None,
+            "sender_attribute_key": "accessible-id" if group else None,
+            "sender_probe_fingerprint": "1" * 64 if group else None,
+            "semantic_shape_sha256": "f" * 64,
+        },
+    }
+
+
+def test_enroll_requires_two_consistent_reports_and_writes_no_visible_text(
+    tmp_path: Path,
+) -> None:
+    reports: list[Path] = []
+    for kind in ("private", "private", "group", "group"):
+        path = (tmp_path / f"{kind}-{len(reports)}.json").resolve()
+        path.write_text(json.dumps(_semantic_report(kind)), encoding="utf-8")
+        path.chmod(0o600)
+        reports.append(path)
+    output = (tmp_path / "enrollment.json").resolve()
+    result = CliRunner().invoke(
+        app,
+        [
+            "channel",
+            "linux-atspi-enroll",
+            "--private-report",
+            str(reports[0]),
+            "--private-report",
+            str(reports[1]),
+            "--group-report",
+            str(reports[2]),
+            "--group-report",
+            str(reports[3]),
+            "--output",
+            str(output),
+            "--confirm-restart",
+            "--confirm-lock-cycle",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    bundle = AtspiEnrollment.model_validate_json(output.read_bytes())
+    refs = {target.target_ref for target in bundle.targets}
+    assert len(refs) == 2
+    assert any(ref.startswith("private_") for ref in refs)
+    assert any(ref.startswith("group_") for ref in refs)
+    encoded = output.read_text(encoding="utf-8")
+    assert "contact" not in encoded
+    assert "message" not in encoded
+
+
+def test_enroll_rejects_structural_drift_without_creating_bundle(tmp_path: Path) -> None:
+    private_a = _semantic_report("private")
+    private_b = _semantic_report("private")
+    private_b["enrollment_candidate"]["transcript_selector"] = [9]  # type: ignore[index]
+    values = (private_a, private_b, _semantic_report("group"), _semantic_report("group"))
+    paths = []
+    for index, value in enumerate(values):
+        path = (tmp_path / f"report-{index}.json").resolve()
+        path.write_text(json.dumps(value), encoding="utf-8")
+        path.chmod(0o600)
+        paths.append(path)
+    output = (tmp_path / "must-not-exist.json").resolve()
+    result = CliRunner().invoke(
+        app,
+        [
+            "channel",
+            "linux-atspi-enroll",
+            "--private-report",
+            str(paths[0]),
+            "--private-report",
+            str(paths[1]),
+            "--group-report",
+            str(paths[2]),
+            "--group-report",
+            str(paths[3]),
+            "--output",
+            str(output),
+            "--confirm-restart",
+            "--confirm-lock-cycle",
+        ],
+    )
+    assert result.exit_code == 1
+    assert not output.exists()

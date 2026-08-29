@@ -77,7 +77,7 @@ class SQLiteMemoryStore:
                 )
             except sqlite3.OperationalError:
                 # Older development SQLite builds may lack trigram; unicode61
-                # keeps persistence usable, while current Windows builds use
+                # keeps persistence usable, while deployed Linux builds use
                 # the required trigram tokenizer.
                 connection.execute("DROP TABLE IF EXISTS memory_fts")
                 connection.execute(

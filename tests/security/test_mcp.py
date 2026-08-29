@@ -266,7 +266,7 @@ class FakeSupervisor:
             "arguments": arguments,
             **kwargs,
         }
-        return WorkerProcess(name=name, process=cast(Any, self.process), job=None)
+        return WorkerProcess(name=name, process=cast(Any, self.process))
 
     async def stop(self, name: str, *, grace_period_seconds: float = 5) -> None:
         del grace_period_seconds

@@ -19,7 +19,7 @@ class RuntimeLock:
         stream = self._path.open("a+b")
         try:
             stream.seek(0)
-            if os.name == "nt":
+            if os.name == "nt":  # developer-test portability; Windows is not a runtime target
                 import msvcrt
 
                 if stream.tell() == stream.seek(0, os.SEEK_END):
@@ -29,7 +29,9 @@ class RuntimeLock:
                 try:
                     msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                 except OSError as exc:
-                    raise AlreadyRunningError("this Lemonbot profile is already running") from exc
+                    raise AlreadyRunningError(
+                        "this Lemonbot profile is already running"
+                    ) from exc
             else:
                 import fcntl
 
@@ -39,7 +41,9 @@ class RuntimeLock:
                         fcntl.LOCK_EX | fcntl.LOCK_NB,  # type: ignore[attr-defined]
                     )
                 except OSError as exc:
-                    raise AlreadyRunningError("this Lemonbot profile is already running") from exc
+                    raise AlreadyRunningError(
+                        "this Lemonbot profile is already running"
+                    ) from exc
             stream.seek(0)
             stream.truncate()
             stream.write(str(os.getpid()).encode("ascii"))

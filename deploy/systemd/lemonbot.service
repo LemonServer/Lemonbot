@@ -1,0 +1,25 @@
+[Unit]
+Description=Lemonbot Linux-only observe runtime
+After=graphical-session.target lemonbot-wechat-accessible.service
+Requires=lemonbot-wechat-accessible.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/false
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# install-service replaces this with the exact configured data root.
+ReadWritePaths=%h/.local/share/Lemonbot
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+UMask=0077
+KillMode=control-group
+
+[Install]
+WantedBy=graphical-session.target

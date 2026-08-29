@@ -456,7 +456,7 @@ def test_delete_cli_requires_confirmation_and_does_not_echo_chat_id(tmp_path: Pa
     config.write_text(
         "\n".join(
             (
-                "schema_version = 1",
+                    "schema_version = 2",
                 'profile = "lab"',
                 "[runtime]",
                 'connector = "fake"',

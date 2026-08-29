@@ -108,7 +108,7 @@ class RapidOCRReader:
 
     def available(self) -> bool:
         try:
-            import rapidocr_onnxruntime  # type: ignore[import-untyped]  # noqa: F401
+            import rapidocr_onnxruntime  # type: ignore  # noqa: F401
         except ImportError:
             return False
         return True

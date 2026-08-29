@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, exists, func, or_, select, text, update
+from sqlalchemy import and_, delete, exists, func, or_, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import aliased
 
@@ -882,6 +882,16 @@ class CoreRepository:
         )
         async with self.database.sessions() as session, session.begin():
             await session.execute(statement)
+
+    async def clear_runtime_state_prefix(self, prefix: str) -> int:
+        if not prefix or len(prefix) > 256:
+            raise ValueError("runtime state prefix is invalid")
+        statement = delete(RuntimeStateRow).where(
+            RuntimeStateRow.key.startswith(prefix, autoescape=True)
+        )
+        async with self.database.sessions() as session, session.begin():
+            result = await session.execute(statement)
+        return _rowcount(result)
 
     async def count_outbound_since(
         self,

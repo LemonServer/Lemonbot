@@ -56,7 +56,7 @@ def export_profile_data(paths: RuntimePaths, output: Path | None = None) -> Path
     """Create an offline, consistent export in Lemonbot backup format v1.
 
     The archive contains only the current profile database and current profile
-    object store. Credential Manager, configuration, logs and process state are
+    object store. Secret Service, configuration, logs and process state are
     deliberately outside this format.
     """
 

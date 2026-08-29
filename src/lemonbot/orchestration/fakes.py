@@ -90,3 +90,22 @@ class FakeModelBackend:
 
     def capabilities(self) -> ModelCapabilities:
         return ModelCapabilities(tools=True, json_output=True, context_tokens=32_768)
+
+
+class DisabledModelBackend:
+    """A fail-closed tripwire used by the read-only Observe runtime."""
+
+    async def generate(self, request: ModelRequest) -> ModelResponse:
+        del request
+        raise RuntimeError("model access is disabled in observe-only mode")
+
+    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        del texts
+        raise Unsupported("model access is disabled in observe-only mode")
+
+    def count_tokens(self, messages: Sequence[object]) -> int:
+        del messages
+        return 0
+
+    def capabilities(self) -> ModelCapabilities:
+        return ModelCapabilities(context_tokens=1)

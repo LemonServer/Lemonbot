@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,8 +18,6 @@ class RuntimePaths:
         configured = settings.runtime.data_root.strip()
         if configured:
             root = Path(configured).expanduser().resolve()
-        elif local := os.environ.get("LOCALAPPDATA"):
-            root = (Path(local) / "Lemonbot").resolve()
         else:
             root = user_data_path("Lemonbot").resolve()
         return cls(root=root, profile=settings.profile)
@@ -45,9 +42,12 @@ class RuntimePaths:
     def lock_file(self) -> Path:
         return self.root / "runtime" / f"{self.profile}.lock"
 
+    @property
+    def emergency_stop_file(self) -> Path:
+        return self.root / "runtime" / f"{self.profile}.emergency-stop"
+
     def ensure(self) -> None:
         for path in (self.root, self.objects, self.quarantine, self.backups, self.lock_file.parent):
             path.mkdir(parents=True, exist_ok=True)
-        if os.name != "nt":
-            for path in (self.root, self.objects, self.quarantine, self.backups):
-                path.chmod(0o700)
+        for path in (self.root, self.objects, self.quarantine, self.backups):
+            path.chmod(0o700)

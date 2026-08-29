@@ -1,159 +1,104 @@
-# Lemonbot Linux 微信方案
+# Lemonbot Linux-only 下一阶段计划：语义验证 → Observe
 
-> 2026-08-29 实测状态：Ubuntu 24.04 GNOME Wayland + 官方微信 4.1.1.8 已通过第一阶段
-> AT-SPI 只读快照验证。共读取 535 个结构化节点，能识别 list/list item、Text、
-> EditableText 和发送控件；尚未验证消息方向、群发送者、稳定会话身份或发送回执，因此仍
-> 禁止模型接入和任何微信动作。部署细节见 `docs/research-handoff.md`。
+## 1. 总体目标
 
-## 总体决策
+- 唯一运行平台改为 Ubuntu 24.04 x86_64、GNOME Wayland，与官方 Linux 微信同驻一台桌面虚拟机。
+- 本阶段交付止于个人微信只读 `observe`：接收并持久化白名单私聊和测试群消息，不调用模型、不生成草稿、不操作微信、不产生出站消息。
+- 完整移除 Windows UIA、pywechat 探针、托盘、Job Object、Credential Manager、计划任务启动器、Windows 依赖和 Windows CI。
+- 移除企业微信 SDK、connector、配置、密钥项、限额和测试；核心只保留 `fake` 与 `wechat_atspi` connector。
+- 不迁移 Windows 数据；Linux 继续使用独立 `lab.db`。配置升级为 `schema_version=2`，旧配置明确拒绝，不静默转换。
 
-- 采用“整套 Lemonbot + 官方 Linux 微信”同驻 Ubuntu 24.04 x86_64 桌面 VM，不采用 Windows 核心与 Linux worker 分体。
-- 首个交付目标为 `observe → draft`；被动回复和主动消息必须后续逐级解锁。
-- 使用纯 AT-SPI：禁止 Frida、ptrace、Hook、微信数据库读取、协议逆向、坐标点击、键盘模拟、剪贴板和 OCR 点击。
-- `agent-wechat` 只作为可行性证据，不运行、不依赖、不复制其代码。Qt 和 Ubuntu 均确认 Linux GUI 可通过 AT-SPI 暴露结构与事件，但微信实际暴露程度仍需探针验证。[Qt QAccessible](https://doc.qt.io/qt-6/qaccessible.html)、[Ubuntu AT-SPI](https://ubuntu.com/desktop/docs/en/24.04/explanation/accessibility-stack/)、[GNOME EventListener](https://gnome.pages.gitlab.gnome.org/at-spi2-core/libatspi/class.EventListener.html)
-- 个人微信自动化仍存在非零封号风险，只允许独立测试号，不宣称生产可用。
+## 2. Linux 平台与公开接口
 
-## 分阶段实施
-
-### 1. 只读可行性探针
-
-新增：
-
-```bash
-lemonbot channel linux-atspi-probe
-```
-
-固定实验环境（实机以已验证的 Wayland 会话为准）：
-
-- Ubuntu 24.04 Desktop、GNOME 本地图形会话；当前登记环境为 Wayland。
-- 专用无 sudo 用户、独立微信测试号、NAT 网络，无端口转发、共享目录、共享剪贴板、Docker、Xvfb、VNC/RDP 或 systemd linger。
-- 从[微信 Linux 官网](https://linux.weixin.qq.com/)安装官方包，记录包名、版本、SHA-256、ELF build-id 和真实可执行文件。
-- 通过专用桌面入口仅为微信设置 `QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1`。
-
-探针代码不包含任何动作接口，只允许：
-
-- 枚举微信进程、frame、role、state、interface、action 和父子关系。
-- 计算剔除可见文本后的 UI 结构签名。
-- 订阅 window、children、text、state、property 事件。
-- 输出脱敏 JSON：控件是否存在、角色统计、事件种类和属性哈希，不输出联系人、群名或消息正文。
-- 由测试人员手动切换会话、收发唯一 canary 文本，探针只观察方向、发送者结构和新旧气泡关系。
-
-判定规则：
-
-- 只有顶层 frame：终止 Linux 路线。
-- 消息、方向或群发送者不可读：不得接入模型。
-- 目标只能依赖显示名：最多 `observe`。
-- 目标在当前会话内结构唯一但重启后不稳定：最多 `draft`。
-- 只有稳定非显示名属性、入站事件、方向和精确出站气泡均可证明，才允许实施 `reply`。
-- 只看到可视区域会话时不滚动、不猜测；该限制已有真实项目报告支持。[viewport 问题](https://github.com/thisnick/agent-wechat/issues/173)
-
-### 2. Linux 平台基础
-
-探针通过后再迁移核心：
-
-- 保留 SQLite、记忆、策略、预算、inbox/outbox、浏览器、视觉和管理台。
-- 新增 `SecretStoreFactory`：
-  - Windows 使用 Credential Manager。
-  - Linux 使用固定版本 `secretstorage` 对接 [Freedesktop Secret Service](https://specifications.freedesktop.org/secret-service/latest/)。
-  - Keyring 锁定时服务启动失败；不得回退到环境变量或明文文件。
-  - **2026-08-29 已实现平台工厂与锁定时 fail-closed；待真实 lab keyring 联调。**
-- 新增 Linux worker supervisor：
-  - 使用固定参数的 `systemd-run --user --pipe --wait --collect`，不经过 Shell。
-  - AT-SPI worker 再由 bubblewrap 隔离网络、Home、数据库、附件库和密钥。
-  - 通过过滤后的 D-Bus proxy 只开放 AT-SPI、login1 和锁屏状态，不开放 Secret Service。
-  - transient unit 或安全属性不可用时，正式 connector 拒绝启动。
-- `lemonbot.service` 绑定 `graphical-session.target`，启用 `NoNewPrivileges`、只读系统、精确可写目录、资源限制和 `KillMode=control-group`。
-- Linux 不依赖托盘；使用管理台、CLI 和桌面快捷方式提供暂停及急停。急停先写入持久 sentinel，再停止服务；重启后保持暂停，必须执行显式确认才能恢复。
-- 新建 Linux `lab.db`，不自动导入或合并 Windows 实验数据。
-
-### 3. Connector 与 worker
-
-公开的 `Connector.events/deliver/health` 保持不变。将现有个人微信安全 broker 泛化为平台无关实现，Windows UIA 与 Linux AT-SPI 仅作为 backend。
-
-新增配置：
+- 主运行环境继续由 `uv` 锁定；为 AT-SPI worker 单独建立基于 `/usr/bin/python3 --system-site-packages` 的最小虚拟环境，只安装锁定的 worker 包和 Pydantic，从 Ubuntu 获取 `gi/AT-SPI`。
+- Linux 密钥只使用 Secret Service。Observe 模式不检查 DeepSeek 密钥；保留 DeepSeek 网关供后续 Draft 阶段使用。
+- 配置接口改为：
 
 ```toml
+schema_version = 2
+profile = "lab"
+
 [runtime]
 connector = "wechat_atspi"
 
+[models]
+provider = "disabled"
+
 [wechat_atspi]
-enabled = false
+enabled = true
 stage = "observe"
 expected_linux_uid = 1000
-expected_linux_user = "lemonlab"
-expected_session_type = "x11"
-expected_executable_path = "/..."
+expected_linux_user = "lemon"
+expected_session_type = "wayland"
+expected_executable_path = "/opt/wechat/wechat"
 expected_executable_sha256 = ""
-enrolled_client_version = ""
+enrolled_client_version = "4.1.1.8"
 account_fingerprint = ""
 ui_signature = ""
 enrollment_bundle_path = ""
 enrollment_bundle_sha256 = ""
-allow_chat_ids = []
-admin_sender_ids = []
+allow_target_refs = []
 event_debounce_ms = 500
 reconcile_seconds = 15
 ```
 
-约束：
+- `Connector` 和 `ModelBackend` 接口保持不变；新增 `DisabledModelBackend`，任何误调用都立即失败并写审计。
+- AT-SPI IPC 增加严格 Pydantic 消息：`init`、`ready`、`baseline`、`event_hint`、`snapshot`、`health`、`error`、`shutdown`。不存在输入、点击、导航或发送类型。
+- 管理台和暂停接口统一使用逻辑 channel `wechat_personal_lab`，不再暴露 `wechat_uia` 等平台实现名称。
+- 新增持久化 transcript cursor，保存每个 `target_ref` 的滚动链哈希、尾部指纹、状态和最后事件 ID；不在 cursor 中重复保存正文。
 
-- 仅允许 `profile="lab"`，逻辑 channel 继续使用 `wechat_personal_lab`。
-- 私有 enrollment bundle 权限为 `0600`，保存随机 `target_ref`、本地 chat ID、聊天类型和稳定 AT-SPI 身份属性；显示名称只作人工标签。
-- 任一账号、客户端、包哈希、结构签名或 enrollment 变化，都将阶段持久重置为 `observe`。
+## 3. AT-SPI 语义门控与 Observe Connector
 
-worker 使用现有 1 MiB 长度前缀 JSON，并增加固定消息：
+### 语义探针
 
-```text
-wechat_atspi.init / ready
-wechat_atspi.inspect / snapshot
-wechat_atspi.prepare / prepared
-wechat_atspi.send / send_result
-wechat_atspi.event
-wechat_atspi.error
-worker.shutdown / stopped
+新增命令：
+
+```bash
+lemonbot channel linux-atspi-semantic-probe --kind private
+lemonbot channel linux-atspi-semantic-probe --kind group
 ```
 
-worker 只接受核心映射后的 `target_ref`，不能接受模型指定的联系人、selector、channel 或权限。未知消息、错误 request ID、队列溢出和 worker 重启都会毒化当前实例并暂停通道。
+- 每次生成一次性合成 canary，由实验账号和对端账号手动发送；群聊使用专用测试群。
+- 通过 `EventListener.register_with_app` 只监听微信，事件仅触发 500ms 防抖后的有限结构重读。
+- 探针只报告角色、接口、结构路径、事件数量、方向判定、发送者节点存在性和 canary 是否命中。
+- 不输出或持久化真实聊天正文、联系人、群名和 canary；非 canary 文本只在内存中比较。
+- 私聊和群聊分别完成两轮测试，覆盖微信重启及锁屏/解锁。
+- 若入站/自己发送方向无法稳定区分，私聊门控失败；若群发送者无法稳定识别，群聊单独保持禁用。完整阶段验收要求两者均通过。
 
-### 4. 入站与发送语义
+### Enrollment 与入站
 
-入站消息：
+- Enrollment bundle 权限必须为 `0600`，保存随机 `target_ref`、聊天类型、稳定 AT-SPI 属性和必要的不可逆标题指纹，不保存显示名称作为身份依据。
+- Observe 只读取当前可见且已登记的会话，不自动导航、滚动或补抓后台会话。
+- 切换到另一个已登记会话时先建立 baseline，屏幕上已有历史消息全部视为旧消息；只接收 baseline 后到达的消息。
+- AT-SPI 事件只是提示，正文必须通过重新读取结构确认；只接收方向明确的入站文本，自己发送的消息丢弃。
+- 群消息必须带稳定 `sender_ref`；只有显示名称或结构歧义时暂停该群。
+- 使用 transcript 尾部唯一对齐和链式事件 ID 去重；重启后无法唯一对齐时暂停而不是猜测或回放。
+- 原始入站正文在通过白名单和方向校验后保存到 `lab.db`，但不会发送给模型、网络服务或日志。
+- `deliver()` 在本阶段固定返回 `observe_only`；runtime 不启动模型、工具、主动任务、outbox dispatcher、浏览器或视觉 worker。
 
-- AT-SPI 事件只作为触发器；防抖后重新读取结构化消息节点。
-- 初次连接只建立 transcript baseline，不把屏幕历史重新当作新消息。
-- 只产生方向明确的文本事件；群聊必须读取发送者。
-- 低频校准仅检查当前可见、已登记会话，不主动滚动。
-- worker 重启或 transcript tail 无法唯一对齐时停止发事件，并要求人工重新建立 baseline。
-- 停机期间消息首版不保证回补，以避免重复回复。
+## 4. 隔离、部署与运维
 
-发送必须依次执行：
+- 实现 Linux supervisor：固定参数调用 `systemd-run --user`，再使用 bubblewrap 和 xdg-dbus-proxy 启动 AT-SPI worker，全程不经过 Shell。
+- worker 只可访问只读运行包、必要系统库和过滤后的 AT-SPI bus；禁止网络、Home、仓库配置、数据库、附件库、微信数据目录和 Secret Service。
+- 如果 systemd 安全属性、bubblewrap、D-Bus 过滤或微信应用身份无法验证，connector 拒绝启动。
+- 保留并完善微信 accessibility user service；新增 `lemonbot.service`，绑定图形会话，不启用 linger。
+- 用 `lemonbot install-service --config ...` 替换 `install-startup`。
+- 增加 `lemonbot emergency-stop` 和 `lemonbot resume --confirm`。急停写入持久 sentinel、终止 worker；重启后仍暂停，恢复时重新建立 baseline，不补抓停机消息。
+- `doctor` 检查 Ubuntu/Wayland、UID、微信包和哈希、AT-SPI、systemd 单元、安全沙箱、enrollment 权限及数据库；Observe 模式不要求云 API 密钥。
+- README、运行手册和安全文档改为 Linux-first；原 Windows/企业微信研发记录保留为明确标注的历史档案。
 
-1. 唯一验证 UID、图形会话、锁屏、账号、进程、文件哈希、版本和 UI 签名。
-2. 根据 enrollment 找到且只找到一个目标，并用当前 header 复核。
-3. 记录发送前 transcript tail。
-4. 仅通过 AT-SPI `EditableText` 写入，随后逐字读回。
-5. 副作用前再次执行策略、白名单、暂停、静默期和配额判定。
-6. 标记 `commit_state=started` 后只调用一次控件 action。
-7. 等待新消息节点。
-8. 只有同一目标出现发送前不存在、方向为自己、正文完全相同的新气泡，才返回 `acknowledged`。
+## 5. 测试与验收
 
-发送 action 前失败为 `failed`；action 开始后的超时、崩溃、目标变化或证据不足一律为 `unknown`，永久禁止自动重发。
+- Ubuntu CI 执行锁文件检查、全部 pytest、Ruff、严格 mypy 和密钥扫描。
+- 删除 Windows、UIA、pywechat 和企业微信测试；新增 fake AT-SPI 树、事件乱序、事件洪水、同名会话、窗口切换、弹窗、结构漂移、群发送者缺失和 cursor 对齐测试。
+- IPC 覆盖非法 JSON、额外字段、错误 request ID、未知消息类型、超限帧和 worker 异常退出。
+- 验证 worker 无法联网或读取 Home、`lab.db`、微信数据和 Secret Service。
+- 在 baseline、事件处理、数据库提交和进程重启各阶段强制终止，证明不会重放历史、重复记录或产生出站消息。
+- VM 实机验收：
+  - 私聊与测试群语义门控均通过微信重启和锁屏/解锁测试。
+  - 连续 Observe 24 小时，无历史回放、自己消息、重复事件、跨会话记录或群发送者误判。
+  - 模型调用数、工具调用数和 outbox 记录均为零。
+  - 暂停、急停和重启保持 fail-closed。
+  - 日志、探针报告和配置中不存在聊天正文、联系人名称或 API 密钥。
 
-### 5. 能力上线顺序
-
-- `observe`：运行 24 小时，只持久化可证明的入站，不调用模型。
-- `draft`：运行 24 小时，生成本地草稿，不操作微信输入框。
-- `reply`：只回复五分钟内、同一会话、未处理的白名单事件；继续使用既有个人微信限额，持续验证 72 小时。
-- `proactive`：只有 AT-SPI 能稳定导航并证明 off-viewport 目标时才实现；否则永久保持关闭。
-- 图片和文件不进入首版。文本链路稳定后，仅在微信暴露可证明的官方保存动作时保存到隔离区，再接现有 OCR/智谱视觉流程；否则明确标记“不支持读取”，不使用数据库或截图绕过。
-
-## 测试与验收
-
-- Ubuntu CI 运行全部跨平台测试；Windows CI 保留原 UIA 回归。
-- fake AT-SPI 树覆盖节点缺失、同名、off-viewport、群发送者缺失、事件乱序、弹窗和 transcript 截断。
-- IPC 覆盖非法 JSON、重复字段、超限帧、未知类型、错误 correlation 和事件洪水。
-- 在发送每一步注入超时、锁屏、目标切换、worker kill 和进程重启；提交后的异常必须进入 `unknown`。
-- 验证 AT-SPI worker无法联网、读取 Lemonbot/微信数据库、Home 或 Secret Service。
-- 日志、配置、数据库、备份、进程参数和环境中不得出现 API 密钥或聊天 enrollment 明文。
-- 锁屏、休眠、远程会话、Wayland、客户端更新、验证弹窗、多窗口和结构漂移全部阻止发送并持久暂停。
-- 以测试号连续运行 `observe → draft → reply`，72 小时内不得出现重复发送、错误会话发送或 `unknown` 自动重发。
+Observe 验收后再单独规划 Linux Draft 阶段：启用 DeepSeek API 生成本地草稿，但仍不触碰微信输入框；Reply、主动聊天、图片和文件能力继续作为后续独立安全门控。

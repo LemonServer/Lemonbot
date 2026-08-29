@@ -154,12 +154,27 @@ def test_proactive_message_requires_reason_and_respects_quiet_hours() -> None:
     now = datetime(2026, 8, 16, 15, 30, tzinfo=UTC)
 
     async def scenario() -> None:
-        database, repository, policy = await make_policy(now=now)
+        database, repository, _policy = await make_policy(now=now)
+        enabled_limits = RateLimitProfile(
+            reply_per_10_minutes=3,
+            reply_per_hour=10,
+            reply_per_day=30,
+            global_per_day=50,
+            proactive_cooldown_hours=12,
+            proactive_per_day=2,
+            proactive_global_per_day=10,
+            proactive_enabled=True,
+        )
+        policy = DeterministicPolicy(
+            repository,
+            config=PolicyConfig(fallback=enabled_limits),
+            clock=lambda: now,
+        )
         try:
-            await repository.set_allowlisted("wecom", "chat-1")
+            await repository.set_allowlisted("fake", "chat-1")
             base = ProposedAction(
                 kind="proactive_message",
-                channel="wecom",
+                channel="fake",
                 chat_id="chat-1",
                 proactive=True,
                 side_effect=True,

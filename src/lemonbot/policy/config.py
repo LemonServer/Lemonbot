@@ -20,17 +20,6 @@ class RateLimitProfile(BaseModel):
     proactive_enabled: bool = False
 
 
-WECOM_LIMITS = RateLimitProfile(
-    reply_per_10_minutes=6,
-    reply_per_hour=30,
-    reply_per_day=100,
-    global_per_day=500,
-    proactive_cooldown_hours=6,
-    proactive_per_day=3,
-    proactive_global_per_day=30,
-    proactive_enabled=True,
-)
-
 WECHAT_LAB_LIMITS = RateLimitProfile(
     reply_per_10_minutes=3,
     reply_per_hour=10,
@@ -49,7 +38,6 @@ class PolicyConfig(BaseModel):
     timezone: str = "Asia/Shanghai"
     quiet_start: time = time(23, 0)
     quiet_end: time = time(8, 0)
-    wecom: RateLimitProfile = WECOM_LIMITS
     wechat_lab: RateLimitProfile = WECHAT_LAB_LIMITS
     fallback: RateLimitProfile = WECHAT_LAB_LIMITS
     auto_actions: frozenset[str] = frozenset(
@@ -69,8 +57,6 @@ class PolicyConfig(BaseModel):
 
     def limits_for(self, channel: str) -> RateLimitProfile:
         normalised = channel.casefold()
-        if normalised in {"wecom", "wework", "enterprise_wechat"}:
-            return self.wecom
         if normalised in {
             "wechat",
             "wechat_lab",

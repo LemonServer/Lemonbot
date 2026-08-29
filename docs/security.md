@@ -1,86 +1,82 @@
-# 安全模型
+# Linux-only 安全模型
 
-Lemonbot 假定聊天消息、网页、附件、OCR、视觉描述、模型输出和工具结果均可能包含恶意
-提示。LLM 只能提出动作，不能批准动作；目标会话、联系人身份、数据范围和预算由核心进程
-绑定，不能由模型参数覆盖。
+## 当前信任边界
+
+Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`0600` enrollment、SQLite 数据库
+和固定 systemd 部署。聊天文本、AT-SPI 属性、网页、附件、OCR、视觉结果、模型结果和工具输出
+一律视为不可信数据。
+
+当前微信路径只有 Observe：
+
+```text
+官方 Linux 微信
+  → 过滤后的 AT-SPI bus
+  → 无网络、无 Home、无密钥的只读 worker
+  → 严格长度前缀 JSON / Pydantic snapshot
+  → enrollment、方向、sender、尾部唯一对齐
+  → lab.db inbox/messages/audit
+```
+
+模型、视觉、浏览器、MCP、主动任务、outbox dispatcher 和微信动作接口均不在该链路中。
 
 ## 永久禁止
 
-支付、购买、转账、订阅、红包、凭据和 MFA、OAuth 授权、账号安全设置、安装、提权、
-注册表或防护设置修改、模型/工具发起的永久删除、任意 Shell/代码执行、批量发送、自动
-加好友、拉群与 `@所有人`。这些规则不能由联系人、管理员聊天消息、网页或模型绕过。
-唯一的数据删除入口是服务离线时由本机管理员直接运行、带 `--confirm` 的 CLI；它不注册为
-模型工具，也不提供 HTTP 接口。
+支付、购买、转账、订阅、红包、凭据和 MFA、OAuth 授权、账号安全设置、软件安装、提权、
+安全设置修改、模型或工具发起的永久删除、任意 Shell/代码执行、批量发送、自动加好友、拉群
+和 `@所有人` 永久拒绝。聊天、网页或模型不能扩大白名单、target ref、权限或阶段。
 
-## 通道与数据
+管理员离线 CLI 的显式数据删除不是模型能力，必须停止服务并带 `--confirm`。
 
-- `prod` 只运行官方企业微信通道，`lab` 只运行个人微信 UIA 实验通道。
-- 两者使用不同数据库、对象目录和 Credential Manager 命名空间。
-- 数据等级为 `PUBLIC`、`CONVERSATION`、`PRIVATE_LOCAL`、`SECRET`。
-- 默认只允许检索当前通道和当前稳定会话 ID 的数据；`SECRET` 不进入提示词。
+## 微信身份与隐私
 
-## 个人微信
+- 只允许独立测试号，个人微信自动化不代表腾讯授权，存在非零封号风险。
+- 不读取微信数据库、Cookie、登录材料或附件缓存；不使用 Hook、注入、ptrace、协议逆向、
+  坐标、键盘、剪贴板或截图点击。
+- canary 为一次性合成值；真实账号短语、聊天标题和 UI 文本只在探针内存中比较。
+- 探针报告只含路径、角色、接口、属性键和摘要；enrollment 不保存显示名称。
+- Observe 正文在通过 target、方向、sender 和 cursor 验证后保存到本机 `lab.db`。日志、配置、
+  报告和管理台响应不得打印正文。
+- header 摘要仍可能被字典猜测，不应当作匿名化；bundle 和报告按本地私有数据保护。
 
-UI Automation 不代表腾讯授权，也不能保证账号安全。该适配器默认关闭，只能用于独立
-测试号，并按观察、草稿、被动回复、主动消息逐级开放。登录验证、锁屏、版本或控件树
-变化、同名会话、目标不确定或发送结果不明时一律停止。不实现 Hook、注入、协议逆向、
-客户端降级或风控规避。
+## AT-SPI worker 隔离
 
-## 模型与视觉工作进程
+核心通过 accessibility bus 的 D-Bus daemon 查询连接 PID，只允许 Registry 和属于已登记微信
+进程的唯一 bus name。无法获得精确 PID 映射时拒绝启动，不退回完整 session bus。
 
-DeepSeek/OpenAI-compatible 文本模型可以通过 `IsolatedModelBackend` 放入独立工作进程。
-核心进程只持有 `ProviderConfig.secret_name` 这一 Credential Manager 查找名和持久化预算器；
-实际密钥由子进程按 `prod`/`lab` 命名空间读取，不通过参数、环境变量或 IPC 返回。智谱视觉、
-图片解码、净化和 RapidOCR 同样由 `IsolatedVisionBackend` 在独立工作进程完成；核心只向它
-传递当前会话已绑定附件的内容寻址 ID，不接触智谱密钥，也不接收原始图片字节。
+worker 使用独立 system-Python venv，通过 `systemd-run` 设置 `NoNewPrivileges`、只读系统、
+`ProtectHome`、`AF_UNIX`、`IPAddressDeny=any`、内存和任务上限；bubblewrap 再解除网络/PID/
+IPC/UTS 命名空间，只挂载只读系统库、worker venv、私有 tmpfs 和单独代理 socket。worker 看不
+到核心配置、数据目录、微信数据目录或 Secret Service。
 
-集成入口如下；创建后将 `model.aclose` 注册到运行时关闭流程即可：
+worker IPC 只有 `init/ready/snapshot/health/error/shutdown`。没有 selector 修改、导航、输入、
+点击、发送或任意命令消息。未知类型、超限帧、错误关联、worker 退出或 D-Bus 代理失败都会
+毒化实例并停止通道。
 
-```python
-from lemonbot.models import IsolatedModelBackend, ModelWorkerConfig
+## 入站一致性
 
-model = await IsolatedModelBackend.create(
-    config=ModelWorkerConfig(
-        profile=settings.profile,
-        provider=provider_config,
-        verify_models_on_startup=True,
-    ),
-    budget=persistent_budget,
-)
-```
+- 当前目标必须存在于 enrollment 和配置 allowlist，chat kind/header 摘要必须精确一致。
+- 第一个 snapshot 只建立 baseline。
+- 新 snapshot 必须与已保存尾部存在唯一重叠；无重叠或多重重叠都暂停。
+- 事件 ID 是上一链哈希与当前消息指纹形成的链，崩溃后重复观察产生相同 ID，由数据库去重。
+- self 和 inbound 必须具有不同结构签名；群 inbound 必须具有非显示文本的稳定 sender 属性。
+- 暂停、急停、重启或切换目标后不补抓无法证明的新旧边界。
 
-代理在调用前由核心预算器预留最坏成本。IPC 超时、取消、损坏响应或子进程中断都使该 worker
-永久失效；调用状态按未知处理并保守计费，不自动重启、重试或切换模型。通信只接受 1 MiB
-以内的长度前缀 JSON 和严格 Pydantic 模型，stderr 被丢弃且不会写入日志。Windows Job
-Object 限制内存和进程生命周期；Python 可执行文件与模块参数由代码固定，不能来自聊天或
-模型输出。
+## 密钥与未来模型
 
-Playwright 浏览器适配器由 `IsolatedBrowserReadTool` 放入独立工作进程；核心只传递当前入站
-事件中逐字出现、且已由策略绑定的 HTTPS URL。worker 仍会独立执行公开地址解析、DNS 固定、
-有限字节 GET 和离线无脚本渲染；IPC 超时或损坏会永久关闭该 worker，不自动重试。
+Linux 密钥只允许 Freedesktop Secret Service，锁定时 fail closed，不回退到环境变量或 TOML。
+Observe 强制 `models.provider="disabled"`，启动不读取 DeepSeek/智谱密钥，也不检查预算。
 
-当前进程隔离尚未覆盖企业微信 SDK 和个人微信 UIA 连接器，它们仍由核心服务进程托管，但
-受到目标绑定、白名单、配额和策略提交前复判约束。因此 Windows 专用低权限虚拟机仍是必要
-安全边界。在把连接器迁入独立 Job Object worker、并完成真实账号长稳测试之前，不应把当前
-版本描述为完成全部生产隔离验收。
+未来 Draft 阶段必须另行启用预算、DeepSeek worker 和提示注入隔离，并继续保证不操作微信。
+当前代码中保留的通用模型、视觉、浏览器和 MCP 组件不构成 Observe 的授权能力。
 
-## 固定 MCP 能力
+## 已知限制
 
-MCP 默认整体关闭；每个 server 和每个 tool 也分别默认关闭。启用项必须固定可执行文件的
-绝对路径和 SHA-256、无 shell 的参数数组、工作目录、MCP 协议版本、服务端返回的精确名称
-与版本，以及本地 JSON Schema。进程由 `WorkerSupervisor` 创建并纳入 Windows Job Object；
-只继承最小系统环境，核心不会通过参数、环境或 IPC 向它传递 API Key，并在服务关闭时连同
-子进程一起终止。Job Object 不是 Windows 身份或文件权限沙箱；MCP 仍以 Lemonbot 的 Windows
-用户运行，因此只能登记已审核、可信的服务，并应在专用虚拟机和专用低权限用户中运行。
+- AT-SPI 不是微信官方自动化 API，客户端升级可随时改变或关闭结构。
+- 当前只读取可见会话，不导航、不滚动，停机或后台会话消息可能丢失。
+- display header 只用于 Observe 的当前视图复核，不能解锁 Reply；未来发送必须证明更强的稳定
+  目标身份和精确回执。
+- bubblewrap 和 D-Bus 代理缩小 worker 权限，但不能消除宿主内核、桌面栈或微信本身漏洞。
+- 正式验收必须在隔离 VM 上完成；单元测试和 fake 树不能替代 24 小时真实 Observe。
 
-每个已登记工具映射为 `mcp.<server>.<local-tool>`。`read_only=true` 映射到 `mcp_read`，只在
-固定 scope 已由核心授予时自动执行；写工具映射到 `mcp_write`，每次都进入持久化的一次性
-审批。`enrolled`、`approved`、permission 与 scope 等代理自有字段既不能出现在工具 schema
-中，也不能由模型参数传入。工具返回最多保留配置的字节数，带有明确的 `UNTRUSTED` 标记；
-错误正文、stderr 和服务端异常数据不会写入聊天或日志。写调用超时、管道损坏或服务端报告
-错误时按副作用状态未知处理，不能自动重试。
-
-## 漏洞报告
-
-报告中不要附带真实 API Key、聊天记录、Cookie 或账号信息。发现疑似密钥泄漏时，先在
-服务端撤销并轮换凭据，再进行调查。
+漏洞报告中不要附带真实 API Key、聊天记录、账号短语、canary、Cookie、bundle 或 VM 凭据。
+发现疑似密钥泄漏时先在服务端撤销并轮换，再保留本地证据调查。

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import os
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -38,8 +37,8 @@ def _budget() -> BudgetManager:
 
 
 @pytest.mark.integration
-@pytest.mark.windows
-@pytest.mark.skipif(os.name != "nt", reason="production credential boundary is Windows-only")
+@pytest.mark.linux
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux Secret Service boundary")
 async def test_real_vision_worker_decodes_then_explicitly_falls_back_without_secret(
     tmp_path: Path,
 ) -> None:

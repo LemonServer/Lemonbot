@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
+import os
+import subprocess
 import sys
 from collections.abc import Awaitable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -9,30 +12,25 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 
+import psutil  # type: ignore[import-untyped]
 import uvicorn
 from jsonschema import validate  # type: ignore[import-untyped]
 
 from lemonbot.admin import create_admin_app
 from lemonbot.admin.auth import LocalTokenManager
 from lemonbot.admin.control import ApprovalView, ControlBackend, StatusView
-from lemonbot.admin.tray import start_tray
 from lemonbot.approvals import ApprovalClaim, ApprovalRepository, ApprovalService
 from lemonbot.config import AppSettings, RuntimePaths
 from lemonbot.connectors import (
+    AtspiEnrollment,
+    AtspiObserveConnector,
     FakeConnector,
-    PersonalWeChatConfig,
-    PersonalWeChatConnector,
-    PersonalWeChatStage,
-    SelectorBundle,
-    WeComConfig,
-    WeComConnector,
-    WindowsWeChatUIABackend,
-    effective_uia_stage,
 )
+from lemonbot.connectors.atspi_worker_proxy import AtspiWorkerSource
+from lemonbot.connectors.wechat_atspi import AtspiCursor
 from lemonbot.domain import (
     ApprovalState,
     Connector,
-    InboundEvent,
     ModelBackend,
     PolicyDecision,
     ProposedAction,
@@ -55,7 +53,13 @@ from lemonbot.models import (
     VisionProviderConfig,
     VisionWorkerConfig,
 )
-from lemonbot.orchestration import EventPipeline, FakeModelBackend, PipelineConfig, PipelineStatus
+from lemonbot.orchestration import (
+    DisabledModelBackend,
+    EventPipeline,
+    FakeModelBackend,
+    PipelineConfig,
+    PipelineStatus,
+)
 from lemonbot.policy import DeterministicPolicy, PolicyConfig, RateLimitProfile
 from lemonbot.proactive import ProactiveJobStore, ProactiveRunner
 from lemonbot.runtime_lock import RuntimeLock
@@ -75,18 +79,8 @@ from lemonbot.tools.vision_tool import ImageUnderstandingTool
 logger = logging.getLogger(__name__)
 
 
-def _pipeline_output_mode(
-    settings: AppSettings,
-    stage: PersonalWeChatStage | None = None,
-) -> Literal["observe", "draft", "send"]:
-    if settings.runtime.connector != "wechat_uia":
-        return "send"
-    selected = stage or PersonalWeChatStage(settings.wechat_uia.stage)
-    if selected is PersonalWeChatStage.OBSERVE:
-        return "observe"
-    if selected is PersonalWeChatStage.DRAFT:
-        return "draft"
-    return "send"
+def _pipeline_output_mode(settings: AppSettings) -> Literal["observe", "send"]:
+    return "observe" if settings.runtime.connector == "wechat_atspi" else "send"
 
 
 class RepositoryControl(ControlBackend):
@@ -103,6 +97,7 @@ class RepositoryControl(ControlBackend):
         policy: DeterministicPolicy,
         granted_tool_scopes: frozenset[str],
         side_effect_lock: asyncio.Lock,
+        emergency_file: Path | None = None,
         attachment_store: AttachmentStore | None = None,
     ) -> None:
         self._repository = repository
@@ -115,6 +110,7 @@ class RepositoryControl(ControlBackend):
         self._policy = policy
         self._granted_tool_scopes = granted_tool_scopes
         self._side_effect_lock = side_effect_lock
+        self._emergency_file = emergency_file
         self._attachment_store = attachment_store
 
     async def status(self) -> StatusView:
@@ -130,8 +126,9 @@ class RepositoryControl(ControlBackend):
             connector=self._connector_name,
             global_paused=await self._repository.is_paused(),
             channel_pauses={
-                "wecom": await self._repository.is_paused("wecom"),
-                "wechat_uia": await self._repository.is_paused("wechat_personal_lab"),
+                "wechat_personal_lab": await self._repository.is_paused(
+                    "wechat_personal_lab"
+                ),
             },
             emergency_stopped=self._emergency_event.is_set(),
             queue_depth=counts["queue_depth"],
@@ -154,16 +151,18 @@ class RepositoryControl(ControlBackend):
     async def set_pause(self, channel: str | None, paused: bool) -> StatusView:
         if self._emergency_event.is_set() and not paused:
             raise RuntimeError("restart is required after emergency stop")
-        mapped = (
-            None
-            if channel is None
-            else {"wecom": "wecom", "wechat_uia": "wechat_personal_lab"}.get(channel, channel)
-        )
-        await self._repository.set_paused(channel=mapped, paused=paused)
+        if channel not in {None, "wechat_personal_lab"}:
+            raise ValueError("unknown channel")
+        await self._repository.set_paused(channel=channel, paused=paused)
         return await self.status()
 
     async def emergency_stop(self) -> StatusView:
         self._emergency_event.set()
+        if self._emergency_file is not None:
+            await asyncio.to_thread(
+                self._emergency_file.write_text, "stopped\n", encoding="ascii"
+            )
+            await asyncio.to_thread(self._emergency_file.chmod, 0o600)
         await self._repository.set_paused(paused=True)
         return await self.status()
 
@@ -355,23 +354,22 @@ class LemonbotRuntime:
         self._tools: dict[str, Tool] = {}
         self._tool_scopes: frozenset[str] = frozenset()
         self._policy: DeterministicPolicy | None = None
-        self._uia_stage: PersonalWeChatStage | None = None
         self._side_effect_lock = asyncio.Lock()
 
     async def initialize(self) -> None:
         self.paths.ensure()
+        if self.paths.emergency_stop_file.exists():
+            self._emergency.set()
+            raise RuntimeError(
+                "persistent emergency stop is active; run lemonbot resume --confirm"
+            )
         await asyncio.to_thread(upgrade_database, self.paths.database)
         await self.database.initialise()
         await self.memory.initialize()
         await self.attachments.initialize()
-        await self.proactive_store.initialize()
-        if self.settings.runtime.connector == "wechat_uia":
-            self._uia_stage = PersonalWeChatStage(
-                await effective_uia_stage(
-                    self.repository,
-                    self.settings.wechat_uia,
-                )
-            )
+        observe_only = self.settings.runtime.connector == "wechat_atspi"
+        if not observe_only:
+            await self.proactive_store.initialize()
         # RuntimeLock guarantees this is the only live core for the profile.
         # Every processing/reserved row therefore belongs to the previous
         # process, even if it crashed only milliseconds ago. Startup recovery
@@ -384,7 +382,7 @@ class LemonbotRuntime:
             logger.warning("recovered interrupted durable states: %s", recovery)
         self.connector = await self._build_connector()
         self.model = await self._build_model()
-        tools, scopes = await self._build_tools()
+        tools, scopes = ({}, set()) if observe_only else await self._build_tools()
         policy = DeterministicPolicy(self.repository, config=self._policy_config())
         self._tools = dict(tools)
         self._tool_scopes = frozenset(scopes)
@@ -394,23 +392,21 @@ class LemonbotRuntime:
             policy,
             self.model,
             tools=tools,
-            memory_context=MemoryContextService(
-                self.memory,
-                ContextBuilder(self.model),
+            memory_context=(
+                None
+                if observe_only
+                else MemoryContextService(self.memory, ContextBuilder(self.model))
             ),
-            memory_derivation=MemoryDerivationService(
-                store=self.memory,
-                backend=self.model,
+            memory_derivation=(
+                None
+                if observe_only
+                else MemoryDerivationService(store=self.memory, backend=self.model)
             ),
             approval_service=self.approval_service,
             side_effect_lock=self._side_effect_lock,
             config=PipelineConfig(
                 profile=self.settings.profile,
-                welcome_text=(
-                    self.settings.wecom.welcome_text
-                    if self.settings.runtime.connector == "wecom"
-                    else None
-                ),
+                welcome_text=None,
                 max_task_seconds=self.settings.limits.event_timeout_seconds,
                 delivery_timeout_seconds=(self.settings.limits.delivery_timeout_seconds),
                 max_model_turns=self.settings.limits.max_model_turns,
@@ -426,29 +422,24 @@ class LemonbotRuntime:
                 model_max_tokens=self.settings.models.max_output_tokens,
                 max_context_tokens=self.settings.models.max_input_tokens,
                 granted_tool_scopes=self._tool_scopes,
-                deep_sender_ids=frozenset(
-                    self.settings.wecom.admin_sender_ids
-                    if self.settings.runtime.connector == "wecom"
-                    else self.settings.wechat_uia.admin_sender_ids
-                    if self.settings.runtime.connector == "wechat_uia"
-                    else ()
+                deep_sender_ids=frozenset(),
+                output_mode=_pipeline_output_mode(self.settings),
+            ),
+        )
+        if not observe_only:
+            self.proactive_runner = ProactiveRunner(
+                self.proactive_store,
+                self.repository,
+                policy,
+                self.model,
+                max_output_tokens=min(
+                    1500,
+                    self.settings.models.max_output_tokens,
+                    self.settings.limits.max_task_output_tokens,
                 ),
-                output_mode=_pipeline_output_mode(self.settings, self._uia_stage),
-            ),
-        )
-        self.proactive_runner = ProactiveRunner(
-            self.proactive_store,
-            self.repository,
-            policy,
-            self.model,
-            max_output_tokens=min(
-                1500,
-                self.settings.models.max_output_tokens,
-                self.settings.limits.max_task_output_tokens,
-            ),
-            max_input_tokens=self.settings.limits.max_task_input_tokens,
-            side_effect_lock=self._side_effect_lock,
-        )
+                max_input_tokens=self.settings.limits.max_task_input_tokens,
+                side_effect_lock=self._side_effect_lock,
+            )
         await self._seed_allowlist()
 
     def _policy_config(self) -> PolicyConfig:
@@ -457,16 +448,6 @@ class LemonbotRuntime:
             timezone=self.settings.timezone,
             quiet_start=limits.quiet_start,
             quiet_end=limits.quiet_end,
-            wecom=RateLimitProfile(
-                reply_per_10_minutes=limits.wecom_reply.per_10_minutes,
-                reply_per_hour=limits.wecom_reply.per_hour,
-                reply_per_day=limits.wecom_reply.per_day,
-                global_per_day=limits.wecom_reply.global_per_day,
-                proactive_cooldown_hours=limits.wecom_proactive.period_hours,
-                proactive_per_day=limits.wecom_proactive.per_day,
-                proactive_global_per_day=limits.wecom_proactive.global_per_day,
-                proactive_enabled=True,
-            ),
             wechat_lab=RateLimitProfile(
                 reply_per_10_minutes=limits.wechat_reply.per_10_minutes,
                 reply_per_hour=limits.wechat_reply.per_hour,
@@ -475,15 +456,16 @@ class LemonbotRuntime:
                 proactive_cooldown_hours=limits.wechat_proactive.period_hours,
                 proactive_per_day=limits.wechat_proactive.per_day,
                 proactive_global_per_day=limits.wechat_proactive.global_per_day,
-                proactive_enabled=self._uia_stage is PersonalWeChatStage.PROACTIVE,
+                proactive_enabled=False,
             ),
         )
 
     async def _seed_allowlist(self) -> None:
-        if self.settings.runtime.connector == "wecom":
-            channel, chats = "wecom", self.settings.wecom.allow_chat_ids
-        elif self.settings.runtime.connector == "wechat_uia":
-            channel, chats = "wechat_personal_lab", self.settings.wechat_uia.allow_chat_ids
+        if self.settings.runtime.connector == "wechat_atspi":
+            channel, chats = (
+                "wechat_personal_lab",
+                self.settings.wechat_atspi.allow_target_refs,
+            )
         else:
             channel, chats = "fake", ()
         if channel != "fake":
@@ -500,70 +482,110 @@ class LemonbotRuntime:
         selected = self.settings.runtime.connector
         if selected == "fake":
             return FakeConnector(channel="fake")
-        secrets = self._credential_store()
-        if selected == "wecom":
-
-            async def store_attachment(
-                event: InboundEvent,
-                content: bytes,
-                media_type: str,
-                filename: str | None,
-            ) -> str:
-                stored = await self.attachments.ingest(
-                    channel=event.channel,
-                    chat_id=event.chat_id,
-                    event_id=event.event_id,
-                    content=content,
-                    media_type=media_type,
-                    original_name=filename,
-                )
-                return str(stored.attachment_id)
-
-            return WeComConnector(
-                WeComConfig(
-                    bot_id=self.settings.wecom.bot_id,
-                    secret=secrets.require("wecom_bot_secret"),
-                    allowed_chat_ids=frozenset(self.settings.wecom.allow_chat_ids),
-                    welcome_text=self.settings.wecom.welcome_text,
-                    max_media_bytes=self.settings.vision.max_file_bytes,
-                    max_media_items=self.settings.limits.max_downloads,
-                ),
-                attachment_sink=store_attachment,
-            )
-        uia = self.settings.wechat_uia
-        backend = None
-        if uia.selector_bundle_path:
-            bundle = SelectorBundle.load(Path(uia.selector_bundle_path))
-            if not set(uia.allow_chat_ids).issubset(bundle.chat_targets):
-                raise RuntimeError("UIA allowlist contains a chat absent from the selector bundle")
-            backend = WindowsWeChatUIABackend(
-                bundle=bundle,
-                expected_process_name=uia.expected_process_name,
-                expected_executable_path=uia.expected_executable_path or None,
-                expected_executable_sha256=uia.expected_executable_sha256 or None,
-                expected_windows_user=uia.expected_windows_user or None,
-                expected_account_id=uia.expected_account or None,
-                enrolled_client_version=uia.enrolled_client_version or None,
-                enrolled_selector_signature=uia.enrolled_selector_signature or None,
-                poll_seconds=uia.reconcile_seconds,
-            )
-        return PersonalWeChatConnector(
-            PersonalWeChatConfig(
-                enabled=uia.enabled,
-                stage=self._uia_stage or PersonalWeChatStage.OBSERVE,
-                expected_process_name=uia.expected_process_name,
-                expected_executable_path=uia.expected_executable_path or None,
-                expected_executable_sha256=uia.expected_executable_sha256 or None,
-                expected_windows_user=uia.expected_windows_user or None,
-                expected_account_id=uia.expected_account or None,
-                enrolled_client_version=uia.enrolled_client_version or None,
-                enrolled_selector_signature=uia.enrolled_selector_signature or None,
-                allowed_chat_ids=frozenset(uia.allow_chat_ids),
-            ),
-            backend=backend,
+        if selected != "wechat_atspi":
+            raise RuntimeError("unsupported connector")
+        atspi = self.settings.wechat_atspi
+        pids = await asyncio.to_thread(self._verify_linux_wechat)
+        enrollment = AtspiEnrollment.load(
+            Path(atspi.enrollment_bundle_path),
+            atspi.enrollment_bundle_sha256,
+        )
+        if (
+            enrollment.account_fingerprint != atspi.account_fingerprint
+            or enrollment.ui_signature != atspi.ui_signature
+        ):
+            raise RuntimeError("AT-SPI enrollment identity mismatch")
+        enrolled_refs = {target.target_ref for target in enrollment.targets}
+        allowed_refs = frozenset(atspi.allow_target_refs)
+        if not allowed_refs or not allowed_refs <= enrolled_refs:
+            raise RuntimeError("AT-SPI allowlist is not contained in the enrollment")
+        source = await AtspiWorkerSource.create(
+            enrollment=enrollment,
+            expected_pids=pids,
+            allow_target_refs=allowed_refs,
+            debounce_ms=atspi.event_debounce_ms,
+            reconcile_seconds=atspi.reconcile_seconds,
+            python_executable=Path(atspi.worker_python_path),
+            supervisor=self._worker_supervisor,
         )
 
+        async def load_cursor(target_ref: str) -> AtspiCursor | None:
+            state = await self.repository.runtime_state(f"atspi:cursor:{target_ref}")
+            return None if state is None else AtspiCursor.model_validate(state)
+
+        async def save_cursor(target_ref: str, cursor: AtspiCursor) -> None:
+            await self.repository.set_runtime_state(
+                f"atspi:cursor:{target_ref}", cursor.model_dump(mode="json")
+            )
+
+        return AtspiObserveConnector(
+            source,
+            enrollment,
+            allow_target_refs=allowed_refs,
+            load_cursor=load_cursor,
+            save_cursor=save_cursor,
+        )
+
+    @staticmethod
+    def _sha256_file(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _verify_linux_wechat(self) -> tuple[int, ...]:
+        if not sys.platform.startswith("linux"):
+            raise RuntimeError("the AT-SPI connector is Linux-only")
+        import pwd
+
+        atspi = self.settings.wechat_atspi
+        if not os.environ.get("INVOCATION_ID"):
+            raise RuntimeError("the AT-SPI connector must run inside lemonbot.service")
+        if os.getuid() != atspi.expected_linux_uid:
+            raise RuntimeError("Linux UID differs from enrollment")
+        if pwd.getpwuid(os.getuid()).pw_name != atspi.expected_linux_user:
+            raise RuntimeError("Linux user differs from enrollment")
+        if os.environ.get("XDG_SESSION_TYPE", "").casefold() != atspi.expected_session_type:
+            raise RuntimeError("graphical session type differs from enrollment")
+        executable = Path(atspi.expected_executable_path)
+        worker_python = Path(atspi.worker_python_path)
+        if (
+            executable.is_symlink()
+            or not executable.is_file()
+            or not worker_python.is_file()
+        ):
+            raise RuntimeError("enrolled executable or worker Python is unavailable")
+        if self._sha256_file(executable) != atspi.expected_executable_sha256:
+            raise RuntimeError("WeChat executable hash differs from enrollment")
+        try:
+            package = subprocess.run(
+                ["/usr/bin/dpkg-query", "-W", "-f=${Version}", "wechat"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            raise RuntimeError("WeChat package version cannot be verified") from None
+        if package.split("-", 1)[0] != atspi.enrolled_client_version:
+            raise RuntimeError("WeChat package version differs from enrollment")
+        executable_resolved = executable.resolve(strict=True)
+        pids: list[int] = []
+        for process in psutil.process_iter(("pid", "exe")):
+            try:
+                process_path = Path(str(process.info.get("exe") or ""))
+                if process_path.is_file() and process_path.resolve() == executable_resolved:
+                    pids.append(int(process.info["pid"]))
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                continue
+        if not pids or len(pids) > 16:
+            raise RuntimeError("WeChat process identity is missing or ambiguous")
+        return tuple(sorted(pids))
+
     async def _build_model(self) -> ModelBackend:
+        if self.settings.models.provider == "disabled":
+            return DisabledModelBackend()
         if self.settings.models.provider == "fake":
             return FakeModelBackend()
         budget_settings = self.settings.models.budget
@@ -717,7 +739,7 @@ class LemonbotRuntime:
                         supervisor=self._worker_supervisor,
                     )
                     # Startup verifies the executable hash, exact protocol/server
-                    # version and Job Object assignment before any manifest is exposed.
+                    # version and supervised-process confinement before any manifest is exposed.
                     await client.start()
                     started_mcp_clients.append(client)
                     for local_name, configured_tool in server.tools.items():
@@ -765,7 +787,7 @@ class LemonbotRuntime:
         if failures:
             raise RuntimeError("one or more Lemonbot components failed to close") from failures[0]
 
-    async def serve(self, *, enable_tray: bool) -> None:
+    async def serve(self) -> None:
         if self.pipeline is None or self.connector is None or self._policy is None:
             raise RuntimeError("runtime is not initialized")
         tokens = LocalTokenManager()
@@ -780,6 +802,7 @@ class LemonbotRuntime:
             policy=self._policy,
             granted_tool_scopes=self._tool_scopes,
             side_effect_lock=self._side_effect_lock,
+            emergency_file=self.paths.emergency_stop_file,
             attachment_store=self.attachments,
         )
         app = create_admin_app(
@@ -802,31 +825,17 @@ class LemonbotRuntime:
             f"Lemonbot 本地管理台：http://{self.settings.admin.host}:"
             f"{self.settings.admin.port}/login#{bootstrap}"
         )
-        loop = asyncio.get_running_loop()
-        if enable_tray:
-
-            def emergency_stop_from_tray() -> None:
-                asyncio.run_coroutine_threadsafe(control.emergency_stop(), loop)
-
-            def set_pause_from_tray(channel: str | None, paused: bool) -> None:
-                asyncio.run_coroutine_threadsafe(control.set_pause(channel, paused), loop)
-
-            start_tray(
-                tokens,
-                host=self.settings.admin.host,
-                port=self.settings.admin.port,
-                emergency_stop=emergency_stop_from_tray,
-                set_pause=set_pause_from_tray,
-            )
         tasks = {
-            asyncio.create_task(
-                self.pipeline.consume_events(self.connector), name="connector-events"
-            ),
+            asyncio.create_task(self._consume_loop(), name="connector-events"),
             asyncio.create_task(self._process_loop(), name="inbox-processor"),
-            asyncio.create_task(self._dispatch_loop(), name="outbox-dispatcher"),
-            asyncio.create_task(self._proactive_loop(), name="proactive-scheduler"),
             asyncio.create_task(server.serve(), name="local-admin"),
         }
+        if self.settings.runtime.connector != "wechat_atspi":
+            tasks.add(asyncio.create_task(self._dispatch_loop(), name="outbox-dispatcher"))
+            if self.proactive_runner is not None:
+                tasks.add(
+                    asyncio.create_task(self._proactive_loop(), name="proactive-scheduler")
+                )
         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         server.should_exit = True
         for task in pending:
@@ -843,11 +852,23 @@ class LemonbotRuntime:
             result = await self.pipeline.process_once()
             await asyncio.sleep(0.2 if result.status is PipelineStatus.IDLE else 0)
 
+    async def _consume_loop(self) -> None:
+        assert self.pipeline is not None and self.connector is not None
+        channel = (
+            "wechat_personal_lab"
+            if self.settings.runtime.connector == "wechat_atspi"
+            else getattr(self.connector, "channel", self.settings.runtime.connector)
+        )
+        async for event in self.connector.events():
+            if self._emergency.is_set() or await self.repository.is_paused(channel):
+                continue
+            await self.pipeline.ingest(event)
+
     async def _dispatch_loop(self) -> None:
         assert self.pipeline is not None and self.connector is not None
         channel = (
             "wechat_personal_lab"
-            if self.settings.runtime.connector == "wechat_uia"
+            if self.settings.runtime.connector == "wechat_atspi"
             else getattr(self.connector, "channel", self.settings.runtime.connector)
         )
         while True:
@@ -864,7 +885,7 @@ class LemonbotRuntime:
             await asyncio.sleep(0 if handled else 2)
 
 
-async def run_service(settings: AppSettings, *, enable_tray: bool = True) -> None:
+async def run_service(settings: AppSettings) -> None:
     paths = RuntimePaths.from_settings(settings)
     paths.ensure()
     configure_logging(settings.runtime.log_level)
@@ -872,6 +893,6 @@ async def run_service(settings: AppSettings, *, enable_tray: bool = True) -> Non
         runtime = LemonbotRuntime(settings)
         try:
             await runtime.initialize()
-            await runtime.serve(enable_tray=enable_tray)
+            await runtime.serve()
         finally:
             await runtime.close()

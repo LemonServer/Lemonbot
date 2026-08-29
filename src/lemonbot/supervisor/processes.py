@@ -5,8 +5,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from lemonbot.supervisor.windows_job import WindowsJobObject
-
 
 def _absolute_executable(path: Path) -> Path:
     """Validate an executable without resolving a virtualenv symlink.
@@ -26,27 +24,21 @@ def _absolute_executable(path: Path) -> Path:
 class WorkerProcess:
     name: str
     process: asyncio.subprocess.Process
-    job: WindowsJobObject | None
 
     async def stop(self, grace_period_seconds: float = 5) -> None:
-        job, self.job = self.job, None
-        try:
-            if self.process.returncode is None:
+        if self.process.returncode is None:
+            try:
+                self.process.terminate()
+            except ProcessLookupError:
+                pass
+            try:
+                await asyncio.wait_for(self.process.wait(), grace_period_seconds)
+            except TimeoutError:
                 try:
-                    self.process.terminate()
+                    self.process.kill()
                 except ProcessLookupError:
                     pass
-                try:
-                    await asyncio.wait_for(self.process.wait(), grace_period_seconds)
-                except TimeoutError:
-                    try:
-                        self.process.kill()
-                    except ProcessLookupError:
-                        pass
-                    await self.process.wait()
-        finally:
-            if job is not None:
-                job.close()
+                await self.process.wait()
 
 
 class WorkerSupervisor:
@@ -74,7 +66,18 @@ class WorkerSupervisor:
         environment = {
             key: value
             for key, value in os.environ.items()
-            if key.upper() in {"SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LOCALAPPDATA"}
+            if key
+            in {
+                "DBUS_SESSION_BUS_ADDRESS",
+                "LANG",
+                "LC_ALL",
+                "SYSTEMROOT",
+                "TEMP",
+                "TMP",
+                "WINDIR",
+                "PATH",
+                "XDG_RUNTIME_DIR",
+            }
         }
         process = await asyncio.create_subprocess_exec(
             str(executable),
@@ -86,23 +89,12 @@ class WorkerSupervisor:
             stderr=asyncio.subprocess.PIPE,
             limit=stream_limit_bytes,
         )
-        job = None
         try:
-            if os.name == "nt":
-                job = WindowsJobObject(
-                    process_memory_bytes=memory_limit_bytes,
-                    max_processes=max_processes,
-                )
-                job.assign_pid(process.pid)
-            worker = WorkerProcess(name=name, process=process, job=job)
+            del memory_limit_bytes, max_processes
+            worker = WorkerProcess(name=name, process=process)
             self._workers[name] = worker
             return worker
-        except BaseException as error:
-            if job is not None:
-                try:
-                    job.close()
-                except Exception as close_error:
-                    error.add_note(f"Job Object cleanup also failed: {close_error}")
+        except BaseException:
             if process.returncode is None:
                 try:
                     process.kill()

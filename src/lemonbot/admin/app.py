@@ -156,7 +156,7 @@ def create_admin_app(
 
     @app.post("/api/pause/{channel}")
     async def pause_channel(
-        channel: Literal["wecom", "wechat_uia"],
+        channel: Literal["wechat_personal_lab"],
         payload: PauseRequest,
         lemonbot_session: Annotated[str | None, Cookie()] = None,
         x_csrf_token: Annotated[str | None, Header()] = None,
@@ -197,8 +197,7 @@ pre,.card{white-space:pre-wrap;background:#222;padding:1rem;border-radius:.4rem}
 </style></head><body><h1>Lemonbot</h1><p id="state">正在验证本机一次性令牌……</p>
 <pre id="status"></pre><section id="controls" hidden><h2>出站控制</h2>
 <button data-pause="global:1">暂停全部</button><button data-pause="global:0">恢复全部</button>
-<button data-pause="wecom:1">暂停企业微信</button><button data-pause="wecom:0">恢复企业微信</button>
-<button data-pause="wechat_uia:1">暂停个人微信</button><button data-pause="wechat_uia:0">恢复个人微信</button>
+<button data-pause="wechat_personal_lab:1">暂停个人微信观察</button><button data-pause="wechat_personal_lab:0">恢复个人微信观察</button>
 <button id="stop" class="danger">紧急停止</button></section>
 <section id="approval-section" hidden><h2>一次性审批</h2><div id="approvals"></div></section><script>
 const state=document.getElementById('state'), status=document.getElementById('status');

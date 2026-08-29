@@ -58,7 +58,7 @@ class InMemoryControl:
         self._profile = profile
         self._connector = connector
         self._global_paused = False
-        self._channel_pauses: dict[str, bool] = {"wecom": False, "wechat_uia": False}
+        self._channel_pauses: dict[str, bool] = {"wechat_personal_lab": False}
         self._emergency_stopped = False
         self._started_at = datetime.now(UTC)
         self._approvals: dict[str, ApprovalView] = {}

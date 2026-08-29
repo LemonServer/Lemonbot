@@ -2,7 +2,7 @@
 
 Provider adapters deliberately receive a :class:`SecretStore` instead of
 reading environment variables or configuration files.  The production
-implementation can therefore use Windows Credential Manager/DPAPI while tests
+implementation can therefore use Linux Secret Service while tests
 can use the small in-memory implementation below.
 """
 

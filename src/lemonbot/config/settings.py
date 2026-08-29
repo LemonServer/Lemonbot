@@ -5,7 +5,7 @@ import re
 import tomllib
 from datetime import time
 from decimal import Decimal
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
@@ -18,7 +18,7 @@ class StrictModel(BaseModel):
 
 
 class RuntimeSettings(StrictModel):
-    connector: Literal["fake", "wecom", "wechat_uia"] = "fake"
+    connector: Literal["fake", "wechat_atspi"] = "fake"
     data_root: str = ""
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
@@ -53,7 +53,7 @@ class BudgetSettings(StrictModel):
 
 
 class ModelSettings(StrictModel):
-    provider: Literal["fake", "deepseek", "openai_compatible"] = "deepseek"
+    provider: Literal["disabled", "fake", "deepseek", "openai_compatible"] = "disabled"
     base_url: HttpUrl = HttpUrl("https://api.deepseek.com")
     api_key_secret_name: str = Field(default="deepseek_api_key", max_length=128)
     flash_model: str = "deepseek-v4-flash"
@@ -117,66 +117,79 @@ class MCPSettings(StrictModel):
         return self
 
 
-class WeComSettings(StrictModel):
+class WechatAtspiSettings(StrictModel):
     enabled: bool = False
-    bot_id: str = ""
-    welcome_text: str = "你好，我是 Lemonbot，一个由 AI 驱动的助手。"
-    allow_chat_ids: tuple[str, ...] = ()
-    admin_sender_ids: tuple[str, ...] = ()
-
-    @model_validator(mode="after")
-    def require_identity_and_allowlist_when_enabled(self) -> WeComSettings:
-        if self.enabled and (not self.bot_id.strip() or not self.allow_chat_ids):
-            raise ValueError("enabled WeCom requires bot_id and a stable chat allowlist")
-        return self
-
-
-class WechatUIASettings(StrictModel):
-    enabled: bool = False
-    stage: Literal["observe", "draft", "reply", "proactive"] = "observe"
-    expected_account: str = ""
-    expected_windows_user: str = ""
-    expected_process_name: str = "WeChat.exe"
-    expected_executable_path: str = ""
+    stage: Literal["observe"] = "observe"
+    expected_linux_uid: int = Field(default=1000, ge=1)
+    expected_linux_user: str = ""
+    expected_session_type: Literal["wayland"] = "wayland"
+    expected_executable_path: str = "/opt/wechat/wechat"
+    worker_python_path: str = ""
     expected_executable_sha256: str = ""
     enrolled_client_version: str = ""
-    enrolled_selector_signature: str = ""
-    selector_bundle_path: str = ""
-    allow_chat_ids: tuple[str, ...] = ()
-    admin_sender_ids: tuple[str, ...] = ()
+    account_fingerprint: str = ""
+    ui_signature: str = ""
+    enrollment_bundle_path: str = ""
+    enrollment_bundle_sha256: str = ""
+    allow_target_refs: tuple[str, ...] = ()
+    event_debounce_ms: int = Field(default=500, ge=100, le=5_000)
     reconcile_seconds: float = Field(default=15, ge=5, le=300)
 
     @model_validator(mode="after")
-    def require_enrollment_when_enabled(self) -> WechatUIASettings:
+    def require_enrollment_when_enabled(self) -> WechatAtspiSettings:
+        if self.expected_linux_user and re.fullmatch(
+            r"[a-z_][a-z0-9_-]{0,31}", self.expected_linux_user
+        ) is None:
+            raise ValueError("expected_linux_user is not a safe Linux user name")
         if self.expected_executable_path:
-            path = PureWindowsPath(self.expected_executable_path)
+            path = PurePosixPath(self.expected_executable_path)
             if (
                 not path.is_absolute()
-                or len(path.drive) != 2
-                or not path.drive.endswith(":")
                 or any(part in {".", ".."} for part in path.parts)
-                or self.expected_executable_path.startswith(("\\\\", "\\\\?\\", "\\\\.\\"))
             ):
-                raise ValueError("expected_executable_path must be an absolute local-drive path")
-            if path.name.casefold() != self.expected_process_name.casefold():
-                raise ValueError("expected executable filename must match expected_process_name")
-        if (
-            self.expected_executable_sha256
-            and re.fullmatch(r"[0-9a-f]{64}", self.expected_executable_sha256) is None
-        ):
-            raise ValueError("expected_executable_sha256 must be 64 lowercase hex characters")
+                raise ValueError("expected_executable_path must be an absolute POSIX path")
         enrollment = (
-            self.expected_account,
-            self.expected_windows_user,
+            self.expected_linux_user,
             self.expected_executable_path,
+            self.worker_python_path,
             self.expected_executable_sha256,
             self.enrolled_client_version,
-            self.enrolled_selector_signature,
-            self.selector_bundle_path,
+            self.account_fingerprint,
+            self.ui_signature,
+            self.enrollment_bundle_path,
+            self.enrollment_bundle_sha256,
         )
-        if self.enabled and (any(not value for value in enrollment) or not self.allow_chat_ids):
+        if self.worker_python_path:
+            worker_path = PurePosixPath(self.worker_python_path)
+            if not worker_path.is_absolute() or any(
+                part in {".", ".."} for part in worker_path.parts
+            ):
+                raise ValueError("worker_python_path must be an absolute POSIX path")
+        digests = (
+            self.expected_executable_sha256,
+            self.account_fingerprint,
+            self.ui_signature,
+            self.enrollment_bundle_sha256,
+        )
+        if any(value and len(value) != 64 for value in digests) or any(
+            value and any(character not in "0123456789abcdef" for character in value)
+            for value in digests
+        ):
+            raise ValueError("AT-SPI fingerprints must be 64 lowercase hex characters")
+        if len(set(self.allow_target_refs)) != len(self.allow_target_refs):
+            raise ValueError("allow_target_refs must not contain duplicates")
+        if any(
+            not value
+            or len(value) > 128
+            or any(
+                ch not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for ch in value
+            )
+            for value in self.allow_target_refs
+        ):
+            raise ValueError("target refs must use lowercase safe identifiers")
+        if self.enabled and (any(not value for value in enrollment) or not self.allow_target_refs):
             raise ValueError(
-                "enabled personal WeChat requires account/user/executable/version/selectors "
+                "enabled AT-SPI requires Linux identity, executable, enrollment fingerprints "
                 "and an allowlist"
             )
         return self
@@ -209,16 +222,6 @@ class LimitsSettings(StrictModel):
     max_downloads: int = Field(default=3, ge=0, le=10)
     max_reply_chunks: int = Field(default=2, ge=1, le=2)
     max_chunk_chars: int = Field(default=1500, ge=100, le=1500)
-    wecom_reply: ReplyLimit = Field(
-        default_factory=lambda: ReplyLimit(
-            per_10_minutes=6, per_hour=30, per_day=100, global_per_day=500
-        )
-    )
-    wecom_proactive: ProactiveLimit = Field(
-        default_factory=lambda: ProactiveLimit(
-            per_period=1, period_hours=6, per_day=3, global_per_day=30
-        )
-    )
     wechat_reply: ReplyLimit = Field(
         default_factory=lambda: ReplyLimit(
             per_10_minutes=3, per_hour=10, per_day=30, global_per_day=50
@@ -232,7 +235,7 @@ class LimitsSettings(StrictModel):
 
 
 class AppSettings(StrictModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     profile: Literal["prod", "lab"] = "prod"
     timezone: str = "Asia/Shanghai"
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
@@ -242,20 +245,17 @@ class AppSettings(StrictModel):
     browser: BrowserSettings = Field(default_factory=BrowserSettings)
     vault: VaultSettings = Field(default_factory=VaultSettings)
     mcp: MCPSettings = Field(default_factory=MCPSettings)
-    wecom: WeComSettings = Field(default_factory=WeComSettings)
-    wechat_uia: WechatUIASettings = Field(default_factory=WechatUIASettings)
+    wechat_atspi: WechatAtspiSettings = Field(default_factory=WechatAtspiSettings)
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
 
     @model_validator(mode="after")
     def validate_channel_isolation(self) -> AppSettings:
-        if self.runtime.connector == "wecom" and self.profile != "prod":
-            raise ValueError("the WeCom connector must use the prod profile")
-        if self.runtime.connector == "wechat_uia" and self.profile != "lab":
-            raise ValueError("the personal WeChat connector must use the lab profile")
-        if self.runtime.connector == "wechat_uia" and not self.wechat_uia.enabled:
-            raise ValueError("wechat_uia connector requires explicit enabled=true")
-        if self.runtime.connector == "wecom" and not self.wecom.enabled:
-            raise ValueError("wecom connector requires explicit enabled=true")
+        if self.runtime.connector == "wechat_atspi" and self.profile != "lab":
+            raise ValueError("the personal WeChat AT-SPI connector must use the lab profile")
+        if self.runtime.connector == "wechat_atspi" and not self.wechat_atspi.enabled:
+            raise ValueError("wechat_atspi connector requires explicit enabled=true")
+        if self.runtime.connector == "wechat_atspi" and self.models.provider != "disabled":
+            raise ValueError("observe-only AT-SPI requires models.provider='disabled'")
         if (
             self.models.provider == "deepseek"
             and str(self.models.base_url).rstrip("/") != "https://api.deepseek.com"
@@ -264,7 +264,7 @@ class AppSettings(StrictModel):
                 "DeepSeek provider must use the official https://api.deepseek.com endpoint"
             )
         if self.models.provider == "deepseek" and not self.models.api_key_secret_name:
-            raise ValueError("DeepSeek requires a Windows Credential Manager secret")
+            raise ValueError("DeepSeek requires a secure credential-store secret")
         if self.models.provider == "openai_compatible":
             model_url = self.models.base_url
             host = (model_url.host or "").casefold()
@@ -286,9 +286,6 @@ def default_config_path() -> Path:
     override = os.environ.get("LEMONBOT_CONFIG")
     if override:
         return Path(override).expanduser().resolve()
-    local = os.environ.get("LOCALAPPDATA")
-    if local:
-        return Path(local) / "Lemonbot" / "config.toml"
     from platformdirs import user_config_path
 
     return user_config_path("Lemonbot") / "config.toml"

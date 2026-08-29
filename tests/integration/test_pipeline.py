@@ -508,6 +508,25 @@ def test_deferred_outbox_is_persistently_ineligible_instead_of_busy_looping(
     run(scenario())
 
 
+def test_runtime_state_prefix_clear_only_resets_atspi_cursors(tmp_path) -> None:
+    async def scenario() -> None:
+        database = Database.from_path(tmp_path / "runtime-state.db")
+        await database.initialise()
+        repository = CoreRepository(database)
+        try:
+            await repository.set_runtime_state("atspi:cursor:one", {"generation": 1})
+            await repository.set_runtime_state("atspi:cursor:two", {"generation": 2})
+            await repository.set_runtime_state("unrelated", {"keep": True})
+            assert await repository.clear_runtime_state_prefix("atspi:cursor:") == 2
+            assert await repository.runtime_state("atspi:cursor:one") is None
+            assert await repository.runtime_state("atspi:cursor:two") is None
+            assert await repository.runtime_state("unrelated") == {"keep": True}
+        finally:
+            await database.close()
+
+    run(scenario())
+
+
 def test_connector_delivery_timeout_quarantines_outbox_unknown(tmp_path) -> None:
     class HangingConnector:
         async def deliver(self, message):

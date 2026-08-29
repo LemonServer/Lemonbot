@@ -288,7 +288,7 @@ def _proxy(
 ) -> tuple[IsolatedVisionBackend, _FakeSupervisor, SimpleNamespace]:
     process = SimpleNamespace(returncode=None, stdin=None, stdout=None, stderr=None)
     supervisor = _FakeSupervisor(process)
-    worker = WorkerProcess(name="fake-vision", process=process, job=None)  # type: ignore[arg-type]
+    worker = WorkerProcess(name="fake-vision", process=process)  # type: ignore[arg-type]
     proxy = IsolatedVisionBackend(
         config=_config(root),
         budget=_budget(),

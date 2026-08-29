@@ -1,20 +1,19 @@
 # Lemonbot 研发沿革、通道决策与工程交接
 
 > 最后更新：2026-08-29（Asia/Shanghai）
-> 文档性质：当前通道研发的单一交接入口
-> 当前结论：核心代理框架可继续使用；企业微信不符合最终聊天目标；Windows 个人微信 UIA
-> 已被可访问性层阻塞；官方 Linux 微信已经通过第一阶段纯 AT-SPI 只读可行性验证。
+> 文档性质：历史研发档案；其中命令和“当前实现”描述不得作为运行手册
+> 当前结论：主线已于 2026-08-29 切换为 Linux-only，并完成 schema v2、语义登记、隔离的
+> AT-SPI Observe connector 和 systemd 部署路径。发送、草稿和模型调用仍未启用。
 
 ## 先读这里
 
 接手者应按以下顺序阅读：
 
 1. 本文：理解已经验证过什么、为何改变方向、哪些实验不能重复。
-2. [`PLAN.md`](../PLAN.md)：了解最初的绿地重构目标和完整能力边界。其“企业微信生产通道”
-   与“Windows 为唯一部署基线”已经不是当前通道决策。
-3. [`security.md`](security.md)：不可被通道变化放宽的安全规则。
-4. [`operations.md`](operations.md)：当前 Windows 实现的运行、备份、数据和 UIA 门禁操作。
-5. [`README.md`](../README.md)：当前工程入口和开发命令。
+2. [`PLAN_linux.md`](../PLAN_linux.md)：当前已批准的 Linux-only 实施计划和阶段门禁。
+3. [`security.md`](security.md)：当前安全边界和不可放宽的规则。
+4. [`operations.md`](operations.md)：当前 Linux Observe 登记、部署和应急操作。
+5. [`PLAN.md`](../PLAN.md)：仅用于了解最初绿地目标；其中企业微信和 Windows 基线已失效。
 
 不要把“代码里已经有某个 connector”理解成“该通道已经适合上线”。当前真正稳定的是核心
 事件、存储、策略、模型、记忆和工具框架；聊天通道仍处于选择与验证阶段。

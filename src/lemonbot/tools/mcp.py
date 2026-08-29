@@ -206,7 +206,7 @@ class PinnedMCPServer(BaseModel):
 
 
 class MCPStdioClient:
-    """Pinned MCP stdio client supervised by a Windows Job Object.
+    """Pinned MCP stdio client supervised as a restricted child process.
 
     The command and manifest are administrator-owned immutable configuration.
     Chat/model content can only supply arguments validated by that manifest.

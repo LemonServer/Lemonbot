@@ -7,71 +7,79 @@ import pytest
 from lemonbot.config.settings import AppSettings, load_settings
 
 
-def test_example_configuration_is_valid() -> None:
+def enabled_atspi_raw() -> dict[str, object]:
+    raw = AppSettings().model_dump(mode="python")
+    raw["profile"] = "lab"
+    raw["runtime"]["connector"] = "wechat_atspi"  # type: ignore[index]
+    raw["wechat_atspi"].update(  # type: ignore[union-attr]
+        {
+            "enabled": True,
+            "expected_linux_user": "lemon",
+            "worker_python_path": "/home/lemon/.local/share/Lemonbot/atspi-worker/bin/python",
+            "expected_executable_sha256": "a" * 64,
+            "enrolled_client_version": "4.1.1.8",
+            "account_fingerprint": "b" * 64,
+            "ui_signature": "c" * 64,
+            "enrollment_bundle_path": "/home/lemon/.config/Lemonbot/atspi.json",
+            "enrollment_bundle_sha256": "d" * 64,
+            "allow_target_refs": ["private_test", "group_test"],
+        }
+    )
+    return raw
+
+
+def test_example_configuration_is_safe_linux_lab() -> None:
     settings = load_settings(Path("config/lemonbot.example.toml"))
-    assert settings.profile == "prod"
-    assert settings.models.flash_model == "deepseek-v4-flash"
-    assert not settings.models.budget.enabled
-    assert not settings.mcp.enabled
-    assert not settings.mcp.servers
+    assert settings.schema_version == 2
+    assert settings.profile == "lab"
+    assert settings.models.provider == "disabled"
+    assert not settings.wechat_atspi.enabled
 
 
 def test_cloud_budget_requires_limits_and_prices() -> None:
     raw = AppSettings().model_dump(mode="python")
-    raw["models"]["budget"]["enabled"] = True
+    raw["models"]["budget"]["enabled"] = True  # type: ignore[index]
     with pytest.raises(ValueError, match="explicit prices"):
         AppSettings.model_validate(raw)
 
 
-def test_personal_wechat_requires_lab_profile() -> None:
-    raw = AppSettings().model_dump(mode="python")
-    raw["runtime"]["connector"] = "wechat_uia"
-    raw["wechat_uia"].update(
-        {
-            "enabled": True,
-            "expected_account": "account-sha256",
-            "expected_windows_user": "lab-user",
-            "expected_executable_path": r"C:\Program Files\Tencent\WeChat\WeChat.exe",
-            "expected_executable_sha256": "c" * 64,
-            "enrolled_client_version": "test-version",
-            "enrolled_selector_signature": "selector-sha256",
-            "selector_bundle_path": "selectors.json",
-            "allow_chat_ids": ["chat-1"],
-        }
-    )
+def test_atspi_requires_lab_profile_and_disabled_model() -> None:
+    raw = enabled_atspi_raw()
+    raw["profile"] = "prod"
     with pytest.raises(ValueError, match="lab profile"):
         AppSettings.model_validate(raw)
-
-
-def test_personal_wechat_requires_absolute_hash_pinned_executable() -> None:
-    raw = AppSettings().model_dump(mode="python")
     raw["profile"] = "lab"
-    raw["runtime"]["connector"] = "wechat_uia"
-    raw["wechat_uia"].update(
-        {
-            "enabled": True,
-            "expected_account": "account-sha256",
-            "expected_windows_user": "lab-user",
-            "expected_executable_path": "WeChat.exe",
-            "expected_executable_sha256": "NOT-A-SHA256",
-            "enrolled_client_version": "test-version",
-            "enrolled_selector_signature": "selector-sha256",
-            "selector_bundle_path": "selectors.json",
-            "allow_chat_ids": ["chat-1"],
-        }
-    )
-
-    with pytest.raises(ValueError, match="absolute local-drive path"):
+    raw["models"]["provider"] = "deepseek"  # type: ignore[index]
+    with pytest.raises(ValueError, match="provider='disabled'"):
         AppSettings.model_validate(raw)
 
-    raw["wechat_uia"]["expected_executable_path"] = r"C:\Program Files\Tencent\WeChat\WeChat.exe"
+
+def test_atspi_requires_absolute_paths_hashes_and_safe_target_refs() -> None:
+    raw = enabled_atspi_raw()
+    raw["wechat_atspi"]["expected_executable_path"] = "wechat"  # type: ignore[index]
+    with pytest.raises(ValueError, match="absolute POSIX"):
+        AppSettings.model_validate(raw)
+    raw = enabled_atspi_raw()
+    raw["wechat_atspi"]["ui_signature"] = "NOT-A-HASH"  # type: ignore[index]
     with pytest.raises(ValueError, match="64 lowercase hex"):
         AppSettings.model_validate(raw)
+    raw = enabled_atspi_raw()
+    raw["wechat_atspi"]["allow_target_refs"] = ["unsafe target"]  # type: ignore[index]
+    with pytest.raises(ValueError, match="safe identifiers"):
+        AppSettings.model_validate(raw)
 
 
-def test_enabled_vision_is_pinned_to_the_official_provider_and_model() -> None:
+def test_schema_v1_and_removed_channels_are_rejected() -> None:
     raw = AppSettings().model_dump(mode="python")
-    raw["vision"].update(
+    raw["schema_version"] = 1
+    raw["wecom"] = {"enabled": False}
+    with pytest.raises(ValueError):
+        AppSettings.model_validate(raw)
+
+
+def test_enabled_vision_is_pinned_to_official_provider() -> None:
+    raw = AppSettings().model_dump(mode="python")
+    raw["vision"].update(  # type: ignore[union-attr]
         {
             "enabled": True,
             "input_cny_per_million": "0",
@@ -85,7 +93,7 @@ def test_enabled_vision_is_pinned_to_the_official_provider_and_model() -> None:
 
 def test_plaintext_openai_compatible_provider_must_be_loopback() -> None:
     raw = AppSettings().model_dump(mode="python")
-    raw["models"].update(
+    raw["models"].update(  # type: ignore[union-attr]
         {
             "provider": "openai_compatible",
             "base_url": "http://192.0.2.10:11434/v1",
@@ -96,9 +104,8 @@ def test_plaintext_openai_compatible_provider_must_be_loopback() -> None:
         AppSettings.model_validate(raw)
 
 
-def test_mcp_broker_requires_an_explicitly_enabled_server() -> None:
+def test_mcp_requires_enabled_server() -> None:
     raw = AppSettings().model_dump(mode="python")
-    raw["mcp"]["enabled"] = True
-
+    raw["mcp"]["enabled"] = True  # type: ignore[index]
     with pytest.raises(ValueError, match="explicitly enabled server"):
         AppSettings.model_validate(raw)

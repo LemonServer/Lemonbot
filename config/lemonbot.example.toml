@@ -1,10 +1,10 @@
-schema_version = 1
-profile = "prod"
+schema_version = 2
+profile = "lab"
 timezone = "Asia/Shanghai"
 
 [runtime]
-connector = "fake" # fake | wecom | wechat_uia
-data_root = ""      # empty = %LOCALAPPDATA%\Lemonbot
+connector = "fake" # fake | wechat_atspi
+data_root = ""      # empty = ~/.local/share/Lemonbot
 log_level = "INFO"
 
 [admin]
@@ -12,7 +12,7 @@ host = "127.0.0.1"
 port = 8765
 
 [models]
-provider = "deepseek"
+provider = "disabled" # Observe must not call a model
 base_url = "https://api.deepseek.com"
 api_key_secret_name = "deepseek_api_key"
 flash_model = "deepseek-v4-flash"
@@ -62,10 +62,10 @@ enabled = false # the broker, every server and every tool are opt-in
 # [[mcp.servers]]
 # name = "example"
 # enabled = false
-# executable = "C:\\Program Files\\ExampleMCP\\example-mcp.exe"
+# executable = "/opt/example-mcp/bin/example-mcp"
 # arguments = ["--stdio"]
 # executable_sha256 = "<64 lowercase hex characters>"
-# working_directory = "C:\\Program Files\\ExampleMCP"
+# working_directory = "/var/lib/example-mcp"
 # expected_server_name = "example-mcp"
 # expected_server_version = "1.2.3"
 # protocol_version = "2025-03-26"
@@ -84,28 +84,22 @@ enabled = false # the broker, every server and every tool are opt-in
 # max_output_bytes = 65536
 # input_schema = { type = "object", additionalProperties = false, properties = { query = { type = "string", minLength = 1, maxLength = 200 } }, required = ["query"] }
 
-[wecom]
+[wechat_atspi]
 enabled = false
-bot_id = ""
-welcome_text = "你好，我是 Lemonbot，一个由 AI 驱动的助手。"
-allow_chat_ids = []
-admin_sender_ids = [] # only these stable user IDs may trigger /deep
-
-[wechat_uia]
-enabled = false
-stage = "observe" # observe | draft | reply | proactive
-expected_account = ""
-expected_windows_user = ""
-expected_process_name = "WeChat.exe"
-expected_executable_path = "" # exact absolute local-drive path from `uia inspect`
+stage = "observe"
+expected_linux_uid = 1000
+expected_linux_user = "lemon"
+expected_session_type = "wayland"
+expected_executable_path = "/opt/wechat/wechat"
+worker_python_path = "/home/lemon/.local/share/Lemonbot/atspi-worker/bin/python"
 expected_executable_sha256 = "" # 64 lowercase hex characters
-enrolled_client_version = ""
-enrolled_selector_signature = ""
-# Copy and enroll config/wechat_uia_selectors.example.json on the lab VM, then
-# use an absolute path. The checked-in __ENROLL__ placeholders never match.
-selector_bundle_path = ""
-allow_chat_ids = []
-admin_sender_ids = [] # UIA sender hashes allowed to trigger /deep
+enrolled_client_version = "4.1.1.8"
+account_fingerprint = ""
+ui_signature = ""
+enrollment_bundle_path = ""
+enrollment_bundle_sha256 = ""
+allow_target_refs = []
+event_debounce_ms = 500
 reconcile_seconds = 15
 
 [limits]
@@ -121,18 +115,6 @@ max_navigations = 10
 max_downloads = 3
 max_reply_chunks = 2
 max_chunk_chars = 1500
-
-[limits.wecom_reply]
-per_10_minutes = 6
-per_hour = 30
-per_day = 100
-global_per_day = 500
-
-[limits.wecom_proactive]
-per_period = 1
-period_hours = 6
-per_day = 3
-global_per_day = 30
 
 [limits.wechat_reply]
 per_10_minutes = 3
