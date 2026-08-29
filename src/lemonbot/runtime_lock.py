@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import os
+from importlib import import_module
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Protocol, cast
 
 
 class AlreadyRunningError(RuntimeError):
     pass
+
+
+class _FcntlModule(Protocol):
+    LOCK_EX: int
+    LOCK_NB: int
+    LOCK_UN: int
+
+    def flock(self, fd: int, operation: int) -> None: ...
+
+
+def _linux_fcntl() -> _FcntlModule:
+    try:
+        return cast(_FcntlModule, import_module("fcntl"))
+    except ModuleNotFoundError:
+        raise RuntimeError("Lemonbot runtime locking is Linux-only") from None
 
 
 class RuntimeLock:
@@ -18,32 +34,13 @@ class RuntimeLock:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         stream = self._path.open("a+b")
         try:
-            stream.seek(0)
-            if os.name == "nt":  # developer-test portability; Windows is not a runtime target
-                import msvcrt
-
-                if stream.tell() == stream.seek(0, os.SEEK_END):
-                    stream.write(b"\0")
-                    stream.flush()
-                stream.seek(0)
-                try:
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                except OSError as exc:
-                    raise AlreadyRunningError(
-                        "this Lemonbot profile is already running"
-                    ) from exc
-            else:
-                import fcntl
-
-                try:
-                    fcntl.flock(  # type: ignore[attr-defined]
-                        stream.fileno(),
-                        fcntl.LOCK_EX | fcntl.LOCK_NB,  # type: ignore[attr-defined]
-                    )
-                except OSError as exc:
-                    raise AlreadyRunningError(
-                        "this Lemonbot profile is already running"
-                    ) from exc
+            fcntl = _linux_fcntl()
+            try:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as exc:
+                raise AlreadyRunningError(
+                    "this Lemonbot profile is already running"
+                ) from exc
             stream.seek(0)
             stream.truncate()
             stream.write(str(os.getpid()).encode("ascii"))
@@ -59,18 +56,8 @@ class RuntimeLock:
             return
         stream, self._stream = self._stream, None
         try:
-            stream.seek(0)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(  # type: ignore[attr-defined]
-                    stream.fileno(),
-                    fcntl.LOCK_UN,  # type: ignore[attr-defined]
-                )
+            fcntl = _linux_fcntl()
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
         finally:
             stream.close()
             self._path.unlink(missing_ok=True)
