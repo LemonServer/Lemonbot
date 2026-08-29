@@ -368,7 +368,7 @@ def semantic_probe(
             "window",
         ):
             try:
-                listener.register_with_app(event_type, app)
+                listener.register_with_app(event_type, [], app)
                 registered += 1
             except Exception:  # noqa: S112 - each event family is capability-probed
                 continue

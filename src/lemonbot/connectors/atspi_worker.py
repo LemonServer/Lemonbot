@@ -241,7 +241,7 @@ class AtspiWorkerService:
                     "window",
                 ):
                     try:
-                        listener.register_with_app(event_type, app)
+                        listener.register_with_app(event_type, [], app)
                         registered += 1
                     except Exception:  # noqa: S112 - registration is probed event-by-event
                         continue
