@@ -357,7 +357,7 @@ def semantic_probe(
             pass
 
     listener = atspi.EventListener.new(on_event, None)
-    registered = 0
+    registered_types: list[str] = []
     for app in apps:
         for event_type in (
             "object:text-changed",
@@ -368,22 +368,26 @@ def semantic_probe(
         ):
             try:
                 listener.register_with_app(event_type, [], app)
-                registered += 1
+                registered_types.append(event_type)
             except Exception:  # noqa: S112 - each event family is capability-probed
                 continue
-    if registered == 0:
+    if not registered_types:
         raise RuntimeError("scoped AT-SPI event registration unavailable")
-    deadline = time.monotonic() + duration_seconds
-    latest: dict[str, list[dict[str, object]]] = {"self": [], "inbound": []}
-    while time.monotonic() < deadline:
-        try:
-            triggers.get(timeout=min(1.0, max(0.01, deadline - time.monotonic())))
-            time.sleep(0.5)
-        except queue.Empty:
-            pass
-        latest = _canary_matches(apps, tokens, max_nodes=max_nodes)
-        if len(latest["self"]) == 1 and len(latest["inbound"]) == 1:
-            break
+    try:
+        deadline = time.monotonic() + duration_seconds
+        latest: dict[str, list[dict[str, object]]] = {"self": [], "inbound": []}
+        while time.monotonic() < deadline:
+            try:
+                triggers.get(timeout=min(1.0, max(0.01, deadline - time.monotonic())))
+                time.sleep(0.5)
+            except queue.Empty:
+                pass
+            latest = _canary_matches(apps, tokens, max_nodes=max_nodes)
+            if len(latest["self"]) == 1 and len(latest["inbound"]) == 1:
+                break
+    finally:
+        for event_type in sorted(set(registered_types)):
+            _safe(partial(listener.deregister, event_type))
     self_signature = latest["self"][0]["item_signature"] if len(latest["self"]) == 1 else None
     inbound_signature = (
         latest["inbound"][0]["item_signature"] if len(latest["inbound"]) == 1 else None
@@ -476,7 +480,7 @@ def semantic_probe(
         "schema_version": 1,
         "kind": kind,
         "matched_app_count": len(apps),
-        "registered_event_scopes": registered,
+        "registered_event_scopes": len(registered_types),
         "event_counts": dict(sorted(event_counts.items())),
         "self_match_count": len(latest["self"]),
         "inbound_match_count": len(latest["inbound"]),

@@ -231,7 +231,7 @@ class AtspiWorkerService:
                 self._reply(request, ERROR, AtspiWorkerError(code="wechat_app_not_found"))
                 return 1
             listener = atspi.EventListener.new(self._signal, None)
-            registered = 0
+            registered_types: list[str] = []
             for app in apps:
                 for event_type in (
                     "object:text-changed",
@@ -242,10 +242,10 @@ class AtspiWorkerService:
                 ):
                     try:
                         listener.register_with_app(event_type, [], app)
-                        registered += 1
+                        registered_types.append(event_type)
                     except Exception:  # noqa: S112 - registration is probed event-by-event
                         continue
-            if registered == 0:
+            if not registered_types:
                 self._reply(request, ERROR, AtspiWorkerError(code="event_scope_unavailable"))
                 return 1
             matched_pids = tuple(
@@ -262,21 +262,25 @@ class AtspiWorkerService:
                 daemon=True,
             ).start()
             self._signal()
-            while not self._stop.is_set():
-                try:
-                    self._trigger.get(timeout=config.reconcile_seconds)
-                    time.sleep(config.debounce_ms / 1_000)
-                except queue.Empty:
-                    pass
-                for target in config.targets:
-                    snapshot = self._target_snapshot(apps, target)
-                    if snapshot is not None:
-                        self._write(
-                            Envelope(
-                                message_type=SNAPSHOT,
-                                payload=snapshot.model_dump(mode="json"),
+            try:
+                while not self._stop.is_set():
+                    try:
+                        self._trigger.get(timeout=config.reconcile_seconds)
+                        time.sleep(config.debounce_ms / 1_000)
+                    except queue.Empty:
+                        pass
+                    for target in config.targets:
+                        snapshot = self._target_snapshot(apps, target)
+                        if snapshot is not None:
+                            self._write(
+                                Envelope(
+                                    message_type=SNAPSHOT,
+                                    payload=snapshot.model_dump(mode="json"),
+                                )
                             )
-                        )
+            finally:
+                for event_type in sorted(set(registered_types)):
+                    _safe(partial(listener.deregister, event_type))
             self._write(Envelope(message_type=STOPPED, payload={"stopped": True}))
             return 0
         except (IPCError, ValidationError, OSError):
