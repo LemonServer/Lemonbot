@@ -20,8 +20,8 @@ class AtspiTargetSpec(AtspiMessage):
     transcript_selector: tuple[int, ...] = Field(min_length=1, max_length=32)
     self_item_signature: str = Field(pattern=r"^[0-9a-f]{64}$")
     inbound_item_signature: str = Field(pattern=r"^[0-9a-f]{64}$")
-    self_body_relative_path: tuple[int, ...] = Field(min_length=1, max_length=16)
-    inbound_body_relative_path: tuple[int, ...] = Field(min_length=1, max_length=16)
+    self_body_relative_path: tuple[int, ...] = Field(max_length=16)
+    inbound_body_relative_path: tuple[int, ...] = Field(max_length=16)
     sender_relative_path: tuple[int, ...] | None = Field(default=None, max_length=16)
     sender_attribute_key: str | None = Field(default=None, max_length=128)
 

@@ -23,6 +23,7 @@ from typing import Any
 
 DEFAULT_MAX_NODES = 10_000
 DEFAULT_MAX_DEPTH = 24
+_MESSAGE_ITEM_ROLES = frozenset({"list item", "list-item", "row"})
 
 
 def _safe(call: Callable[[], Any], default: Any = None) -> Any:
@@ -185,6 +186,27 @@ def _attribute_keys(node: Any) -> tuple[str, ...]:
     return tuple(sorted(_attributes(node)))
 
 
+def _match_path(match: dict[str, object], key: str) -> tuple[int, ...]:
+    value = match.get(key)
+    if not isinstance(value, tuple) or any(not isinstance(part, int) for part in value):
+        return ()
+    return value
+
+
+def _message_item(node: Any) -> tuple[Any, int]:
+    """Return the nearest message-row ancestor and the number of hops to it."""
+    current = node
+    for hops in range(9):
+        role = str(_safe(current.get_role_name, "unknown") or "unknown").casefold()
+        if role in _MESSAGE_ITEM_ROLES:
+            return current, hops
+        parent = _parent(current)
+        if parent is None:
+            break
+        current = parent
+    return node, 0
+
+
 def _canary_matches(
     apps: tuple[Any, ...], tokens: dict[str, str], *, max_nodes: int
 ) -> dict[str, list[dict[str, object]]]:
@@ -198,19 +220,24 @@ def _canary_matches(
             visited += 1
             label = reverse.get(_visible_text(node))
             if label is not None:
+                message_item, item_hops = _message_item(node)
+                node_path = _path_parts(path)
+                item_path = node_path[:-item_hops] if item_hops else node_path
+                body_relative_path = node_path[-item_hops:] if item_hops else ()
                 parent = _parent(node)
-                item = _parent(parent) if parent is not None else None
                 matches[label].append(
                     {
                         "app_index": app_index,
                         "path": path,
+                        "item_path": item_path,
+                        "body_relative_path": body_relative_path,
                         "role": str(_safe(node.get_role_name, "unknown") or "unknown"),
                         "interfaces": _interfaces(node),
                         "parent_role": str(
                             _safe(parent.get_role_name, "unknown") if parent is not None else "none"
                         ),
-                        "item_signature": _node_signature(item or parent or node),
-                        "attribute_keys": _attribute_keys(parent or node),
+                        "item_signature": _node_signature(message_item),
+                        "attribute_keys": _attribute_keys(message_item),
                     }
                 )
             count = int(_safe(node.get_child_count, 0) or 0)
@@ -367,10 +394,11 @@ def semantic_probe(
     sender_probe_fingerprint: str | None = None
     account_fingerprint = hashlib.sha256(account_phrase.encode()).hexdigest()
     if len(latest["self"]) == 1 and len(latest["inbound"]) == 1:
-        self_path = _path_parts(str(latest["self"][0]["path"]))
-        inbound_path = _path_parts(str(latest["inbound"][0]["path"]))
-        if len(self_path) >= 3 and len(inbound_path) >= 3:
-            self_item_path, inbound_item_path = self_path[:-2], inbound_path[:-2]
+        self_item_path = _match_path(latest["self"][0], "item_path")
+        inbound_item_path = _match_path(latest["inbound"][0], "item_path")
+        self_body_path = _match_path(latest["self"][0], "body_relative_path")
+        inbound_body_path = _match_path(latest["inbound"][0], "body_relative_path")
+        if self_item_path and inbound_item_path:
             transcript_path = self_item_path[:-1]
             canary_app_index = int(str(latest["self"][0]["app_index"]))
             same_app = canary_app_index == int(
@@ -396,7 +424,7 @@ def semantic_probe(
                         inbound_item = _node_at(apps[app_index], inbound_item_path)
                         if inbound_item is not None:
                             sender_path, sender_key, sender_identity = _sender_identity_candidate(
-                                inbound_item, inbound_path[-2:]
+                                inbound_item, inbound_body_path
                             )
                             if sender_identity:
                                 sender_probe_fingerprint = hashlib.sha256(
@@ -407,8 +435,8 @@ def semantic_probe(
                         "transcript_selector": transcript_path,
                         "self_item_signature": self_signature,
                         "inbound_item_signature": inbound_signature,
-                        "self_body_relative_path": self_path[-2:],
-                        "inbound_body_relative_path": inbound_path[-2:],
+                        "self_body_relative_path": self_body_path,
+                        "inbound_body_relative_path": inbound_body_path,
                         "sender_relative_path": sender_path,
                         "sender_attribute_key": sender_key,
                     }
@@ -421,8 +449,8 @@ def semantic_probe(
                         "transcript_selector": transcript_path,
                         "self_item_signature": self_signature,
                         "inbound_item_signature": inbound_signature,
-                        "self_body_relative_path": self_path[-2:],
-                        "inbound_body_relative_path": inbound_path[-2:],
+                        "self_body_relative_path": self_body_path,
+                        "inbound_body_relative_path": inbound_body_path,
                         "sender_relative_path": sender_path,
                         "sender_attribute_key": sender_key,
                         "sender_probe_fingerprint": sender_probe_fingerprint,

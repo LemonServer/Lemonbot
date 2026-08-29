@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 from lemonbot import cli
 from lemonbot.cli import app
 from lemonbot.connectors import AtspiEnrollment
-from lemonbot.connectors.linux_atspi_probe import _inspect_app, probe
+from lemonbot.connectors.linux_atspi_probe import _canary_matches, _inspect_app, probe
 
 
 class _Action:
@@ -19,16 +19,22 @@ class _Action:
 
 
 class _Node:
-    def __init__(self, name: str, *children: _Node, pid: int = 1234) -> None:
+    def __init__(
+        self, name: str, *children: _Node, pid: int = 1234, role: str = "text"
+    ) -> None:
         self._name = name
         self._children = children
         self._pid = pid
+        self._role = role
+        self._parent: _Node | None = None
+        for child in children:
+            child._parent = self
 
     def get_interfaces(self) -> list[str]:
         return ["Atspi.Text", "Atspi.Action"]
 
     def get_role_name(self) -> str:
-        return "text"
+        return self._role
 
     def get_name(self) -> str:
         return self._name
@@ -44,6 +50,12 @@ class _Node:
 
     def get_process_id(self) -> int:
         return self._pid
+
+    def get_parent(self) -> _Node | None:
+        return self._parent
+
+    def get_attributes(self) -> list[str]:
+        return []
 
 
 def test_probe_report_never_emits_or_hashes_visible_text() -> None:
@@ -68,6 +80,23 @@ def test_probe_report_never_emits_or_hashes_visible_text() -> None:
 def test_probe_requires_explicit_positive_target_pids() -> None:
     with pytest.raises(ValueError, match="positive target PIDs"):
         probe(frozenset(), max_nodes=100, max_depth=10)
+
+
+def test_canary_match_uses_the_message_row_not_its_list_container() -> None:
+    tokens = {"self": "LB26_SELF_" + "test", "inbound": "LB26_PEER_" + "test"}
+    self_row = _Node(tokens["self"], role="list item")
+    inbound_row = _Node(tokens["inbound"], role="list item")
+    app = _Node("", _Node("", self_row, inbound_row, role="list"), role="application")
+
+    matches = _canary_matches(
+        (app,),
+        tokens,
+        max_nodes=100,
+    )
+
+    assert matches["self"][0]["parent_role"] == "list"
+    assert matches["self"][0]["body_relative_path"] == ()
+    assert matches["self"][0]["item_path"] != matches["inbound"][0]["item_path"]
 
 
 def _semantic_report(kind: str) -> dict[str, object]:
