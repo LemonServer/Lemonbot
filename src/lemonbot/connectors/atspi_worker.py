@@ -61,11 +61,6 @@ def _node_at(root: Any, selector: tuple[int, ...]) -> Any | None:
 
 
 def _text(node: Any) -> str:
-    text_iface = _safe(node.get_text_iface)
-    if text_iface is not None:
-        value = _safe(lambda: text_iface.get_text(0, -1), "")
-        if value:
-            return str(value).strip()
     return str(_safe(node.get_name, "") or "").strip()
 
 

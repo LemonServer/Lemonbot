@@ -48,7 +48,8 @@ worker 使用独立 system-Python venv，通过 `systemd-run` 设置 `NoNewPrivi
 IPC/UTS 命名空间，只挂载只读系统库、worker venv、私有 tmpfs 和单独代理 socket。worker 看不
 到核心配置、数据目录、微信数据目录或 Secret Service。
 
-worker IPC 只有 `init/ready/snapshot/health/error/shutdown`。监听注册只作为作用域验证，snapshot
+worker 不调用 Ubuntu GI 中可能崩溃的已弃用 `Accessible.get_text()`；正文只来自已登记节点的
+稳定可访问名称。worker IPC 只有 `init/ready/snapshot/health/error/shutdown`。监听注册只作为作用域验证，snapshot
 以受限周期重读生成；没有 selector 修改、导航、输入、
 点击、发送或任意命令消息。未知类型、超限帧、错误关联、worker 退出或 D-Bus 代理失败都会
 毒化实例并停止通道。
