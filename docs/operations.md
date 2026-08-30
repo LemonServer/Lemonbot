@@ -1,5 +1,9 @@
 # Linux Observe 运行手册
 
+> 当前停机门禁（2026-08-31）：AT-SPI 无法证明微信 4.1.1.8 的消息方向或群发送者。
+> `linux-atspi-enroll` 与 `wechat_atspi` runtime 均被代码拒绝。本文的 enrollment、worker 和
+> Observe 章节仅保留为未来门禁重新评审时的操作参考，当前不得执行部署。
+
 ## 固定部署环境
 
 - Ubuntu 24.04 Desktop x86_64、GNOME Wayland、本地图形登录。
@@ -27,7 +31,7 @@ gsettings set org.gnome.desktop.interface toolkit-accessibility true
 结构发现 canary。Ubuntu 的 AT-SPI Python 事件绑定曾出现原生崩溃，因此语义探测不注册事件监听器；
 账号登记短语与当前聊天标题由隐藏输入读取，只用于本次内存匹配；报告不含真实值或 canary。
 
-每种聊天必须有两份 `passed=true` 报告，并满足：
+未来若重新评审，每种聊天必须有两份 `passed=true` 报告，并满足：
 
 - self 与 inbound canary 均恰好匹配一个节点，item 结构签名不同。
 - 两者属于同一应用、同一 transcript，正文相对路径稳定。
@@ -36,9 +40,12 @@ gsettings set org.gnome.desktop.interface toolkit-accessibility true
   对端发送 canary，其加盐身份摘要也必须一致。
 - 两轮覆盖微信重启；全部实验覆盖一次锁屏/解锁。
 
-任何条件不满足都不要人工编辑报告“修复”。群发送者不可证明时，群聊保持禁用。
+当前私聊和群聊均不满足条件。任何条件不满足都不要人工编辑报告“修复”；不要运行 connector。
 
 ## Enrollment 与配置
+
+当前 `linux-atspi-enroll` 固定安全拒绝并且不创建输出。下列要求只描述未来重新开放门禁的最低
+条件，不是绕过当前门禁的方法。
 
 `linux-atspi-enroll` 比较两轮 private 和两轮 group 报告的完整 candidate。任一 selector、方向
 签名、正文路径、sender 属性、账号指纹变化都会拒绝。输出 bundle 只包含随机 target ref、
@@ -88,6 +95,9 @@ reconcile_seconds = 15
 
 ## Worker 与 systemd
 
+当前不要安装或启动正式 Lemonbot AT-SPI 服务。只读探针仍可由本地图形会话中的操作者手动
+运行。
+
 运行 `install-service` 前必须位于仓库根目录。命令会：
 
 1. 在配置数据目录内重建专用 worker venv。
@@ -104,6 +114,8 @@ Secret Service。任何命令、systemd 属性、PID 映射或代理 socket 缺�
 不要启用 user linger。退出图形会话时微信和 Lemonbot 应同时停止。
 
 ## Observe 行为
+
+本节是尚未获准运行的设计行为，不是当前运行状态。
 
 - 只观察当前可见、已经 enrollment 的会话；不会导航或滚动。
 - 首次进入目标或恢复后建立 baseline，现有历史不进入 inbox。

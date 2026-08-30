@@ -27,6 +27,7 @@ from lemonbot.domain import InboundEvent
 from lemonbot.orchestration import EventPipeline, FakeModelBackend
 from lemonbot.policy import DeterministicPolicy
 from lemonbot.runtime_lock import AlreadyRunningError, RuntimeLock
+from lemonbot.safety_gates import AT_SPI_DIRECTION_GATE_OPEN
 from lemonbot.security.secrets import (
     NamespacedSecretStore,
     SecretStoreError,
@@ -263,6 +264,12 @@ def linux_atspi_enroll(
     confirm_lock_cycle: ConfirmLockOption = False,
 ) -> None:
     """Combine two stable reports per chat kind into a private enrollment bundle."""
+    if not AT_SPI_DIRECTION_GATE_OPEN:
+        typer.echo(
+            "AT-SPI 无法证明消息方向；安全门禁关闭，未创建 enrollment。",
+            err=True,
+        )
+        raise typer.Exit(1)
     if (
         len(private_report) != 2
         or len(group_report) != 2

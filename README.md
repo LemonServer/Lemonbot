@@ -1,8 +1,10 @@
 # Lemonbot 2026
 
 Lemonbot 是一个运行在 Ubuntu 24.04 GNOME Wayland 虚拟机中的、能力受限的个人微信代理框架。
-当前里程碑只实现官方 Linux 微信的 AT-SPI `observe`：读取并持久化经过登记的私聊和测试群
-入站文本，不调用模型、不生成草稿、不写输入框、不点击、不导航，也不发送任何消息。
+当前里程碑仅允许官方 Linux 微信的只读研究。实机已经证明 AT-SPI 可读取控件树，但微信
+4.1.1.8 把 self 与 peer 消息暴露为同构、无属性的 `list item`，无法安全证明方向或群发送者。
+因此 enrollment 与 `wechat_atspi` runtime 均由代码硬关闭，不读取或持久化聊天，不调用模型，
+不生成草稿，不写输入框，不点击、不导航，也不发送任何消息。
 
 Windows UIA、pywechat、托盘、Job Object、Credential Manager 和企业微信 connector 已从当前
 主线移除。历史调查、失败路线和实机证据保留在
@@ -13,6 +15,7 @@ Windows UIA、pywechat、托盘、Job Object、Credential Manager 和企业微�
 - 只允许 Ubuntu 24.04 x86_64、GNOME Wayland、独立低权限用户和微信测试号。
 - 不包含 Hook、注入、ptrace、协议逆向、微信数据库读取、截图点击、坐标点击、键盘模拟或
   剪贴板控制。
+- AT-SPI 只能证明结构可见，不能证明消息方向；不得人工修改报告或配置绕过关闭门禁。
 - AT-SPI worker 没有动作协议；`deliver()` 永远返回 `observe_only`。
 - Observe runtime 不启动模型、浏览器、视觉、MCP、主动任务或 outbox dispatcher，配置必须为
   `models.provider = "disabled"`，也不要求 DeepSeek 密钥。
@@ -40,7 +43,7 @@ cp config/lemonbot.example.toml ~/.config/Lemonbot/config.toml
 图形会话中的 `lemonbot-wechat-accessible.service` 启动，以便只为微信设置
 `QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1`。
 
-## 语义门控与登记
+## 语义研究与关闭门禁
 
 先验证只读结构：
 
@@ -48,8 +51,8 @@ cp config/lemonbot.example.toml ~/.config/Lemonbot/config.toml
 uv run lemonbot channel linux-atspi-probe
 ```
 
-私聊和专用测试群各运行两次语义探针。命令会隐藏读取账号登记短语和当前聊天标题，显示两个
-一次性 canary；按提示分别由本账号和对端账号手动发送。真实 UI 文本和 canary 不写入报告。
+语义探针只用于重复验证已知限制。命令会隐藏读取账号登记短语和当前聊天标题，显示两个
+一次性 canary；真实 UI 文本和 canary 不写入报告。不要为了取得 `passed=true` 改写报告。
 
 ```bash
 uv run lemonbot channel linux-atspi-semantic-probe \
@@ -58,8 +61,8 @@ uv run lemonbot channel linux-atspi-semantic-probe \
   --kind group --output /home/lemon/.local/share/Lemonbot/group-1.json
 ```
 
-第二轮必须覆盖微信重启；四轮中还要完成一次锁屏/解锁后重新测试。只有四份脱敏报告结构一致
-时才能生成 enrollment：
+现有实机报告应为 `passed=false`。即使提供伪造的 `passed=true` 报告，下列命令也会安全拒绝，
+不会生成 enrollment：
 
 ```bash
 uv run lemonbot channel linux-atspi-enroll \
@@ -71,31 +74,19 @@ uv run lemonbot channel linux-atspi-enroll \
   --confirm-restart --confirm-lock-cycle
 ```
 
-命令输出需写入配置的 `account_fingerprint`、`ui_signature`、
-`enrollment_bundle_sha256` 和 `allow_target_refs`。enrollment 文件权限为 `0600`，默认生成随机
-target ref，且不包含联系人、
-群名、消息正文或 canary。
+门禁只有在新的、独立审核的方向证明方案通过后才能由代码变更重新打开，不能靠运行参数打开。
 
 ## 部署与运行
 
-完成配置后：
-
-```bash
-uv run lemonbot doctor --config ~/.config/Lemonbot/config.toml
-uv run lemonbot install-service --config ~/.config/Lemonbot/config.toml
-systemctl --user status lemonbot.service
-```
-
-`install-service` 会创建基于 `/usr/bin/python3 --system-site-packages` 的最小 AT-SPI worker venv，
-安装固定版本的 Pydantic 和当前 Lemonbot wheel，并安装两个 user systemd unit。正式 AT-SPI
-connector 只允许从 `lemonbot.service` 内启动。
-
-管理台只监听 `127.0.0.1`。没有 enrollment 时继续使用 `runtime.connector = "fake"` 做离线测试：
+当前不得把 runtime 配置为 `wechat_atspi`，也不得安装或启动正式读取 connector。离线开发只用：
 
 ```bash
 uv run lemonbot smoke
 uv run lemonbot doctor --config ~/.config/Lemonbot/config.toml
 ```
+
+管理台只监听 `127.0.0.1`。配置必须保持 `runtime.connector = "fake"`、
+`wechat_atspi.enabled = false`、`models.provider = "disabled"` 和 `vision.enabled = false`。
 
 紧急停止会写入持久 sentinel；服务重启后仍拒绝运行。恢复不会补抓停机消息：
 
@@ -115,9 +106,8 @@ uv run lemonbot data delete-conversation wechat_personal_lab <target-ref> \
   --config <path> --confirm
 ```
 
-Observe 连续运行 24 小时并通过验收后，才会另行实施 Linux Draft：通过 Secret Service 启用
-DeepSeek API，只生成本地草稿，仍不操作微信。Reply、主动聊天、图片和文件读取不属于当前
-版本。
+只有未来只读路线取得充分安全证明并完成连续验收后，才会另行规划 Draft。Reply、主动聊天、
+图片和文件读取不属于当前版本。
 
 ## 开发验证
 

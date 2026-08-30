@@ -3,7 +3,7 @@ profile = "lab"
 timezone = "Asia/Shanghai"
 
 [runtime]
-connector = "fake" # fake | wechat_atspi
+connector = "fake" # wechat_atspi is hard-disabled while direction is unproven
 data_root = ""      # empty = ~/.local/share/Lemonbot
 log_level = "INFO"
 
@@ -85,7 +85,7 @@ enabled = false # the broker, every server and every tool are opt-in
 # input_schema = { type = "object", additionalProperties = false, properties = { query = { type = "string", minLength = 1, maxLength = 200 } }, required = ["query"] }
 
 [wechat_atspi]
-enabled = false
+enabled = false # safety gate: keep false; enrollment/runtime are currently blocked
 stage = "observe"
 expected_linux_uid = 1000
 expected_linux_user = "lemon"

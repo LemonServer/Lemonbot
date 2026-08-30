@@ -6,18 +6,18 @@ Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`06
 和固定 systemd 部署。聊天文本、AT-SPI 属性、网页、附件、OCR、视觉结果、模型结果和工具输出
 一律视为不可信数据。
 
-当前微信路径只有 Observe：
+当前微信路径停在研究门禁：
 
 ```text
 官方 Linux 微信
-  → 过滤后的 AT-SPI bus
-  → 无网络、无 Home、无密钥的只读 worker
-  → 严格长度前缀 JSON / Pydantic snapshot
-  → enrollment、方向、sender、尾部唯一对齐
-  → lab.db inbox/messages/audit
+  → 有界、只读 AT-SPI 语义探针
+  → self/peer 结构同构，方向与 sender 无法证明
+  → passed=false
+  → enrollment 拒绝 / connector startup 拒绝
 ```
 
-模型、视觉、浏览器、MCP、主动任务、outbox dispatcher 和微信动作接口均不在该链路中。
+模型、视觉、浏览器、MCP、主动任务、outbox dispatcher、聊天持久化和微信动作接口均不在该
+链路中。
 
 ## 永久禁止
 
@@ -43,7 +43,7 @@ Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`06
 核心通过 accessibility bus 的 D-Bus daemon 查询连接 PID，只允许 Registry 和属于已登记微信
 进程的唯一 bus name。无法获得精确 PID 映射时拒绝启动，不退回完整 session bus。
 
-worker 使用独立 system-Python venv，通过 `systemd-run` 设置 `NoNewPrivileges`、只读系统、
+worker 设计使用独立 system-Python venv，通过 `systemd-run` 设置 `NoNewPrivileges`、只读系统、
 `ProtectHome`、`AF_UNIX`、`IPAddressDeny=any`、内存和任务上限；bubblewrap 再解除网络/PID/
 IPC/UTS 命名空间，只挂载只读系统库、worker venv、私有 tmpfs 和单独代理 socket。worker 看不
 到核心配置、数据目录、微信数据目录或 Secret Service。
@@ -51,10 +51,12 @@ IPC/UTS 命名空间，只挂载只读系统库、worker venv、私有 tmpfs 和
 worker 不调用 Ubuntu GI 中可能崩溃的已弃用 `Accessible.get_text()`；正文只来自已登记节点的
 稳定可访问名称。worker IPC 只有 `init/ready/snapshot/health/error/shutdown`。监听注册只作为作用域验证，snapshot
 以受限周期重读生成；没有 selector 修改、导航、输入、
-点击、发送或任意命令消息。未知类型、超限帧、错误关联、worker 退出或 D-Bus 代理失败都会
-毒化实例并停止通道。
+点击、发送或任意命令消息。即使这些隔离条件满足，当前方向门禁仍会在 enrollment、配置和
+runtime 启动处拒绝通道。
 
 ## 入站一致性
+
+以下是未来只读 connector 的必要条件；当前没有任何入站消息获准进入数据库。
 
 - 当前目标必须存在于 enrollment 和配置 allowlist，chat kind/header 摘要必须精确一致。
 - 第一个 snapshot 只建立 baseline。

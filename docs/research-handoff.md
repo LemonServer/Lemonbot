@@ -1,9 +1,10 @@
 # Lemonbot 研发沿革、通道决策与工程交接
 
-> 最后更新：2026-08-29（Asia/Shanghai）
+> 最后更新：2026-08-31（Asia/Shanghai）
 > 文档性质：历史研发档案；其中命令和“当前实现”描述不得作为运行手册
-> 当前结论：主线已于 2026-08-29 切换为 Linux-only，并完成 schema v2、语义登记、隔离的
-> AT-SPI Observe connector 和 systemd 部署路径。发送、草稿和模型调用仍未启用。
+> 当前结论：主线已切换为 Linux-only，但 AT-SPI-only 在微信 4.1.1.8 上无法证明消息方向或群
+> sender；enrollment 与 connector runtime 已硬关闭。当前只允许只读研究。发送、草稿和模型
+> 调用均未启用。
 
 ## 先读这里
 
@@ -204,6 +205,25 @@ uv run lemonbot channel linux-atspi-probe
 fail closed，不显示后台解锁提示，不回退环境变量或明文文件。真实 DeepSeek key 尚未由部署
 人员提供，因此没有写入或测试任何云凭据，云模型仍保持关闭。
 
+### 2026-08-30 至 2026-08-31 语义门禁结论
+
+- `linux-atspi-probe` 能稳定发现微信应用和完整 AT-SPI 树。
+- 私聊 self/inbound canary 各唯一命中，header 可证明，报告权限为 `0600`。
+- 修正“把消息行误认成外层列表容器”后，微信仍把 self 与 peer 暴露为同构、无属性、无子节点、
+  全宽的 `list item`，没有可靠方向或发送者 ID；私聊报告因此正确为 `passed=false`。
+- 群聊也没有稳定 sender 属性。testing 群连续三轮 30 秒有界轮询正常退出，无早退或段错误。
+- 截图人工证据显示对方通常是左侧白色气泡并在段首显示标签/头像，自己通常是右侧绿色气泡；
+  同一人连续发言时标签可能只出现在段首。这只支持研究本地视觉归因，不构成身份。
+- 从 SSH 后台调用 GNOME Shell ScreenshotArea/InteractiveScreenshot 均被 Wayland/GNOME 拒绝；
+  未绕过限制，临时截图无残留。
+
+安全决策：AT-SPI-only 不得 enrollment 或运行读取 connector。显示标签不能用于白名单、管理员
+或权限；布局和颜色也不能在未经 canary 校准时用于猜测方向。任何视觉/OCR/布局歧义都必须停止。
+
+VM 当前 `main`、`origin/main` 和 HEAD 均为 `009692d`，工作树在本轮开始时干净。该提交包含
+最近 `list item` 选择与叶节点正文路径修复。仍不要据此假设未来远端状态，也不要未经明确授权
+push。
+
 ## Windows 实验的已确认结果
 
 ### 实验环境和现象
@@ -251,7 +271,7 @@ Windows 通道可用。
 | Windows 个人微信 UIA | 暂停 | 当前账号只暴露 7 个外壳节点 | 保留探针和门禁，不再投入动作适配 |
 | Windows OCR/坐标 | 拒绝 | 目标无法可靠证明，误发风险高 | 不实现 |
 | WCFerry/Hook/协议逆向 | 拒绝 | 封号、升级和安全边界冲突 | 不实现 |
-| Linux 纯 AT-SPI | 只读探针已通过 | 实机暴露 535 个结构化节点和关键控件 | 验证事件、消息方向与稳定身份 |
+| Linux 纯 AT-SPI | 阻塞 | 树可读，但方向和群 sender 无法证明 | 保留只读探针，关闭 enrollment/runtime |
 | Linux AT-SPI + Frida/DB | 拒绝 | 需要 ptrace、密钥提取和逆向数据库 | 不采用完整项目 |
 
 不要删除 Windows 连接器、企业微信连接器或已有门禁。它们仍是测试资产，也为未来微信重新

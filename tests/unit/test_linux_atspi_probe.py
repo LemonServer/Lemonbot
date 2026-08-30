@@ -9,7 +9,6 @@ from typer.testing import CliRunner
 
 from lemonbot import cli
 from lemonbot.cli import app
-from lemonbot.connectors import AtspiEnrollment
 from lemonbot.connectors.linux_atspi_probe import _canary_matches, _inspect_app, probe
 
 
@@ -123,7 +122,7 @@ def _semantic_report(kind: str) -> dict[str, object]:
     }
 
 
-def test_enroll_requires_two_consistent_reports_and_writes_no_visible_text(
+def test_enroll_is_blocked_while_atspi_direction_is_unproven(
     tmp_path: Path,
 ) -> None:
     reports: list[Path] = []
@@ -152,18 +151,12 @@ def test_enroll_requires_two_consistent_reports_and_writes_no_visible_text(
             "--confirm-lock-cycle",
         ],
     )
-    assert result.exit_code == 0, result.output
-    bundle = AtspiEnrollment.model_validate_json(output.read_bytes())
-    refs = {target.target_ref for target in bundle.targets}
-    assert len(refs) == 2
-    assert any(ref.startswith("private_") for ref in refs)
-    assert any(ref.startswith("group_") for ref in refs)
-    encoded = output.read_text(encoding="utf-8")
-    assert "contact" not in encoded
-    assert "message" not in encoded
+    assert result.exit_code == 1
+    assert "方向" in result.output
+    assert not output.exists()
 
 
-def test_enroll_rejects_structural_drift_without_creating_bundle(tmp_path: Path) -> None:
+def test_enroll_gate_precedes_report_parsing(tmp_path: Path) -> None:
     private_a = _semantic_report("private")
     private_b = _semantic_report("private")
     private_b["enrollment_candidate"]["transcript_selector"] = [9]  # type: ignore[index]

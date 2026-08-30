@@ -10,6 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
+from lemonbot.safety_gates import AT_SPI_DIRECTION_GATE_OPEN
 from lemonbot.tools.mcp import PinnedMCPServer
 
 
@@ -256,6 +257,10 @@ class AppSettings(StrictModel):
             raise ValueError("wechat_atspi connector requires explicit enabled=true")
         if self.runtime.connector == "wechat_atspi" and self.models.provider != "disabled":
             raise ValueError("observe-only AT-SPI requires models.provider='disabled'")
+        if self.runtime.connector == "wechat_atspi" and not AT_SPI_DIRECTION_GATE_OPEN:
+            raise ValueError(
+                "wechat_atspi is disabled because message direction is unproven"
+            )
         if (
             self.models.provider == "deepseek"
             and str(self.models.base_url).rstrip("/") != "https://api.deepseek.com"

@@ -63,6 +63,7 @@ from lemonbot.orchestration import (
 from lemonbot.policy import DeterministicPolicy, PolicyConfig, RateLimitProfile
 from lemonbot.proactive import ProactiveJobStore, ProactiveRunner
 from lemonbot.runtime_lock import RuntimeLock
+from lemonbot.safety_gates import AT_SPI_DIRECTION_GATE_OPEN
 from lemonbot.security.redaction import configure_logging
 from lemonbot.security.secrets import NamespacedSecretStore, platform_secret_store
 from lemonbot.storage import CoreRepository, Database
@@ -484,6 +485,8 @@ class LemonbotRuntime:
             return FakeConnector(channel="fake")
         if selected != "wechat_atspi":
             raise RuntimeError("unsupported connector")
+        if not AT_SPI_DIRECTION_GATE_OPEN:
+            raise RuntimeError("AT-SPI message direction is unproven; connector disabled")
         atspi = self.settings.wechat_atspi
         pids = await asyncio.to_thread(self._verify_linux_wechat)
         enrollment = AtspiEnrollment.load(

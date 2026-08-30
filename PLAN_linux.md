@@ -1,5 +1,9 @@
 # Lemonbot Linux-only 下一阶段计划：语义验证 → Observe
 
+> 状态更新（2026-08-31）：AT-SPI-only 已在微信 4.1.1.8 上被实机证伪。self/peer 消息行同构且
+> 无稳定方向或 sender 属性，语义报告正确为 `passed=false`。enrollment 和 connector runtime
+> 已硬关闭。下文 Observe connector 内容保留为原设计目标，不代表当前可启用能力。
+
 ## 1. 总体目标
 
 - 唯一运行平台改为 Ubuntu 24.04 x86_64、GNOME Wayland，与官方 Linux 微信同驻一台桌面虚拟机。
@@ -102,3 +106,10 @@ lemonbot channel linux-atspi-semantic-probe --kind group
   - 日志、探针报告和配置中不存在聊天正文、联系人名称或 API 密钥。
 
 Observe 验收后再单独规划 Linux Draft 阶段：启用 DeepSeek API 生成本地草稿，但仍不触碰微信输入框；Reply、主动聊天、图片和文件能力继续作为后续独立安全门控。
+
+## 6. 当前风险门禁
+
+- AT-SPI 能发现应用、header 和 canary，不等于能证明消息方向或发送者身份。
+- 私聊 self/peer 均为全宽、无属性、无子节点的同构 `list item`；群聊也没有稳定 sender 属性。
+- 不允许 enrollment，不允许启动 `wechat_atspi` connector，不允许人工伪造结构签名。
+- 显示标签、左右位置、气泡颜色和消息顺序都不是身份；任何不确定性都必须停止处理。

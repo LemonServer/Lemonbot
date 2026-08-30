@@ -54,6 +54,11 @@ def test_atspi_requires_lab_profile_and_disabled_model() -> None:
         AppSettings.model_validate(raw)
 
 
+def test_atspi_connector_is_closed_while_direction_is_unproven() -> None:
+    with pytest.raises(ValueError, match="direction is unproven"):
+        AppSettings.model_validate(enabled_atspi_raw())
+
+
 def test_atspi_requires_absolute_paths_hashes_and_safe_target_refs() -> None:
     raw = enabled_atspi_raw()
     raw["wechat_atspi"]["expected_executable_path"] = "wechat"  # type: ignore[index]
