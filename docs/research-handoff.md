@@ -3,8 +3,8 @@
 > 最后更新：2026-08-31（Asia/Shanghai）
 > 文档性质：历史研发档案；其中命令和“当前实现”描述不得作为运行手册
 > 当前结论：主线已切换为 Linux-only，但 AT-SPI-only 在微信 4.1.1.8 上无法证明消息方向或群
-> sender；enrollment 与 connector runtime 已硬关闭。当前只允许只读研究。发送、草稿和模型
-> 调用均未启用。
+> sender；enrollment 与 connector runtime 已硬关闭。当前只允许 AT-SPI 只读研究和独立、默认
+> 关闭的 Portal 视觉校准研究。发送、草稿和模型调用均未启用。
 
 ## 先读这里
 
@@ -220,6 +220,10 @@ fail closed，不显示后台解锁提示，不回退环境变量或明文文件
 安全决策：AT-SPI-only 不得 enrollment 或运行读取 connector。显示标签不能用于白名单、管理员
 或权限；布局和颜色也不能在未经 canary 校准时用于猜测方向。任何视觉/OCR/布局歧义都必须停止。
 
+视觉研究只允许经用户显式 Portal 授权、本地处理、两轮 canary 校准并覆盖微信重启和锁屏/
+解锁。显示标签只能转为会话内加盐的 `unverified_display_sender`，不得跨会话关联或用于安全
+决策。当前原型仅包含脱敏证据判定器，没有捕获、OCR、模型、connector 或 UI 动作。
+
 VM 当前 `main`、`origin/main` 和 HEAD 均为 `009692d`，工作树在本轮开始时干净。该提交包含
 最近 `list item` 选择与叶节点正文路径修复。仍不要据此假设未来远端状态，也不要未经明确授权
 push。
@@ -272,6 +276,7 @@ Windows 通道可用。
 | Windows OCR/坐标 | 拒绝 | 目标无法可靠证明，误发风险高 | 不实现 |
 | WCFerry/Hook/协议逆向 | 拒绝 | 封号、升级和安全边界冲突 | 不实现 |
 | Linux 纯 AT-SPI | 阻塞 | 树可读，但方向和群 sender 无法证明 | 保留只读探针，关闭 enrollment/runtime |
+| Portal 本地视觉 | 只读校准研究 | 气泡布局可能提供方向线索，但显示标签不是身份 | 显式授权、两轮 canary、重启/锁屏门禁 |
 | Linux AT-SPI + Frida/DB | 拒绝 | 需要 ptrace、密钥提取和逆向数据库 | 不采用完整项目 |
 
 不要删除 Windows 连接器、企业微信连接器或已有门禁。它们仍是测试资产，也为未来微信重新

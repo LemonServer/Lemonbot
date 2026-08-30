@@ -75,6 +75,7 @@ uv run lemonbot channel linux-atspi-enroll \
 ```
 
 门禁只有在新的、独立审核的方向证明方案通过后才能由代码变更重新打开，不能靠运行参数打开。
+视觉研究设计见 [Portal 视觉校准](docs/visual-calibration.md)。
 
 ## 部署与运行
 

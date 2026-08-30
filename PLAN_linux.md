@@ -2,7 +2,9 @@
 
 > 状态更新（2026-08-31）：AT-SPI-only 已在微信 4.1.1.8 上被实机证伪。self/peer 消息行同构且
 > 无稳定方向或 sender 属性，语义报告正确为 `passed=false`。enrollment 和 connector runtime
-> 已硬关闭。下文 Observe connector 内容保留为原设计目标，不代表当前可启用能力。
+> 已硬关闭。下文 Observe connector 内容保留为原设计目标，不代表当前可启用能力。当前获准的
+> 下一步仅是独立、默认关闭的 Portal 视觉校准研究，见
+> [`docs/visual-calibration.md`](docs/visual-calibration.md)。
 
 ## 1. 总体目标
 
@@ -113,3 +115,5 @@ Observe 验收后再单独规划 Linux Draft 阶段：启用 DeepSeek API 生成
 - 私聊 self/peer 均为全宽、无属性、无子节点的同构 `list item`；群聊也没有稳定 sender 属性。
 - 不允许 enrollment，不允许启动 `wechat_atspi` connector，不允许人工伪造结构签名。
 - 显示标签、左右位置、气泡颜色和消息顺序都不是身份；任何不确定性都必须停止处理。
+- 只有至少两轮 canary 校准并覆盖微信重启和锁屏/解锁后，布局才可作为方向线索；仍不得用于
+  白名单、管理员或权限判定。

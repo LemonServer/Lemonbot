@@ -154,3 +154,11 @@ systemctl --user start lemonbot.service
 
 完整阶段验收为私聊和测试群均通过门控，并连续 Observe 24 小时：没有历史回放、self 消息、
 重复、跨会话记录、群 sender 误判、模型调用、工具调用或 outbox 记录。
+
+## 视觉校准研究
+
+视觉实验必须由本地图形会话中的用户通过 xdg-desktop-portal 明确授权。不得使用 SSH 后台
+ScreenshotArea/InteractiveScreenshot 的失败路径，也不得绕过 Wayland。截图只允许存在内存或
+受控临时区并在分析后删除；聊天截图不得发送给云视觉模型。允许持久化的结果仅限脱敏布局摘要、
+门禁原因和会话内加盐的 `unverified_display_sender`。详细规范见
+[`visual-calibration.md`](visual-calibration.md)。

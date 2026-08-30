@@ -82,5 +82,15 @@ Observe 强制 `models.provider="disabled"`，启动不读取 DeepSeek/智谱密
 - bubblewrap 和 D-Bus 代理缩小 worker 权限，但不能消除宿主内核、桌面栈或微信本身漏洞。
 - 正式验收必须在隔离 VM 上完成；单元测试和 fake 树不能替代 24 小时真实 Observe。
 
+## Portal 视觉研究边界
+
+- 只能由本地图形会话用户通过 xdg-desktop-portal 明确授权，不绕过 Wayland/GNOME 拒绝。
+- 截图只在内存或受控临时区短暂存在，分析后删除；不得进入日志、报告、Git 或云视觉模型。
+- 本地 OCR/图像处理只输出布局摘要、门禁原因和会话内加盐的
+  `unverified_display_sender`；不输出正文、昵称、原始 ID 或截图。
+- 至少两轮 self/peer canary 校准，覆盖微信重启和锁屏/解锁，并证明段首标签与连续消息归属。
+- 通过校准的布局仍只是方向线索，不是授权身份。未知布局、漂移、OCR/分段歧义都必须停止，
+  不生成回复。
+
 漏洞报告中不要附带真实 API Key、聊天记录、账号短语、canary、Cookie、bundle 或 VM 凭据。
 发现疑似密钥泄漏时先在服务端撤销并轮换，再保留本地证据调查。
