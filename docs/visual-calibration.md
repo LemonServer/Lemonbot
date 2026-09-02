@@ -6,8 +6,55 @@
 处理能否在微信 4.1.1.8 中稳定建立 self/peer 的“方向线索”，并识别群聊段首显示标签与连续
 消息的局部归属。它不证明微信身份，不允许 enrollment、读取 connector、模型调用或回复生成。
 
-当前代码只有 `lemonbot.research.visual_calibration` 的脱敏证据模型和判定器，没有截图、OCR、
-Portal 客户端、CLI、systemd 服务或 runtime 接线。
+当前代码包含 `lemonbot.research.visual_calibration` 的脱敏证据模型、独立的 Portal
+ScreenCast 探针和本地 OCR 最小化 worker。基础探针只允许选择一个窗口、隐藏光标、在内存中
+消费有界帧数，并只输出帧数、尺寸和像素格式。校准模式只处理当前三条 canary 行：计算不含
+正文/颜色的边缘布局摘要，并将气泡上方的小块内存 PNG 交给本地 RapidOCR；worker 只返回计数、
+歧义位和会话内加盐的 `unverified_display_sender`。没有截图落盘、云视觉、systemd 服务、
+connector 或 runtime 接线。
+
+本地图形会话中的操作者可运行：
+
+```bash
+uv run lemonbot channel linux-portal-screen-probe --frames 2 --timeout-seconds 60
+```
+
+系统必须显示 Portal 选择器，由用户明确选择微信窗口并授权。取消、超时、多窗口或 PipeWire
+异常都只输出安全错误类别。
+
+在操作者已经手动打开 `testing` 群后，可先验证动作面仍为只读：
+
+```bash
+uv run lemonbot channel linux-atspi-testing-action-probe --confirm-testing
+```
+
+输出中的 `actions_performed` 必须为 0；该结果不授权发送。一次校准使用最近 5 分钟内、权限为
+`0600` 的群语义报告。语义探针会给出三条一次性 canary：self、对端段首、同一对端紧接发送的
+continuation。三条都唯一出现后，在本地图形会话运行：
+
+```bash
+uv run lemonbot channel linux-portal-group-calibration \
+  --semantic-report /absolute/path/group-semantic.json \
+  --output /absolute/path/visual-round-1.json
+```
+
+每一轮都会再次出现 Portal 选择器，且单轮报告固定 `passed=false`。完成两轮并确实分别覆盖微信
+重启和锁屏/解锁后，才可离线合并：
+
+```bash
+uv run lemonbot channel linux-portal-group-calibration-verify \
+  --report /absolute/path/visual-round-1.json \
+  --report /absolute/path/visual-round-2.json \
+  --output /absolute/path/visual-decision.json
+```
+
+即使合并结果 `passed=true`，identity、connector enrollment 和回复生成仍固定为 false。
+
+Linux 微信 4.1.1.8 实测把消息 item 的矩形暴露为“同原点、累计高度”，不能直接当作单行截图
+区域。语义报告必须同时记录每条 canary 的前一兄弟矩形；只有原点/宽度相同、累计高度严格增加、
+三条 canary 同属一个 transcript 且索引顺序受限时，才以高度差归一化。peer 必须紧随 self；
+continuation 最多允许一个客户端内部 list item。该中间项不被解释为发送者或身份，continuation
+仍必须通过本地视觉证明没有新段首标签。任何矩形重叠或路径异常立即拒绝 Portal 分析。
 
 ## 获取与生命周期边界
 

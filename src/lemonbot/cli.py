@@ -5,12 +5,15 @@ import getpass
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import UTC, datetime
+from itertools import pairwise
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -57,6 +60,27 @@ PrivateRefOption = Annotated[str | None, typer.Option("--private-ref")]
 GroupRefOption = Annotated[str | None, typer.Option("--group-ref")]
 ConfirmRestartOption = Annotated[bool, typer.Option("--confirm-restart")]
 ConfirmLockOption = Annotated[bool, typer.Option("--confirm-lock-cycle")]
+ConfirmTestingOption = Annotated[
+    bool,
+    typer.Option(
+        "--confirm-testing",
+        help="Confirm the visible current group is the dedicated testing group",
+    ),
+]
+ConfirmTestingSendOption = Annotated[
+    bool,
+    typer.Option(
+        "--confirm-testing-send",
+        help="Authorize one generated canary send in the visible testing group",
+    ),
+]
+ConfirmEmptyDraftOption = Annotated[
+    bool,
+    typer.Option(
+        "--confirm-empty-draft",
+        help="Confirm the currently visible testing-group input is empty",
+    ),
+]
 LinuxProbePidOption = Annotated[
     list[int] | None,
     typer.Option("--pid", help="Exact WeChat PID; repeatable"),
@@ -65,6 +89,12 @@ LinuxProbeMaxNodesOption = Annotated[
     int,
     typer.Option("--max-nodes", min=100, max=20_000),
 ]
+PortalFrameCountOption = Annotated[int, typer.Option("--frames", min=1, max=30)]
+PortalTimeoutOption = Annotated[int, typer.Option("--timeout-seconds", min=5, max=120)]
+TestingSendTimeoutOption = Annotated[int, typer.Option("--timeout-seconds", min=5, max=60)]
+VisualSemanticReportOption = Annotated[Path, typer.Option("--semantic-report")]
+VisualCalibrationOutputOption = Annotated[Path, typer.Option("--output")]
+VisualCalibrationReportsOption = Annotated[list[Path], typer.Option("--report")]
 
 _SECRET_NAMES = {"deepseek_api_key", "zhipu_api_key"}
 _SAFE_SEMANTIC_PROBE_ERROR_CODES = frozenset(
@@ -151,6 +181,358 @@ def _probe_command(pids: tuple[int, ...], max_nodes: int) -> tuple[list[str], di
     return command, environment
 
 
+def _portal_probe_command(
+    frame_count: int,
+    timeout_seconds: int,
+    rows: dict[str, tuple[int, int, int, int]] | None = None,
+    ocr_python: str | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    if not sys.platform.startswith("linux"):
+        raise ValueError("Portal probes require a Linux graphical session")
+    helper = Path(__file__).with_name("research") / "portal_capture.py"
+    system_python = Path("/usr/bin/python3")
+    if not helper.is_file() or not system_python.is_file():
+        raise OSError("Portal probe runtime is unavailable")
+    command = [
+        str(system_python),
+        "-I",
+        str(helper),
+        "--frames",
+        str(frame_count),
+        "--timeout-seconds",
+        str(timeout_seconds),
+    ]
+    for label, extents in sorted((rows or {}).items()):
+        command.extend(("--row", f"{label}:{','.join(str(value) for value in extents)}"))
+    if ocr_python:
+        command.extend(("--ocr-python", ocr_python))
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key
+        in {
+            "DBUS_SESSION_BUS_ADDRESS",
+            "DISPLAY",
+            "LANG",
+            "LC_ALL",
+            "WAYLAND_DISPLAY",
+            "XDG_CURRENT_DESKTOP",
+            "XDG_RUNTIME_DIR",
+            "XDG_SESSION_DESKTOP",
+            "XDG_SESSION_TYPE",
+        }
+    }
+    return command, environment
+
+
+def _sanitized_testing_action_report(report: object) -> dict[str, object]:
+    if not isinstance(report, dict):
+        raise ValueError("testing action surface report is invalid")
+    candidate = report.get("candidate")
+    if not isinstance(candidate, dict):
+        raise ValueError("testing action surface is missing")
+
+    def selector(key: str) -> list[int]:
+        value = candidate.get(key)
+        if (
+            not isinstance(value, list)
+            or not value
+            or len(value) > 32
+            or any(
+                not isinstance(part, int)
+                or isinstance(part, bool)
+                or not 0 <= part <= 20_000
+                for part in value
+            )
+        ):
+            raise ValueError("testing action selector is invalid")
+        return value
+
+    def count(key: str, *, maximum: int = 20_000) -> int:
+        value = report.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= maximum:
+            raise ValueError("testing action count is invalid")
+        return value
+
+    def role(key: str) -> str:
+        value = candidate.get(key)
+        if not isinstance(value, str) or not 1 <= len(value) <= 64 or not value.isascii():
+            raise ValueError("testing action role is invalid")
+        return value
+
+    action_index = candidate.get("send_action_index")
+    action_kind = candidate.get("send_action_kind")
+    activation_proven = candidate.get("send_activation_proven")
+    surface_hash = candidate.get("surface_sha256")
+    if (
+        not isinstance(action_index, int)
+        or isinstance(action_index, bool)
+        or not 0 <= action_index <= 15
+        or action_kind not in {"activate", "focus_only", "unknown"}
+        or not isinstance(activation_proven, bool)
+        or activation_proven is not (action_kind == "activate")
+        or not isinstance(surface_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", surface_hash) is None
+        or report.get("schema_version") != 1
+        or report.get("passed") is not True
+        or report.get("actions_performed") != 0
+    ):
+        raise ValueError("testing action surface report is invalid")
+    return {
+        "schema_version": 1,
+        "matched_app_count": count("matched_app_count", maximum=16),
+        "testing_text_match_count": count("testing_text_match_count"),
+        "send_label_match_count": count("send_label_match_count"),
+        "editable_candidate_count": count("editable_candidate_count"),
+        "send_action_candidate_count": count("send_action_candidate_count"),
+        "candidate": {
+            "title_selector": selector("title_selector"),
+            "title_role": role("title_role"),
+            "input_selector": selector("input_selector"),
+            "input_role": role("input_role"),
+            "send_selector": selector("send_selector"),
+            "send_role": role("send_role"),
+            "send_action_index": action_index,
+            "send_action_kind": action_kind,
+            "send_activation_proven": activation_proven,
+            "surface_sha256": surface_hash,
+        },
+        "passed": True,
+        "actions_performed": 0,
+    }
+
+
+def _sanitized_testing_send_report(report: object) -> dict[str, object]:
+    if not isinstance(report, dict):
+        raise ValueError("testing send report is invalid")
+    surface_hash = report.get("surface_sha256")
+    canary_hash = report.get("canary_sha256")
+    outcome = report.get("outcome")
+    commit_mechanism = report.get("commit_mechanism")
+    readback_count = report.get("readback_match_count")
+    extents = report.get("readback_item_window_extents")
+    fixed_bools = {
+        key: report.get(key)
+        for key in (
+            "input_was_empty",
+            "operator_confirmed_empty",
+            "used_existing_canary",
+            "send_action_invoked",
+            "send_action_returned",
+            "focus_action_invoked",
+            "focus_action_returned",
+            "focused_before_commit",
+            "keyboard_event_invoked",
+            "keyboard_event_returned",
+            "draft_empty_after",
+            "direction_proven",
+            "acknowledged",
+            "retry_allowed",
+        )
+    }
+    if (
+        report.get("schema_version") != 1
+        or not isinstance(surface_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", surface_hash) is None
+        or not isinstance(canary_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", canary_hash) is None
+        or outcome not in {"readback_unattributed", "unknown"}
+        or commit_mechanism not in {"activate", "focus_only"}
+        or not isinstance(readback_count, int)
+        or isinstance(readback_count, bool)
+        or not 0 <= readback_count <= 16
+        or any(not isinstance(value, bool) for value in fixed_bools.values())
+        or fixed_bools["input_was_empty"] is fixed_bools["used_existing_canary"]
+        or fixed_bools["send_action_invoked"] is not True
+        or fixed_bools["direction_proven"] is not False
+        or fixed_bools["acknowledged"] is not False
+        or fixed_bools["retry_allowed"] is not False
+        or report.get("actions_performed")
+        != (2 if commit_mechanism == "focus_only" else 1)
+        or (
+            commit_mechanism == "activate"
+            and any(
+                fixed_bools[key]
+                for key in (
+                    "focus_action_invoked",
+                    "focus_action_returned",
+                    "focused_before_commit",
+                    "keyboard_event_invoked",
+                    "keyboard_event_returned",
+                )
+            )
+        )
+        or (
+            commit_mechanism == "focus_only"
+            and not all(
+                fixed_bools[key]
+                for key in (
+                    "focus_action_invoked",
+                    "focus_action_returned",
+                    "focused_before_commit",
+                    "keyboard_event_invoked",
+                )
+            )
+        )
+    ):
+        raise ValueError("testing send report is unsafe")
+    safe_extents: list[int] | None = None
+    if extents is not None:
+        if (
+            not isinstance(extents, list)
+            or len(extents) != 4
+            or any(
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 0 <= value <= 32_768
+                for value in extents
+            )
+        ):
+            raise ValueError("testing send readback geometry is invalid")
+        safe_extents = extents
+    return {
+        "schema_version": 1,
+        "surface_sha256": surface_hash,
+        "canary_sha256": canary_hash,
+        "commit_mechanism": commit_mechanism,
+        **fixed_bools,
+        "readback_match_count": readback_count,
+        "readback_item_window_extents": safe_extents,
+        "outcome": outcome,
+        "actions_performed": report.get("actions_performed"),
+    }
+
+
+def _visual_canary_rows(path: Path) -> dict[str, tuple[int, int, int, int]]:
+    absolute = path.expanduser()
+    if absolute.is_symlink() or not absolute.is_absolute() or not absolute.is_file():
+        raise ValueError("semantic report must be an absolute regular file")
+    status = absolute.stat()
+    if sys.platform.startswith("linux") and status.st_mode & 0o077:
+        raise ValueError("semantic report permissions must be 0600")
+    if not 0 <= time.time() - status.st_mtime <= 300:
+        raise ValueError("semantic report is stale")
+    payload = absolute.read_bytes()
+    if len(payload) > 256 * 1024:
+        raise ValueError("semantic report is too large")
+    report = json.loads(payload)
+    if (
+        not isinstance(report, dict)
+        or report.get("schema_version") != 1
+        or report.get("kind") != "group"
+        or report.get("self_match_count") != 1
+        or report.get("inbound_match_count") != 1
+        or report.get("inbound_continuation_match_count") != 1
+        or report.get("header_proven") is not True
+    ):
+        raise ValueError("semantic report lacks current group canaries")
+    raw_rows: dict[str, tuple[int, int, int, int]] = {}
+    preceding_rows: dict[str, tuple[int, int, int, int]] = {}
+    item_paths: dict[str, tuple[int, ...]] = {}
+    for label in ("self", "inbound", "inbound_continuation"):
+        evidence = report.get(f"{label}_evidence")
+        if not isinstance(evidence, list) or len(evidence) != 1:
+            raise ValueError("semantic report has ambiguous evidence")
+        extents = evidence[0].get("item_window_extents")
+        if (
+            not isinstance(extents, list)
+            or len(extents) != 4
+            or any(not isinstance(value, int) or isinstance(value, bool) for value in extents)
+        ):
+            raise ValueError("semantic report lacks safe row geometry")
+        x, y, width, height = extents
+        if not 0 <= x <= 32_768 or not 0 <= y <= 32_768:
+            raise ValueError("semantic row origin is invalid")
+        if not 1 <= width <= 32_768 or not 1 <= height <= 32_768:
+            raise ValueError("semantic row size is invalid")
+        preceding = evidence[0].get("preceding_sibling_window_extents")
+        if (
+            not isinstance(preceding, list)
+            or len(preceding) != 4
+            or any(
+                not isinstance(value, int) or isinstance(value, bool) for value in preceding
+            )
+        ):
+            raise ValueError("semantic report lacks preceding row geometry")
+        preceding_x, preceding_y, preceding_width, preceding_height = preceding
+        if (
+            (preceding_x, preceding_y, preceding_width) != (x, y, width)
+            or not 1 <= preceding_height < height
+        ):
+            raise ValueError("semantic row geometry is not safely cumulative")
+        output_label = {
+            "self": "self",
+            "inbound": "peer",
+            "inbound_continuation": "peer_continuation",
+        }[label]
+        raw_rows[output_label] = (x, y, width, height)
+        item_path = evidence[0].get("item_path")
+        if (
+            not isinstance(item_path, list)
+            or not item_path
+            or len(item_path) > 32
+            or any(
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or not 0 <= value <= 20_000
+                for value in item_path
+            )
+        ):
+            raise ValueError("semantic report lacks a safe item selector")
+        item_paths[output_label] = tuple(item_path)
+        preceding_rows[output_label] = (
+            preceding_x,
+            preceding_y,
+            preceding_width,
+            preceding_height,
+        )
+    if preceding_rows["peer"] != raw_rows["self"]:
+        raise ValueError("peer row does not immediately follow self canary")
+    if len({path[:-1] for path in item_paths.values()}) != 1:
+        raise ValueError("canary rows do not share one transcript")
+    self_index = item_paths["self"][-1]
+    peer_index = item_paths["peer"][-1]
+    continuation_index = item_paths["peer_continuation"][-1]
+    if peer_index != self_index + 1 or not peer_index < continuation_index <= peer_index + 2:
+        raise ValueError("canary row ordering is unsafe")
+    rows = {
+        label: (x, y + previous[3], width, height - previous[3])
+        for label, (x, y, width, height) in raw_rows.items()
+        for previous in (preceding_rows[label],)
+    }
+    if len(set(rows.values())) != 3:
+        raise ValueError("semantic rows are not distinct")
+    ordered = sorted((y, y + height) for _x, y, _width, height in rows.values())
+    if any(
+        left_end > right_start
+        for (_left_start, left_end), (right_start, _right_end) in pairwise(ordered)
+    ):
+        raise ValueError("semantic rows overlap")
+    return rows
+
+
+def _read_visual_calibration_sample(path: Path):  # type: ignore[no-untyped-def]
+    from lemonbot.research.visual_calibration import VisualCalibrationSample
+
+    absolute = path.expanduser()
+    if absolute.is_symlink() or not absolute.is_absolute() or not absolute.is_file():
+        raise ValueError("visual report must be an absolute regular file")
+    if sys.platform.startswith("linux") and absolute.stat().st_mode & 0o077:
+        raise ValueError("visual report permissions must be 0600")
+    payload = absolute.read_bytes()
+    if len(payload) > 64 * 1024:
+        raise ValueError("visual report is too large")
+    report = json.loads(payload)
+    if (
+        not isinstance(report, dict)
+        or report.get("schema_version") != 1
+        or report.get("kind") != "group"
+        or not isinstance(report.get("calibration_sample"), dict)
+    ):
+        raise ValueError("visual report is invalid")
+    return VisualCalibrationSample.model_validate(report["calibration_sample"])
+
+
 @channel_app.command("linux-atspi-probe")
 def linux_atspi_probe(
     pid: LinuxProbePidOption = None,
@@ -173,6 +555,327 @@ def linux_atspi_probe(
         typer.echo("Linux AT-SPI 只读探测失败（输出已隐藏）。", err=True)
         raise typer.Exit(1) from None
     typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
+
+
+@channel_app.command("linux-atspi-testing-action-probe")
+def linux_atspi_testing_action_probe(
+    confirm_testing: ConfirmTestingOption = False,
+    pid: LinuxProbePidOption = None,
+    max_nodes: LinuxProbeMaxNodesOption = 10_000,
+) -> None:
+    """Find a unique testing-group input/send surface without acting on it."""
+    if not confirm_testing:
+        typer.echo("必须明确确认当前可见会话是 testing 群。", err=True)
+        raise typer.Exit(2)
+    try:
+        command, environment = _probe_command(_wechat_pids(pid), max_nodes)
+        command.append("--testing-action-surface")
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+            capture_output=True,
+            env=environment,
+            timeout=30,
+        )
+        child_report = json.loads(completed.stdout.decode("utf-8"))
+        if completed.returncode != 0:
+            raise ValueError("testing action surface probe failed")
+        report = _sanitized_testing_action_report(child_report)
+    except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo(
+            "testing 群动作面只读探测失败；正文、草稿和异常详情均未记录。",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
+
+
+@channel_app.command("linux-atspi-testing-send-canary")
+def linux_atspi_testing_send_canary(
+    confirm_testing_send: ConfirmTestingSendOption = False,
+    confirm_empty_draft: ConfirmEmptyDraftOption = False,
+    pid: LinuxProbePidOption = None,
+    max_nodes: LinuxProbeMaxNodesOption = 10_000,
+    timeout_seconds: TestingSendTimeoutOption = 20,
+) -> None:
+    """Send one generated canary to the visible testing group; never retry."""
+    if not confirm_testing_send or not confirm_empty_draft:
+        typer.echo(
+            "必须明确授权发送，并确认当前 testing 群输入框为空。",
+            err=True,
+        )
+        raise typer.Exit(2)
+    try:
+        command, environment = _probe_command(_wechat_pids(pid), max_nodes)
+        command.extend(
+            (
+                "--testing-send-canary",
+                "--operator-confirmed-empty-draft",
+                "--send-timeout-seconds",
+                str(timeout_seconds),
+            )
+        )
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+            capture_output=True,
+            env=environment,
+            timeout=timeout_seconds + 45,
+        )
+        child_report = json.loads(completed.stdout.decode("utf-8"))
+        if completed.returncode != 0:
+            raise ValueError("testing send probe failed")
+        report = _sanitized_testing_send_report(child_report)
+    except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo(
+            "testing canary 发送结果未知；禁止自动重试。"
+            "正文、草稿和异常详情均未记录。",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
+
+
+@channel_app.command("linux-atspi-testing-send-existing-canary")
+def linux_atspi_testing_send_existing_canary(
+    confirm_testing_send: ConfirmTestingSendOption = False,
+    pid: LinuxProbePidOption = None,
+    max_nodes: LinuxProbeMaxNodesOption = 10_000,
+    timeout_seconds: TestingSendTimeoutOption = 20,
+) -> None:
+    """Send only an existing generated canary draft; never retry."""
+    if not confirm_testing_send:
+        typer.echo("必须明确授权发送当前 testing 群中的随机 canary 草稿。", err=True)
+        raise typer.Exit(2)
+    try:
+        command, environment = _probe_command(_wechat_pids(pid), max_nodes)
+        command.extend(
+            (
+                "--testing-send-existing-canary",
+                "--send-timeout-seconds",
+                str(timeout_seconds),
+            )
+        )
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+            capture_output=True,
+            env=environment,
+            timeout=timeout_seconds + 45,
+        )
+        child_report = json.loads(completed.stdout.decode("utf-8"))
+        if completed.returncode != 0:
+            raise ValueError("testing existing-canary send probe failed")
+        report = _sanitized_testing_send_report(child_report)
+        if report.get("used_existing_canary") is not True:
+            raise ValueError("testing send did not use the existing canary")
+    except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo(
+            "testing 既有 canary 发送结果未知；禁止自动重试。"
+            "正文、草稿和异常详情均未记录。",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
+
+
+@channel_app.command("linux-portal-screen-probe")
+def linux_portal_screen_probe(
+    frames: PortalFrameCountOption = 2,
+    timeout_seconds: PortalTimeoutOption = 60,
+) -> None:
+    """Request one window through Portal and report only sanitized frame facts."""
+    error_code = "PortalProbeError"
+    try:
+        command, environment = _portal_probe_command(frames, timeout_seconds)
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+            capture_output=True,
+            env=environment,
+            timeout=timeout_seconds * 3 + 30,
+        )
+        report = json.loads(completed.stdout.decode("utf-8"))
+        if completed.returncode != 0 or not isinstance(report, dict):
+            child_error = report.get("error") if isinstance(report, dict) else None
+            if child_error in {
+                "PortalCaptureError",
+                "PortalDenied",
+                "PortalProbeError",
+                "PortalProtocolError",
+                "PortalTimeout",
+                "ValueError",
+            }:
+                error_code = str(child_error)
+            raise ValueError("Portal probe failed")
+    except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo(
+            f"Portal 只读画面探测失败（安全代码：{error_code}）；"
+            "画面和异常详情均未记录。",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
+
+
+@channel_app.command("linux-portal-group-calibration")
+def linux_portal_group_calibration(
+    semantic_report: VisualSemanticReportOption,
+    output: VisualCalibrationOutputOption,
+    frames: PortalFrameCountOption = 3,
+    timeout_seconds: PortalTimeoutOption = 60,
+    confirm_restart: ConfirmRestartOption = False,
+    confirm_lock_cycle: ConfirmLockOption = False,
+) -> None:
+    """Create one private, fail-closed group direction calibration sample."""
+    error_code = "PortalCalibrationError"
+    destination = output.expanduser()
+    if not destination.is_absolute() or destination.exists():
+        typer.echo("--output 必须是尚不存在的绝对路径。", err=True)
+        raise typer.Exit(2)
+    try:
+        if frames < 2:
+            raise ValueError("calibration requires multiple frames")
+        rows = _visual_canary_rows(semantic_report)
+        command, environment = _portal_probe_command(
+            frames,
+            timeout_seconds,
+            rows,
+            str(Path(sys.executable).absolute()),
+        )
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=False,
+            capture_output=True,
+            env=environment,
+            timeout=timeout_seconds * 3 + 30,
+        )
+        report = json.loads(completed.stdout.decode("utf-8"))
+        layouts = report.get("row_layout_fingerprints") if isinstance(report, dict) else None
+        if completed.returncode != 0 or not isinstance(layouts, dict):
+            child_error = report.get("error") if isinstance(report, dict) else None
+            if child_error in {
+                "PortalCaptureError",
+                "PortalDenied",
+                "PortalOCRFailure",
+                "PortalProbeError",
+                "PortalProtocolError",
+                "PortalRowChanged",
+                "PortalRowOutOfFrame",
+                "PortalRowUnresolved",
+                "PortalTimeout",
+                "ValueError",
+            }:
+                error_code = str(child_error)
+            raise ValueError("Portal row probe failed")
+        self_layout = layouts.get("self")
+        peer_layout = layouts.get("peer")
+        continuation_layout = layouts.get("peer_continuation")
+        segment_proven = report.get("segment_label_anchor_proven") is True
+        continuation_proven = report.get("continuation_binding_proven") is True
+        display_sender = report.get("unverified_display_sender")
+        if (
+            not isinstance(self_layout, str)
+            or not isinstance(peer_layout, str)
+            or not isinstance(continuation_layout, str)
+            or re.fullmatch(r"[0-9a-f]{64}", self_layout) is None
+            or re.fullmatch(r"[0-9a-f]{64}", peer_layout) is None
+            or re.fullmatch(r"[0-9a-f]{64}", continuation_layout) is None
+            or self_layout == peer_layout
+            or continuation_layout != peer_layout
+            or (
+                display_sender is not None
+                and (
+                    not isinstance(display_sender, str)
+                    or re.fullmatch(r"uds_[0-9a-f]{64}", display_sender) is None
+                )
+            )
+            or (segment_proven and display_sender is None)
+        ):
+            raise ValueError("Portal row directions are not distinct")
+        from lemonbot.research.visual_calibration import VisualCalibrationSample
+
+        sample = VisualCalibrationSample(
+            run_ref=f"visual_{secrets.token_hex(12)}",
+            portal_authorized=True,
+            capture_source="xdg-desktop-portal",
+            local_processing_only=True,
+            cloud_processing_used=False,
+            client_restart_observed=confirm_restart,
+            lock_cycle_observed=confirm_lock_cycle,
+            self_layout_fingerprint=self_layout,
+            peer_layout_fingerprint=peer_layout,
+            segment_label_anchor_proven=segment_proven,
+            continuation_binding_proven=continuation_proven,
+            ambiguous=False,
+        )
+        reason_codes = ["requires_second_round"]
+        if not segment_proven:
+            reason_codes.append("segment_label_anchor_unproven")
+        if not continuation_proven:
+            reason_codes.append("continuation_binding_unproven")
+        encoded = json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "group",
+                "passed": False,
+                "reason_codes": reason_codes,
+                "unverified_display_sender": display_sender if segment_proven else None,
+                "calibration_sample": sample.model_dump(mode="json"),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        ).encode("ascii")
+        _write_private_new(destination, encoded + b"\n")
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        UnicodeError,
+        json.JSONDecodeError,
+        ValueError,
+    ):
+        typer.echo(
+            f"Portal 群方向校准失败（安全代码：{error_code}）；"
+            "画面、正文、标签和异常详情均未记录。",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    typer.echo(str(destination))
+
+
+@channel_app.command("linux-portal-group-calibration-verify")
+def linux_portal_group_calibration_verify(
+    report: VisualCalibrationReportsOption,
+    output: VisualCalibrationOutputOption,
+) -> None:
+    """Verify two private visual reports without granting connector capability."""
+    destination = output.expanduser()
+    if len(report) != 2:
+        typer.echo("需要恰好两份独立视觉校准报告。", err=True)
+        raise typer.Exit(2)
+    if not destination.is_absolute() or destination.exists():
+        typer.echo("--output 必须是尚不存在的绝对路径。", err=True)
+        raise typer.Exit(2)
+    try:
+        samples = tuple(_read_visual_calibration_sample(path) for path in report)
+        from lemonbot.research.visual_calibration import evaluate_visual_calibration
+
+        decision = evaluate_visual_calibration(samples)
+        encoded = json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "group",
+                "passed": decision.calibrated,
+                "decision": decision.model_dump(mode="json"),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        ).encode("ascii")
+        _write_private_new(destination, encoded + b"\n")
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo("视觉校准报告无效；未创建验证结果。", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(str(destination))
 
 
 @channel_app.command("linux-atspi-semantic-probe")

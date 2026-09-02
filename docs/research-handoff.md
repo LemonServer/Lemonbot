@@ -1,10 +1,11 @@
 # Lemonbot 研发沿革、通道决策与工程交接
 
-> 最后更新：2026-08-31（Asia/Shanghai）
+> 最后更新：2026-09-02（Asia/Shanghai）
 > 文档性质：历史研发档案；其中命令和“当前实现”描述不得作为运行手册
 > 当前结论：主线已切换为 Linux-only，但 AT-SPI-only 在微信 4.1.1.8 上无法证明消息方向或群
 > sender；enrollment 与 connector runtime 已硬关闭。当前只允许 AT-SPI 只读研究和独立、默认
-> 关闭的 Portal 视觉校准研究。发送、草稿和模型调用均未启用。
+> 关闭的 Portal 视觉校准研究。生产 connector 的发送、草稿和模型调用均未启用；工作树中的
+> testing 专用一次性 canary 发送研究命令不接入 runtime/outbox；首次实机尝试仅留下草稿，未发送。
 
 ## 先读这里
 
@@ -222,11 +223,52 @@ fail closed，不显示后台解锁提示，不回退环境变量或明文文件
 
 视觉研究只允许经用户显式 Portal 授权、本地处理、两轮 canary 校准并覆盖微信重启和锁屏/
 解锁。显示标签只能转为会话内加盐的 `unverified_display_sender`，不得跨会话关联或用于安全
-决策。当前原型仅包含脱敏证据判定器，没有捕获、OCR、模型、connector 或 UI 动作。
+决策。当前工作树中的原型已增加单窗口 Portal ScreenCast、有界内存帧处理、匿名布局摘要和
+本地 OCR 最小化 worker；它没有截图落盘、云模型、connector 接线或 UI 动作。校准判定即使通过，
+也固定拒绝 identity 授权、connector enrollment 和回复生成。
 
-VM 当前 `main`、`origin/main` 和 HEAD 均为 `009692d`，工作树在本轮开始时干净。该提交包含
-最近 `list item` 选择与叶节点正文路径修复。仍不要据此假设未来远端状态，也不要未经明确授权
-push。
+另有 `testing` 群动作面只读探针：它不读取输入框名称，跳过列表/消息行文本，只寻找唯一标题、
+输入框和发送控件结构并固定报告 `actions_performed=0`。这只为后续独立发送安全评审提供结构证据，
+不执行或授权发送。
+
+2026-09-01 实机重新验证后，动作面只读探针在当前 `testing` 窗口通过：两个固定发送标签绑定到
+同一个可见 Action，去重后聊天输入与发送控件唯一，且动作数为 0。2026-09-02 进一步读取固定
+动作元数据后确认该动作名为 `SetFocus`，只表示聚焦，不证明点击或发送；报告现明确输出
+`send_action_kind=focus_only` 与 `send_activation_proven=false`。Portal 基础探针经用户选择
+一个微信窗口取得 2 帧 `1718×878 RGBA`，无光标、无像素落盘。三 canary 群报告也各唯一命中；
+同时发现 Qt 的 item 矩形使用累计高度，现已要求前一兄弟几何并用高度差安全归一化。首轮视觉
+判定仍未产出，不能据此声称已找到稳定方向或发送者身份。
+
+工作树新增 testing 专用一次性发送研究命令：只生成随机 canary，提交前复验精确标题、空草稿、
+可见状态和动作面摘要。首次实机尝试写入 canary 后误把 `SetFocus` 当成发送激活，消息没有发送；
+随后人工观察确认草稿未清空。旧版 `Text.get_text()` 空值判定也被证明不适用于该 Qt 输入框；人工
+清空后 accessible name 仍是固定非空 placeholder，因此非空值现只分类为 `unclassified`，不能证明
+存在草稿。修正版要求操作者单独确认空框、写入后由 AT-SPI 精确确认 canary、`SetFocus` 后证明
+`FOCUSED`，再生成至多一次 Enter 事件。2026-09-02 第二次实机尝试在 Enter 前安全失败，生成的
+canary 已清理且 transcript 命中为 0；没有发送，也没有重试。当前实机发送次数仍为 0，精确
+AT-SPI 回读也仍固定为 `readback_unattributed`，不记为 acknowledged。
+
+继续诊断确认 `SetFocus` 的状态是异步出现的：有界等待后发送按钮可唯一证明 `FOCUSED`；输入框
+的 `grab_focus()` 虽返回成功，但整个应用树没有任何 `FOCUSED` 节点。Qt setter 也可能返回成功而
+accessible name/Text 快照完全不变，所以精确草稿回读与发送按钮焦点不能同时成立。经操作者再次
+确认空框后，testing-only 实验采用较弱的“空框人工确认 + setter 成功 + 按钮焦点证明 + 标题/结构
+复验”，并生成一次 Enter。该键盘事件返回成功，但 20 秒内 transcript canary 命中为 0，草稿状态
+仍为 `unclassified`。该次结果严格记为 `unknown`，未 acknowledged；在操作者人工确认 canary 仍
+在输入区前，禁止自动重试或改试 Space、快捷键和坐标点击。生产 connector 门禁不变。
+
+操作者随后确认 canary 始终留在输入区，并指出 Alt+S 只有在输入光标位于草稿区时才生效。按此
+约束改为 `input Component.grab_focus() → Alt+S` 后，2026-09-02 实机首次得到唯一 transcript
+canary，其 SHA-256 与待提交 canary 完全一致；发送按钮焦点下的 Return、Space、Alt+S 均已证明
+无效。该结果是一次成功的 testing UI 提交与精确内容回读，但仍只能归类为
+`readback_unattributed`：输入框没有可机器证明的 `FOCUSED` 状态，消息方向和发送者身份也未证明，
+所以 enrollment、connector、模型和 outbox 门禁继续关闭。
+
+完整 Pytest 已在支持 aiosqlite 的外层环境通过（255 passed，1 个第三方弃用 warning）。沙箱内
+首测挂起已最小化证明为原生 `aiosqlite.connect` 环境限制，不是 approval runtime 业务死锁。
+
+2026-08-31 已实际执行 `git pull --ff-only`，返回 `Already up to date`；当时 `main`、
+`origin/main` 与 HEAD 均为 `e521df8`，历史包含 `009692d`。上述 Portal/OCR/动作面与 user-unit
+兼容性修订仍是未提交工作树改动；仍不要据此假设未来远端状态，也不要未经明确授权 push。
 
 ## Windows 实验的已确认结果
 
