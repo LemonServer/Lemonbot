@@ -256,19 +256,25 @@ accessible name/Text 快照完全不变，所以精确草稿回读与发送按�
 仍为 `unclassified`。该次结果严格记为 `unknown`，未 acknowledged；在操作者人工确认 canary 仍
 在输入区前，禁止自动重试或改试 Space、快捷键和坐标点击。生产 connector 门禁不变。
 
-操作者随后确认 canary 始终留在输入区，并指出 Alt+S 只有在输入光标位于草稿区时才生效。按此
-约束改为 `input Component.grab_focus() → Alt+S` 后，2026-09-02 实机首次得到唯一 transcript
-canary，其 SHA-256 与待提交 canary 完全一致；发送按钮焦点下的 Return、Space、Alt+S 均已证明
-无效。该结果是一次成功的 testing UI 提交与精确内容回读，但仍只能归类为
-`readback_unattributed`：输入框没有可机器证明的 `FOCUSED` 状态，消息方向和发送者身份也未证明，
-所以 enrollment、connector、模型和 outbox 门禁继续关闭。
+操作者随后确认 canary 始终留在输入区，并指出 Alt+S 只有在输入光标位于草稿区时才生效。一次
+`input Component.grab_focus() → Alt+S` 后出现了旧 canary 的唯一 transcript 哈希命中，但操作者
+随后澄清该消息由人工实验发送，不能归因于自动路径。2026-09-03 使用工具生成并独占跟踪的全新
+canary 复测：`grab_focus()` 返回成功，实际输入光标没有进入草稿区，Alt+S 后新哈希命中仍为 0；
+transcript 只有人工发送的旧 canary。至此自动发送仍未证明。发送按钮焦点下的 Return、Space、
+Alt+S 均无效，输入框又没有可机器证明的 `FOCUSED` 状态。操作者手动点击并观察到闪烁光标后，
+当前 `LOCKMODIFIERS → S → UNLOCKMODIFIERS` 合成方式再次执行，但新 canary transcript 命中仍为
+0；下一候选是真实 `Alt press → S press/release → Alt release`，尚未执行。因此 enrollment、
+connector、模型和 outbox 门禁继续关闭。
 
-完整 Pytest 已在支持 aiosqlite 的外层环境通过（255 passed，1 个第三方弃用 warning）。沙箱内
+当前整理后的工作树完整 Pytest 已在支持 aiosqlite 的外层环境通过（278 passed，1 个第三方弃用
+warning）；Ruff、Mypy（104 个源文件）和 `git diff --check` 同时通过。沙箱内
 首测挂起已最小化证明为原生 `aiosqlite.connect` 环境限制，不是 approval runtime 业务死锁。
 
 2026-08-31 已实际执行 `git pull --ff-only`，返回 `Already up to date`；当时 `main`、
-`origin/main` 与 HEAD 均为 `e521df8`，历史包含 `009692d`。上述 Portal/OCR/动作面与 user-unit
-兼容性修订仍是未提交工作树改动；仍不要据此假设未来远端状态，也不要未经明确授权 push。
+`origin/main` 与 HEAD 均为 `e521df8`，历史包含 `009692d`。当前本地 HEAD 已前进到尚未 push 的
+`5ad3c3d`；输入焦点/按键实验和证据修订仍是未提交工作树改动。user-unit 兼容性修订也仍未提交，
+且因移除部分显式 sandbox 指令需要单独安全授权。仍不要据此假设未来远端状态，也不要未经明确
+授权 push。
 
 ## Windows 实验的已确认结果
 

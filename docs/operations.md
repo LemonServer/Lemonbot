@@ -1,6 +1,9 @@
 # Linux Observe 运行手册
 
-> 当前停机门禁（2026-08-31）：AT-SPI 无法证明微信 4.1.1.8 的消息方向或群发送者。
+当前实现和实机结论的短版入口见 [`linux-wechat-current-status.md`](linux-wechat-current-status.md)。
+
+> 当前停机门禁（2026-09-03）：AT-SPI 无法证明微信 4.1.1.8 的消息方向或群发送者，自动发送也
+> 尚未被独立证明。
 > `linux-atspi-enroll` 与 `wechat_atspi` runtime 均被代码拒绝。本文的 enrollment、worker 和
 > Observe 章节仅保留为未来门禁重新评审时的操作参考，当前不得执行部署。
 
@@ -65,10 +68,12 @@ canary，草稿仍为 `unclassified`，结果为 `unknown`；在操作者人工�
 尝试其他按键或重发。
 
 在人工确认 canary 仍留在输入区后，后续逐项排除了发送按钮焦点下的正确 Return、Space 和 Alt+S；
-这些事件均被 AT-SPI 接受，但微信不发送。最终有效路径是对唯一输入框调用 `Component.grab_focus()`，
-保持输入光标在草稿区，再执行 Alt+S。实机回读得到一个与原 canary SHA-256 完全相同的 transcript
-消息行。该结果只能记为 `readback_unattributed`：输入框不暴露 `FOCUSED` 状态，路径仍依赖操作者
-对闪烁光标的人工校准，且 AT-SPI 不能证明消息方向或发送者，因此不得接入 connector。
+这些事件均被 AT-SPI 接受，但微信不发送。一次 `Component.grab_focus() → Alt+S` 后曾观察到旧
+canary transcript 命中，但操作者随后澄清该消息是人工发送，不能归因于自动路径。使用全新 canary
+复测后，`grab_focus()` 仍返回成功，实际输入光标却未进入草稿区，精确 transcript 回读为 0，确认
+自动发送失败。操作者说明人工 Alt+S 只有在草稿光标闪烁时才有效；但即使操作者先手动建立该
+焦点，当前 `LOCKMODIFIERS → S → UNLOCKMODIFIERS` 合成方式仍未产生新 transcript 命中。因此
+“真实光标焦点”和“真实 Alt 按下序列”都是未解决条件，不能用于 connector enrollment。
 
 未来若重新评审，每种聊天必须有两份 `passed=true` 报告，并满足：
 
