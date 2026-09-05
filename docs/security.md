@@ -31,12 +31,21 @@ Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`06
 
 - 只允许独立测试号，个人微信自动化不代表腾讯授权，存在非零封号风险。
 - 不读取微信数据库、Cookie、登录材料或附件缓存；不使用 Hook、注入、ptrace、协议逆向、
-  坐标、键盘、剪贴板或截图点击。
+  坐标、剪贴板或截图点击。connector 与只读探针不执行键盘动作。
 - canary 为一次性合成值；真实账号短语、聊天标题和 UI 文本只在探针内存中比较。
 - 探针报告只含路径、角色、接口、属性键和摘要；enrollment 不保存显示名称。
 - Observe 正文在通过 target、方向、sender 和 cursor 验证后保存到本机 `lab.db`。日志、配置、
   报告和管理台响应不得打印正文。
 - header 摘要仍可能被字典猜测，不应当作匿名化；bundle 和报告按本地私有数据保护。
+
+## 独立 testing 发送研究边界
+
+独立 testing canary 发送研究不是 worker 或 runtime 能力。仅允许操作者对当次明确授权的
+`testing` 群随机 canary 进行聚焦、写入和单次提交实验；不接受任意消息，不接入模型/outbox。
+进入可能产生外部结果的提交后禁止自动重试，回读不证明方向或身份，`acknowledged` 始终为 false。
+人工空框确认和 setter 回执不能升级为生产草稿证明。历史实验授权不授权后续实验，本文也不
+授权执行发送。命令要求见 [`operations.md`](operations.md)，结果见
+[`linux-wechat-current-status.md`](linux-wechat-current-status.md)。
 
 ## AT-SPI worker 隔离
 

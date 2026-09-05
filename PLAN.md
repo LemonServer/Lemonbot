@@ -5,6 +5,10 @@
 > 调整。当前通道结论、Windows 失败实验和 Linux AT-SPI 下一步见
 > [`docs/research-handoff.md`](docs/research-handoff.md)。
 
+> 2026-09-05 导航更新：当前进度统一见
+> [`docs/linux-wechat-current-status.md`](docs/linux-wechat-current-status.md)，下一阶段顺序见
+> [`PLAN_linux.md`](PLAN_linux.md)。本文保留历史设计，不作为现行部署或通道启用步骤。
+
 ## 总体方案
 
 将现有代码视为原型并进行绿地重构，目标是在 Windows 11 x64 虚拟机中运行一个具备长期记忆、网页访问、图片理解和受控工具调用能力的自主聊天代理。

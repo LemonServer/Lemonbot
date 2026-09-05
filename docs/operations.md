@@ -2,7 +2,7 @@
 
 当前实现和实机结论的短版入口见 [`linux-wechat-current-status.md`](linux-wechat-current-status.md)。
 
-> 当前停机门禁（2026-09-03）：AT-SPI 无法证明微信 4.1.1.8 的消息方向或群发送者，自动发送也
+> 当前停机门禁（2026-09-05）：AT-SPI 无法证明微信 4.1.1.8 的消息方向或群发送者，自动发送也
 > 尚未被独立证明。
 > `linux-atspi-enroll` 与 `wechat_atspi` runtime 均被代码拒绝。本文的 enrollment、worker 和
 > Observe 章节仅保留为未来门禁重新评审时的操作参考，当前不得执行部署。
@@ -40,11 +40,17 @@ Python 事件绑定曾出现原生崩溃，因此语义探测不注册事件监�
 控件 selector/role 和结构摘要；`actions_performed` 必须为 0。它不聚焦、不输入、不点击、不发送，
 通过也不构成发送授权。
 
-工作树另有独立的 `linux-atspi-testing-send-canary` 研究命令。它不接受消息文本，只能生成一条
+## 独立 testing 发送研究
+
+本节说明已有命令，不属于只读探针流程，也不授权执行发送。当前优先级见
+[`PLAN_linux.md`](../PLAN_linux.md)，实验结果统一见
+[`linux-wechat-current-status.md`](linux-wechat-current-status.md)。内部 argparse 开关不是稳定公共 API。
+
+已有独立的 `linux-atspi-testing-send-canary` 研究命令。它不接受消息文本，只能生成一条
 `LB26_SEND_*` 随机 canary；要求当前标题精确为 `testing`、标题/输入/发送控件均为
-`SHOWING+VISIBLE`、输入框为空、动作面摘要在写入草稿后仍未改变。动作名必须被明确分类；实机
+`SHOWING+VISIBLE`、操作者确认输入框为空、动作面摘要在写入草稿后仍未改变。动作名必须被明确分类；实机
 微信 4.1.1.8 暴露的唯一动作是 `SetFocus`，它不是发送激活。研究路径只有在调用 `SetFocus` 后
-证明按钮确实为 `FOCUSED`，并再次验证标题和精确 canary 草稿后，才允许生成一次 Enter 键事件。
+证明按钮确实为 `FOCUSED`，并再次验证标题和适用的草稿证据后，才允许生成一次 Return 键事件。
 既有草稿只有严格匹配本工具生成的 `LB26_SEND_*` 时才可恢复；其他非空草稿一律拒绝。进入最终
 提交事件后，无论异常或超时都标记未知且禁止重试。AT-SPI 回读仍不能证明方向，所以结果固定
 `direction_proven=false`、`acknowledged=false`，不得接入 connector 或 outbox。运行真实发送前必须
@@ -55,10 +61,12 @@ uv run lemonbot channel linux-atspi-testing-send-canary \
   --confirm-testing-send --confirm-empty-draft --timeout-seconds 20
 ```
 
-当前实机首次尝试只写入了草稿；旧实现误把 `SetFocus` 当作发送动作，消息并未发送。人工清空后
+### 历史实验说明（截至 2026-09-03）
+
+实机首次尝试只写入了草稿；旧实现误把 `SetFocus` 当作发送动作，消息并未发送。人工清空后
 又证明 visually empty 的 Qt 编辑器仍暴露固定非空 accessible placeholder，因此该值只能分类为
 `unclassified`，不能证明存在草稿。命令现在还要求 `--confirm-empty-draft`，把操作者对空框的当次
-确认作为独立门禁；写入后仍必须通过两个 AT-SPI 文本来源之一精确确认 canary。
+确认作为独立门禁；早期版本要求 AT-SPI 精确回读，后续增加了下述较弱的研究证据分支。
 
 后续实机又证明 Qt 的 setter 可以返回成功并改变可见编辑区，但 accessible name/Text 快照保持不变；
 因此 testing-only 路径允许以“操作者当次确认空框 + setter 成功回执”作为较弱的草稿证据。它不满足
@@ -75,7 +83,9 @@ canary transcript 命中，但操作者随后澄清该消息是人工发送，�
 焦点，当前 `LOCKMODIFIERS → S → UNLOCKMODIFIERS` 合成方式仍未产生新 transcript 命中。因此
 “真实光标焦点”和“真实 Alt 按下序列”都是未解决条件，不能用于 connector enrollment。
 
-未来若重新评审，每种聊天必须有两份 `passed=true` 报告，并满足：
+## 历史语义登记条件（当前不可启用）
+
+原纯 AT-SPI 设计要求每种聊天有两份 `passed=true` 报告，并满足：
 
 - self 与 inbound canary 均恰好匹配一个节点，item 结构签名不同。
 - 两者属于同一应用、同一 transcript，正文相对路径稳定。
@@ -213,7 +223,9 @@ ScreenshotArea/InteractiveScreenshot 的失败路径，也不得绕过 Wayland�
 门禁原因和会话内加盐的 `unverified_display_sender`。详细规范见
 [`visual-calibration.md`](visual-calibration.md)。
 
-### 2026-09-01 实机进度
+### 历史快照：2026-09-01 实机进度
+
+以下仅记录当日进度，不代表当前累计实验次数；后续结果见当前状态文档。
 
 - 官方微信手动启动后，结构探针唯一匹配应用，遍历 555 节点且 0 错误。
 - 当前 `testing` 标题唯一；Qt 的两条发送标签实际绑定同一个 Action。过滤

@@ -1,21 +1,23 @@
 # Lemonbot 研发沿革、通道决策与工程交接
 
-> 最后更新：2026-09-02（Asia/Shanghai）
+> 文档整理：2026-09-05（Asia/Shanghai）
 > 文档性质：历史研发档案；其中命令和“当前实现”描述不得作为运行手册
 > 当前结论：主线已切换为 Linux-only，但 AT-SPI-only 在微信 4.1.1.8 上无法证明消息方向或群
 > sender；enrollment 与 connector runtime 已硬关闭。当前只允许 AT-SPI 只读研究和独立、默认
-> 关闭的 Portal 视觉校准研究。生产 connector 的发送、草稿和模型调用均未启用；工作树中的
+> 关闭的 Portal 视觉校准研究。生产 connector 的发送、草稿和模型调用均未启用；已有代码中的
 > testing 专用一次性 canary 发送研究命令不接入 runtime/outbox；首次实机尝试仅留下草稿，未发送。
 
 ## 先读这里
 
 接手者应按以下顺序阅读：
 
-1. 本文：理解已经验证过什么、为何改变方向、哪些实验不能重复。
-2. [`PLAN_linux.md`](../PLAN_linux.md)：当前已批准的 Linux-only 实施计划和阶段门禁。
+1. [`linux-wechat-current-status.md`](linux-wechat-current-status.md)：当前代码基线、能力矩阵、阻塞与测试证据。
+2. [`PLAN_linux.md`](../PLAN_linux.md)：当前研究顺序与停止条件；后半部是历史 Observe 设计。
 3. [`security.md`](security.md)：当前安全边界和不可放宽的规则。
-4. [`operations.md`](operations.md)：当前 Linux Observe 登记、部署和应急操作。
-5. [`PLAN.md`](../PLAN.md)：仅用于了解最初绿地目标；其中企业微信和 Windows 基线已失效。
+4. [`operations.md`](operations.md)：研究命令和应急操作；Observe 登记与部署仍关闭。
+5. 本文与 [`PLAN.md`](../PLAN.md)：历史证据与最初目标；其中企业微信和 Windows 基线已失效。
+
+历史章节中的“当前”“下一步”和授权记录仅适用于当时，不作为当前操作步骤或新实验授权。
 
 不要把“代码里已经有某个 connector”理解成“该通道已经适合上线”。当前真正稳定的是核心
 事件、存储、策略、模型、记忆和工具框架；聊天通道仍处于选择与验证阶段。
@@ -38,7 +40,7 @@ Lemonbot 起源于 2024 年的个人微信 AI 插件。目标不是做客服群�
 任何出站动作必须先由核心绑定目标并复判策略；无法证明是否已经发送时进入 `unknown`，不得
 自动重试。这一原则比“发送成功率”优先级更高。
 
-## 当前工程已经具备什么
+## 2026-08-29 部署阶段的工程资产
 
 2026-08-29 的 Linux 部署成果已在 `188ae10` 提交。现有工程不是 2024 原型的简单
 修补，而是已经完成绿地重构的大部分基础设施：
@@ -270,11 +272,9 @@ connector、模型和 outbox 门禁继续关闭。
 warning）；Ruff、Mypy（104 个源文件）和 `git diff --check` 同时通过。沙箱内
 首测挂起已最小化证明为原生 `aiosqlite.connect` 环境限制，不是 approval runtime 业务死锁。
 
-2026-08-31 已实际执行 `git pull --ff-only`，返回 `Already up to date`；当时 `main`、
-`origin/main` 与 HEAD 均为 `e521df8`，历史包含 `009692d`。当前本地 HEAD 已前进到尚未 push 的
-`5ad3c3d`；输入焦点/按键实验和证据修订仍是未提交工作树改动。user-unit 兼容性修订也仍未提交，
-且因移除部分显式 sandbox 指令需要单独安全授权。仍不要据此假设未来远端状态，也不要未经明确
-授权 push。
+2026-08-31 的 pull 记录对应当时 `e521df8`，不是最新仓库状态。2026-09-05 复核时 HEAD
+与本地 `origin/main` 均为 `66de344`；user-unit 兼容性修改已提交，未查询远端实时状态。
+后续提交与测试复核统一维护在当前状态文档，不再沿用旧“未提交/未 push”描述。
 
 ## Windows 实验的已确认结果
 
@@ -314,24 +314,27 @@ warning）；Ruff、Mypy（104 个源文件）和 `git diff --check` 同时通�
 只要 `accessibility_tree_not_exposed` 仍成立，修改业务代码、模型提示词或发送限额都不会使
 Windows 通道可用。
 
-## 当前通道决策
+## 通道决策沿革（2026-09-05 整理）
 
 | 路线 | 当前状态 | 原因 | 后续动作 |
 |---|---|---|---|
 | 假连接器 | 可用 | 可验证完整核心链路，无外部副作用 | 保持为 CI/开发基线 |
-| 企业微信智能机器人 | 可选但非目标 | 官方稳定，但不等价于个人微信账号 | 保留代码，不作为默认产品方向 |
-| Windows 个人微信 UIA | 暂停 | 当前账号只暴露 7 个外壳节点 | 保留探针和门禁，不再投入动作适配 |
+| 企业微信智能机器人 | 已从主线移除 | 不等价于个人微信账号 | 历史实现留在 Git，不作为当前能力 |
+| Windows 个人微信 UIA | 已从主线移除 | 当时测试账号只暴露 7 个外壳节点 | 保留历史调查，不再投入动作适配 |
 | Windows OCR/坐标 | 拒绝 | 目标无法可靠证明，误发风险高 | 不实现 |
 | WCFerry/Hook/协议逆向 | 拒绝 | 封号、升级和安全边界冲突 | 不实现 |
 | Linux 纯 AT-SPI | 阻塞 | 树可读，但方向和群 sender 无法证明 | 保留只读探针，关闭 enrollment/runtime |
 | Portal 本地视觉 | 只读校准研究 | 气泡布局可能提供方向线索，但显示标签不是身份 | 显式授权、两轮 canary、重启/锁屏门禁 |
 | Linux AT-SPI + Frida/DB | 拒绝 | 需要 ptrace、密钥提取和逆向数据库 | 不采用完整项目 |
 
-不要删除 Windows 连接器、企业微信连接器或已有门禁。它们仍是测试资产，也为未来微信重新
-开放可访问性树或用户选择企业部署保留路径。新增 Linux 通道时应复用 `Connector`、策略、
-outbox 和四阶段门禁，而不是另起一个绕过核心的机器人进程。
+早期曾保留 Windows 与企业微信连接器作为测试资产；Linux-only 切换后已移除，历史实现仍可在
+Git 中追溯。未来通道适配应复用核心 `Connector`、策略与 outbox，不绕过核心另起发送链路。
 
-## 下一位工程师的第一项任务：Linux 事件与消息语义探针
+## 历史任务：Linux 事件与消息语义探针
+
+本节保留早期问题清单和判断门槛。事件绑定后来出现原生崩溃，语义探针改用有界只读轮询；
+方向与群 sender 的纯 AT-SPI 路线已被实机否定。下表的草稿/观察建议不是现行授权，当前任务
+以 `PLAN_linux.md` 开头的实施顺序为准。
 
 ### 实验环境
 
@@ -449,13 +452,13 @@ Lemonbot core
 - 不要把显示名当稳定 `chat_id`；同名时必须拒绝。
 - 不要因企业微信代码已经完成而把它重新定义成个人微信的等价产品。
 
-## 当前提交和验证状态
+## 历史提交和验证状态：2026-08-29
 
 Linux AT-SPI 探针、跨平台 worker 修复、Linux Secret Service、systemd 单元、Ubuntu CI、测试
 及本文档已提交为 `188ae10`。本地与 Linux VM 的成果文件在提交前逐文件校验 SHA-256 一致；
-整合完成后两个工作树都应保持 clean 并指向同一 `main`。
+这是当时的交接记录，不证明当前 VM checkout 与本地一致。
 
-最终 Linux 回归为 236 passed、11 个 Windows 专属测试 skipped；Windows 回归为 243 passed、
+当时 Linux 回归为 236 passed、11 个 Windows 专属测试 skipped；Windows 回归为 243 passed、
 4 skipped。Ruff 与变更源码 mypy 检查通过。接手后仍应在自己的 checkout 重新运行：
 
 ```powershell
@@ -469,7 +472,7 @@ uv run mypy src
 提交、Issue 和 PyPI 页面。`.vendor-review/` 只是被忽略的审计临时目录，不能被视为已固定或
 已审核的依赖。
 
-## Linux 路线的完成定义
+## 历史实验连接器完成定义（供未来评审）
 
 只有满足以下条件，才可以把 Linux 路线从“突破口”升级为“实验连接器”：
 

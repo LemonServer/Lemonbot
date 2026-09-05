@@ -3,27 +3,32 @@
 Lemonbot 是一个运行在 Ubuntu 24.04 GNOME Wayland 虚拟机中的、能力受限的个人微信代理框架。
 当前里程碑仅允许官方 Linux 微信的只读研究。实机已经证明 AT-SPI 可读取控件树，但微信
 4.1.1.8 把 self 与 peer 消息暴露为同构、无属性的 `list item`，无法安全证明方向或群发送者。
-因此 enrollment 与 `wechat_atspi` runtime 均由代码硬关闭，不读取或持久化聊天，不调用模型，
-不生成草稿，不写输入框，不点击、不导航，也不发送任何消息。
+因此 enrollment 与 `wechat_atspi` runtime 均由代码硬关闭，不通过 connector 读取或持久化聊天，
+不调用模型，也不执行微信动作。独立研究探针可在内存中匹配 canary；testing 发送实验另需当次
+明确授权，尚未证明自动发送成功，不属于 runtime 能力。
 
 Windows UIA、pywechat、托盘、Job Object、Credential Manager 和企业微信 connector 已从当前
 主线移除。历史调查、失败路线和实机证据保留在
-[研发沿革与工程交接](docs/research-handoff.md)，当前实施门禁见 [Linux 计划](PLAN_linux.md)。
+[研发沿革与工程交接](docs/research-handoff.md)。接手先读
+[当前进度与阻塞](docs/linux-wechat-current-status.md)，再读 [下一阶段计划](PLAN_linux.md)、
+[安全边界](docs/security.md) 和 [运行手册](docs/operations.md)。当前优先完成只读视觉校准与
+身份可行性结论；发送快捷键成功也不能单独解锁 Observe。
 
 ## 安全边界
 
 - 只允许 Ubuntu 24.04 x86_64、GNOME Wayland、独立低权限用户和微信测试号。
-- 不包含 Hook、注入、ptrace、协议逆向、微信数据库读取、截图点击、坐标点击、键盘模拟或
-  剪贴板控制。
+- 不包含 Hook、注入、ptrace、协议逆向、微信数据库读取、截图点击、坐标点击或剪贴板控制。
+  connector 与只读探针禁止键盘动作；独立 testing canary 实验边界见安全文档和运行手册。
 - AT-SPI 只能证明结构可见，不能证明消息方向；不得人工修改报告或配置绕过关闭门禁。
 - AT-SPI worker 没有动作协议；`deliver()` 永远返回 `observe_only`。
 - Observe runtime 不启动模型、浏览器、视觉、MCP、主动任务或 outbox dispatcher，配置必须为
   `models.provider = "disabled"`，也不要求 DeepSeek 密钥。
 - worker 通过 `systemd-run + bubblewrap + xdg-dbus-proxy` 隔离，只能访问过滤后的 AT-SPI bus，
   不能联网、读取 Home、`lab.db`、微信数据目录或 Secret Service。
-- 初次看到会话时只建立 transcript baseline，不把屏幕历史当成新消息；尾部不能唯一对齐时
+- 未来 Observe 初次看到会话时只建立 transcript baseline，不把屏幕历史当成新消息；尾部不能唯一对齐时
   暂停，不猜测、不补抓。
-- 原始白名单入站正文保存在本机 `lab.db`，不会进入日志、探针报告、云 API 或模型。
+- 当前不允许微信入站持久化；未来通过 Observe 门禁后，白名单正文才可保存到本机 `lab.db`，
+  不进入日志、探针报告、云 API 或模型。
 
 个人微信自动化仍存在非零账号风控风险。当前版本是实验系统，不宣称腾讯授权或生产可用。
 

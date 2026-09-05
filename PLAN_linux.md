@@ -1,10 +1,39 @@
-# Lemonbot Linux-only 下一阶段计划：语义验证 → Observe
+# Lemonbot Linux-only 下一阶段计划：通道可行性决策
 
-> 状态更新（2026-08-31）：AT-SPI-only 已在微信 4.1.1.8 上被实机证伪。self/peer 消息行同构且
-> 无稳定方向或 sender 属性，语义报告正确为 `passed=false`。enrollment 和 connector runtime
-> 已硬关闭。下文 Observe connector 内容保留为原设计目标，不代表当前可启用能力。当前获准的
-> 下一步仅是独立、默认关闭的 Portal 视觉校准研究，见
-> [`docs/visual-calibration.md`](docs/visual-calibration.md)。
+> 更新：2026-09-05。纯 AT-SPI 在已测微信 4.1.1.8 上无法证明方向或群 sender，enrollment 与
+> runtime 保持硬关闭。当前事实、提交与测试证据统一见
+> [`docs/linux-wechat-current-status.md`](docs/linux-wechat-current-status.md)。
+
+## 当前实施顺序
+
+目标是交付可复核的能力矩阵、校准结果和能否进入 Observe 的明确结论。维持 Ubuntu 24.04、
+GNOME Wayland、官方客户端及现有信任边界；不扩展模型、工具或主动聊天，不修改数据库 schema、
+`Connector`、`ModelBackend` 或 outbox 接口，不把研究报告直接转换为 enrollment。
+
+1. **统一证据基线。** 每次实验记录代码 SHA、客户端/会话环境、独立运行编号、结果与停止原因。
+   区分实测、推断、未执行候选；历史授权不作为新的动作实验授权。
+2. **完成只读视觉校准。** 使用现有 Portal/OCR 命令取得至少两轮独立 canary 报告，覆盖微信
+   重启和锁屏/解锁，验证方向布局、段首标签与连续消息归属。取消授权、布局漂移或 OCR 歧义
+   立即停止；不放宽判定换取通过。细节见 [`docs/visual-calibration.md`](docs/visual-calibration.md)。
+3. **出具身份可行性结论。** 分开列明账号、目标会话、私聊对端、群 sender 的证据来源。显示名、
+   位置与会话内标签哈希不能证明稳定身份。纯 AT-SPI 失败路径只有出现新的具体证据来源才追加
+   实验；若仍无可靠来源，明确记录无法进入 Observe 并停止 connector 扩展。
+4. **限定发送研究。** 它是独立候选实验，不是当前只读里程碑的前置步骤。继续时须对当次 testing
+   canary 发送明确授权，先只读验证键盘映射和合成能力，再验证真实按键序列。每次只提交一个
+   新 canary，人工操作与自动提交分阶段隔离，Alt release 位于 `finally`。进入提交后禁止自动
+   重试；唯一回读最多记为 `readback_unattributed`。真实序列失败后停止键盘路线，不自动转为
+   坐标点击。研究命令和内部开关应在机制有结论后收敛。
+5. **按证据决定后续。** 只有方向、身份、生命周期与隔离条件具备证明，才另行设计接入和连续
+   24 小时 Observe 验收。缺少证据时交付不可行性报告；平台、产品范围和信任边界的变更另行决策。
+
+本阶段验收包括 Ubuntu 锁定依赖下的完整 pytest、Ruff、mypy 和密钥扫描，记录失败与跳过原因；
+伪造通过报告不能解锁 enrollment/runtime/模型调用。实机校准必须有两轮与生命周期证据，发送
+实验必须覆盖人工干扰、重复命中和超时不产生成功回执或自动重试。单元测试不替代实机证明。
+
+## 历史 Observe 设计参考
+
+以下第 1–6 节保留原方案，供未来重新评审使用，不是当前操作步骤。其中原生事件订阅已由有界
+轮询替代，纯结构方向签名方案已被实机证据否定；不得直接照此启用配置或部署 connector。
 
 ## 1. 总体目标
 
