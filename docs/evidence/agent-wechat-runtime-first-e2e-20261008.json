@@ -1,0 +1,78 @@
+{
+  "recorded_at_utc": "2026-10-08T07:15:27.820036+00:00",
+  "run_id": "AGW_RUNTIME_FIRST_20261008_600429E4",
+  "mode": "live_testing",
+  "guard_passed": true,
+  "command_count": 1,
+  "command_is_self": [
+    false
+  ],
+  "sender_refs": [
+    "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+  ],
+  "ack_count": 1,
+  "ack_is_self": [
+    true
+  ],
+  "inbound_states": [
+    "completed"
+  ],
+  "outbox_states": [
+    "acknowledged"
+  ],
+  "attempts": [
+    1
+  ],
+  "receipts_present": true,
+  "inbound_linked": true,
+  "sender_matches_persisted": true,
+  "old_unknown_attempts": [],
+  "diagnostics": [
+    {
+      "run_id": "AGW_RUNTIME_3286C881386B34DA",
+      "stage": "before_send",
+      "message_ref": "67cb698d-1121-5dcc-b96a-53e1e69bd693",
+      "post_count": 0,
+      "send_seconds": 0.0,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_RUNTIME_3286C881386B34DA",
+      "stage": "post_returned",
+      "message_ref": "67cb698d-1121-5dcc-b96a-53e1e69bd693",
+      "post_count": 1,
+      "send_seconds": 7.556,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_RUNTIME_3286C881386B34DA",
+      "stage": "readback",
+      "message_ref": "67cb698d-1121-5dcc-b96a-53e1e69bd693",
+      "post_count": 1,
+      "send_seconds": 7.556,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_RUNTIME_3286C881386B34DA",
+      "stage": "readback",
+      "message_ref": "67cb698d-1121-5dcc-b96a-53e1e69bd693",
+      "post_count": 1,
+      "send_seconds": 7.556,
+      "match_count": 1,
+      "records": [
+        {
+          "local_ref": "local_c8a0196f34b81c709a9bae9c3789a87efbb27c922d4f585f2e5356d2be1768ac",
+          "server_ref": "server_33c662c788d6224d3aafbfa21996b5c94ac5c40dcb38b34b24e4a4da3e1bccce",
+          "timestamp_ref": "time_cf59b676e0845c956800db64ccaab6a6f78fb695acf2b3fabecf254233c924e2",
+          "is_self": true
+        }
+      ]
+    }
+  ],
+  "peer_confirmed": true,
+  "model_io_started_count": 0,
+  "tool_execution_rows": 0
+}

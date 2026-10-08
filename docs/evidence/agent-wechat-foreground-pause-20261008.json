@@ -1,0 +1,41 @@
+{
+  "recorded_at_utc": "2026-10-08T06:32:48.198730+00:00",
+  "paused": true,
+  "pause_code": "NotLoggedIn",
+  "foreground_specific_check_passed": false,
+  "outbox_states": {
+    "acknowledged": 6,
+    "unknown": 2
+  },
+  "old_unknown_attempts": [
+    1,
+    1
+  ],
+  "auth_samples": [
+    {
+      "status": "logged_out",
+      "account_present": true,
+      "account_matches_binding": true
+    },
+    {
+      "status": "logged_out",
+      "account_present": true,
+      "account_matches_binding": true
+    }
+  ],
+  "pause_at_utc": "2026-10-08T06:31:29.479194+00:00",
+  "user_reported_wechat_still_logged_in": true,
+  "user_action": "contacts_or_other_conversation",
+  "new_send_attempts_during_departure": 0,
+  "resume_verified": true,
+  "returned_auth": {
+    "logged_in": true,
+    "account_matches_binding": true
+  },
+  "returned_guard_passed": true,
+  "pause_marker_still_present": true,
+  "departure_pause_and_explicit_resume_passed": true,
+  "detected_by": "authentication_guard",
+  "foreground_title_guard_failure_observed": false,
+  "upstream_status_varied_with_view_in_this_trial": true
+}

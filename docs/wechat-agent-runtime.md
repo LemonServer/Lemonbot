@@ -51,3 +51,26 @@ uv run --locked python scripts/open_agent_wechat_admin.py --config /absolute/pat
 固定源码提交未发现许可证文件或包许可声明；镜像未提供与源码提交绑定的 OCI revision。
 用户要求继续本机独立 HTTP 接入，这不是上游作者授权或许可证确认。仓库不复制上游源码，
 不分发其镜像或微信安装包；许可未确认的状态仍须在对外分发前单独处理。
+
+
+## 三十分钟只读观察
+
+新指令确认且 outbox 无 pending/reserved/dispatching 后，保持 testing 前台，不发送新的测试
+指令，运行以下入口。它不发送消息；每轮核验账号/群/前台、服务活动、持久暂停标记、
+数据库计数、模型 I/O 标记和工具记录。状态变化则失败，历史 UNKNOWN 允许保留但不重试。
+这验证持续观察窗口，不等同于三十分钟持续消息负载。
+
+```bash
+uv run --locked python -m lemonbot.research.agent_wechat_stability \
+  --unit lemonbot-agent-wechat-runtime-20261008.service \
+  --database "$HOME/.local/share/Lemonbot-agent-wechat-20261008/lab.db" \
+  --token-file "$HOME/.local/state/lemonbot/agent-wechat-reproduction/api-token" \
+  --output-name runtime-soak-20261008.json
+```
+
+结果写入私有绑定目录，终端只输出耗时、样本数和固定状态码。CLI 最短观察为 1800 秒，
+不能缩短模拟测试后将其算为实机成功。失败不自动恢复或重置时间窗口。
+
+本次切到通讯录/其他会话时，用户确认微信仍登录，但上游 /api/status/auth 返回 logged_out，账号
+标识仍存在；切回 testing 后恢复 logged_in。适配器保持严格认证检查，以 NotLoggedIn
+暂停；没有把这种状态变化当作账号注销，也不放宽身份或前台门禁。

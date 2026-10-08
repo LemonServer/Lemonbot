@@ -1,0 +1,79 @@
+{
+  "recorded_at_utc": "2026-10-08T06:37:03.344951+00:00",
+  "run_id": "AGW_FOREGROUND_20261008_F3F47470",
+  "mode": "live_testing",
+  "guard_passed": true,
+  "command_count": 1,
+  "command_is_self": [
+    false
+  ],
+  "sender_refs": [
+    "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+  ],
+  "ack_count": 1,
+  "ack_is_self": [
+    true
+  ],
+  "inbound_states": [
+    "completed"
+  ],
+  "outbox_states": [
+    "acknowledged"
+  ],
+  "attempts": [
+    1
+  ],
+  "receipts_present": true,
+  "inbound_linked": true,
+  "sender_matches_persisted": true,
+  "old_unknown_attempts": [
+    1,
+    1
+  ],
+  "diagnostics": [
+    {
+      "run_id": "AGW_9134A80C13EFF6A7",
+      "stage": "before_send",
+      "message_ref": "d9b79dce-18bc-5193-8ab8-b619827a6d4a",
+      "post_count": 0,
+      "send_seconds": 0.0,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_9134A80C13EFF6A7",
+      "stage": "post_returned",
+      "message_ref": "d9b79dce-18bc-5193-8ab8-b619827a6d4a",
+      "post_count": 1,
+      "send_seconds": 8.203,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_9134A80C13EFF6A7",
+      "stage": "readback",
+      "message_ref": "d9b79dce-18bc-5193-8ab8-b619827a6d4a",
+      "post_count": 1,
+      "send_seconds": 8.203,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_9134A80C13EFF6A7",
+      "stage": "readback",
+      "message_ref": "d9b79dce-18bc-5193-8ab8-b619827a6d4a",
+      "post_count": 1,
+      "send_seconds": 8.203,
+      "match_count": 1,
+      "records": [
+        {
+          "local_ref": "local_00dbcd87ca28bb77375e1e0fa2b55f8c9cc390f521ea2f606c2496fedf64716a",
+          "server_ref": "server_f94d9a283dddf327483cf521d17938f39c1b6a513de2b654fe1d52cc92748fda",
+          "timestamp_ref": "time_b80135a6343023377a7354ee8f6b162535f95150085cf59dd408350d8ec253c4",
+          "is_self": true
+        }
+      ]
+    }
+  ],
+  "peer_confirmed": true
+}

@@ -1,0 +1,17 @@
+{
+  "allowlist_bound_only_to_testing": true,
+  "snapshot": {
+    "inbox": {
+      "completed": 1
+    },
+    "outbox": {
+      "dispatching": 1
+    },
+    "unknown_attempts": [],
+    "runtime_paused": false,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "independent_database": true,
+  "lab_database_preserved": true
+}

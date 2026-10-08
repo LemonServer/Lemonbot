@@ -1,5 +1,7 @@
 # 固定环境与恢复手册
 
+> 当前验收进度（2026-10-08 15:31）：独立通道完整验收已通过（实际 1804.7 秒稳定观察）；正式 runtime 首条实机收发通过，一次 POST、一条精确确认 ACK、模型/工具为零。仅重启正式程序后无旧消息重放；重启后新指令、管理台暂停恢复及正式入口三十分钟观察待验收。仓库默认配置继续关闭。
+
 基线：`historical-fixed-20261008`，2026-10-08 本机读取确认。
 机器可读清单见 [environment-baseline.json](../research/agent-wechat/environment-baseline.json)，
 制品锁见 [artifact-lock.json](../research/agent-wechat/artifact-lock.json)。
@@ -110,8 +112,8 @@ uv run --locked python -m lemonbot.research.agent_wechat_lab run \
 
 2026-10-08 新标记受控单条、连续两条与 self 忽略已通过，旧 UNKNOWN 保留不重发。
 已执行一次固定容器保留卷重启；用户手动恢复 testing 后前台守卫通过，实验程序以新基线
-恢复。新指令入站/回复各一条，sender 摘要稳定，旧 UNKNOWN 不重发。尚未完成切走恢复、
-三十分钟观察或正式 runtime 实测。
+恢复。新指令入站/回复各一条，sender 摘要稳定，旧 UNKNOWN 不重发。切走恢复和独立入口三十分钟观察通过；正式入口首条实机收发通过，
+重启后新指令、管理台暂停恢复和正式入口观察待完成。
 
 正式连接器已提供默认关闭的配置和模拟测试，使用同一传输并共享持久锁；独立 data_root，
 不迁移旧实验任务。恢复步骤见 [runtime 手册](wechat-agent-runtime.md)。原 native AT-SPI

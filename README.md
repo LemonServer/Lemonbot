@@ -1,5 +1,7 @@
 # Lemonbot
 
+> 当前验收进度（2026-10-08 15:31）：独立通道完整验收已通过（实际 1804.7 秒稳定观察）；正式 runtime 首条实机收发通过，一次 POST、一条精确确认 ACK、模型/工具为零。仅重启正式程序后无旧消息重放；重启后新指令、管理台暂停恢复及正式入口三十分钟观察待验收。仓库默认配置继续关闭。
+
 Lemonbot 是 Ubuntu 桌面虚拟机中的个人微信代理实验项目。当前主线通过固定版
 agent-wechat，在 `testing` 群实现合成指令的接收、发送者识别、持久化与固定回复。
 需要人工登录并保持目标群前台，不调用模型或工具。
@@ -9,8 +11,8 @@ agent-wechat，在 `testing` 群实现合成指令的接收、发送者识别、
 - **新标记收发通过：**一次 POST、一条精确确认的 self ACK；连续两条对端消息分别回复
   一次，sender 一致；self 标记被读取但不回复。
 - 旧 UNKNOWN 保留不重发。保留卷容器和实验程序重启后，新指令已回复一次，身份摘要稳定；
-  切走恢复和三十分钟观察尚未完成。
-- 默认关闭的 wechat_agent runtime 代码及模拟测试已实现，实机启用等待完整通道验收。
+  切走暂停与显式恢复已通过，独立入口三十分钟观察已通过。
+- 默认关闭的 wechat_agent runtime 代码及模拟测试已实现，独立通道已通过，正式入口首条收发通过，后续验收进行中。
   PR #171 冻结，原生 AT-SPI 门禁不变。
 
 ## 开始使用
@@ -43,7 +45,7 @@ uv run --locked ruff check .
 uv run --locked mypy src
 ```
 
-2026-10-08 全仓 468 项测试通过，Ruff、mypy（111 个源文件）和锁文件检查通过。
+2026-10-08 全仓 475 项测试通过，Ruff、mypy（112 个源文件）和锁文件检查通过。
 存在一条依赖层 Starlette/httpx 弃用警告。正式配置保持 `runtime.connector = "fake"`、
 `wechat_atspi.enabled = false`、`models.provider = "disabled"` 和 `vision.enabled = false`。
 正式连接器默认关闭；本阶段不修改数据库 schema，不启用模型、工具、自动导航、多群或媒体。

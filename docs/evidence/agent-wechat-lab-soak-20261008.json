@@ -1,0 +1,54 @@
+{
+  "started_at_utc": "2026-10-08T06:37:21.383863+00:00",
+  "mode": "live_testing_stability_observation",
+  "required_seconds": 1800,
+  "baseline": {
+    "inbox": {
+      "completed": 9
+    },
+    "outbox": {
+      "acknowledged": 7,
+      "unknown": 2
+    },
+    "unknown_attempts": [
+      1,
+      1
+    ]
+  },
+  "samples": 52,
+  "passed": true,
+  "elapsed_seconds": 1804.7,
+  "scope": "foreground single-group canary; no new commands during observation",
+  "last_snapshot": {
+    "inbox": {
+      "completed": 9
+    },
+    "outbox": {
+      "acknowledged": 7,
+      "unknown": 2
+    },
+    "unknown_attempts": [
+      1,
+      1
+    ]
+  },
+  "guard_passed": true,
+  "completed_at_utc": "2026-10-08T07:07:26.061546+00:00",
+  "observer_version": 1,
+  "final_extended_snapshot": {
+    "inbox": {
+      "completed": 9
+    },
+    "outbox": {
+      "acknowledged": 7,
+      "unknown": 2
+    },
+    "unknown_attempts": [
+      1,
+      1
+    ],
+    "runtime_paused": false,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  }
+}

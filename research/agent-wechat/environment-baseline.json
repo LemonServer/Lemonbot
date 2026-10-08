@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline_name": "historical-fixed-20261008",
-  "recorded_at_utc": "2026-10-08T06:31:12.281915+00:00",
+  "recorded_at_utc": "2026-10-08T07:30:57.087560+00:00",
   "recorded_timezone": "Asia/Shanghai",
   "host": {
     "os": "Ubuntu 24.04.3 LTS",
@@ -122,7 +122,8 @@
     "src/lemonbot/research/agent_wechat_lab.py": "86cf3b1381ffcf58fc3601c76704a74817c930033f2aee85ac4688df89ee0b6f",
     "src/lemonbot/runtime.py": "66c5aa31bd247ba99a6fbec8d739ad9547a2e2f760aee65644334b2173af1f74",
     "src/lemonbot/runtime_lock.py": "87c7791bbcfa34a5ef89aa170447a5276551cac8d551ebf822b96538e0714dd8",
-    "uv.lock": "0eddf56da15ae0f5f31adfd6181217a018cf76cd7b2391f16d008157888ed963"
+    "uv.lock": "0eddf56da15ae0f5f31adfd6181217a018cf76cd7b2391f16d008157888ed963",
+    "src/lemonbot/research/agent_wechat_stability.py": "efd11346742f1e7994c0bc1418c48dcb676f8319774b11276d5ddb2f57189211"
   },
   "experimental_adapter": {
     "api": "http://127.0.0.1:6174",
@@ -142,19 +143,21 @@
     "continuous_live_e2e_passed": true,
     "last_lab_pause_code": null,
     "restart_e2e_passed": true,
-    "thirty_minutes_passed": false,
-    "automated_tests_passed": 468,
+    "thirty_minutes_passed": true,
+    "automated_tests_passed": 475,
     "ruff_passed": true,
-    "mypy_source_files_passed": 111,
+    "mypy_source_files_passed": 112,
     "uv_lock_check_passed": true,
     "self_ignore_live_passed": true,
     "historical_pause_code": "AmbiguousReadback",
     "last_foreground_guard_code": null,
-    "foreground_resume_pending": true,
-    "formal_runtime_live_enabled": false,
+    "foreground_resume_pending": false,
+    "formal_runtime_live_enabled": true,
     "formal_runtime_live_passed": false,
-    "sender_stable_after_restart": true
+    "sender_stable_after_restart": true,
+    "formal_runtime_first_e2e_passed": true,
+    "foreground_pause_resume_passed": true
   },
   "sensitive_state_in_repository": false,
-  "lemonbot_code_commit": "5f461c04904b73faec9432733742f774ca2dd733"
+  "lemonbot_code_commit": "215bcdb3c33d5b8d9ec9d6e4c62c44bbc5f402b2"
 }

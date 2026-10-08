@@ -1,0 +1,19 @@
+{
+  "recorded_at_utc": "2026-10-08T07:30:57.087560+00:00",
+  "program_only_restart": true,
+  "admin_status_code": 200,
+  "channel_paused": false,
+  "snapshot": {
+    "inbox": {
+      "completed": 1
+    },
+    "outbox": {
+      "acknowledged": 1
+    },
+    "unknown_attempts": [],
+    "runtime_paused": false,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "new_command_requested": "LB26_E2E_2176796584FF0FC4A432F337"
+}
