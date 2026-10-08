@@ -27,6 +27,7 @@ class StatusView(BaseModel):
     connector: str
     global_paused: bool
     channel_pauses: dict[str, bool]
+    channel_pause_reasons: dict[str, str | None] = {}
     emergency_stopped: bool
     queue_depth: int = 0
     unknown_outbox: int = 0

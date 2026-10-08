@@ -152,18 +152,26 @@ def create_admin_app(
     ) -> dict[str, object]:
         session = require_session(lemonbot_session)
         require_csrf(session, x_csrf_token)
-        return (await control.set_pause(None, payload.paused)).model_dump(mode="json")
+        try:
+            return (await control.set_pause(None, payload.paused)).model_dump(mode="json")
+        except RuntimeError:
+            raise HTTPException(status_code=409, detail="resume_verification_failed") from None
 
     @app.post("/api/pause/{channel}")
     async def pause_channel(
-        channel: Literal["wechat_personal_lab"],
+        channel: Literal["wechat_personal_lab", "wechat_agent_lab"],
         payload: PauseRequest,
         lemonbot_session: Annotated[str | None, Cookie()] = None,
         x_csrf_token: Annotated[str | None, Header()] = None,
     ) -> dict[str, object]:
         session = require_session(lemonbot_session)
         require_csrf(session, x_csrf_token)
-        return (await control.set_pause(channel, payload.paused)).model_dump(mode="json")
+        try:
+            return (await control.set_pause(channel, payload.paused)).model_dump(mode="json")
+        except RuntimeError:
+            raise HTTPException(status_code=409, detail="resume_verification_failed") from None
+        except ValueError:
+            raise HTTPException(status_code=404, detail="unknown_channel") from None
 
     @app.post("/api/emergency-stop")
     async def emergency_stop(
@@ -197,15 +205,16 @@ pre,.card{white-space:pre-wrap;background:#222;padding:1rem;border-radius:.4rem}
 </style></head><body><h1>Lemonbot</h1><p id="state">正在验证本机一次性令牌……</p>
 <pre id="status"></pre><section id="controls" hidden><h2>出站控制</h2>
 <button data-pause="global:1">暂停全部</button><button data-pause="global:0">恢复全部</button>
-<button data-pause="wechat_personal_lab:1">暂停个人微信观察</button><button data-pause="wechat_personal_lab:0">恢复个人微信观察</button>
+<button data-pause="channel:1">暂停微信通道</button><button data-pause="channel:0">核验并恢复微信通道</button>
 <button id="stop" class="danger">紧急停止</button></section>
 <section id="approval-section" hidden><h2>一次性审批</h2><div id="approvals"></div></section><script>
 const state=document.getElementById('state'), status=document.getElementById('status');
-let csrf=sessionStorage.getItem('csrf');
+let csrf=sessionStorage.getItem('csrf'), activeChannel='wechat_personal_lab';
 async function mutate(url, body){return fetch(url,{method:'POST',headers:{'content-type':'application/json','x-csrf-token':csrf},body:body?JSON.stringify(body):undefined})}
 async function refresh(){
  const r=await fetch('/api/status');if(!r.ok){state.textContent='请从托盘重新打开管理台';return false}
- state.textContent='仅限本机访问';status.textContent=JSON.stringify(await r.json(),null,2);
+ const snapshot=await r.json();activeChannel=Object.keys(snapshot.channel_pauses)[0];
+ state.textContent='仅限本机访问';status.textContent=JSON.stringify(snapshot,null,2);
  document.getElementById('controls').hidden=false;const ar=await fetch('/api/approvals');
  if(ar.ok){const root=document.getElementById('approvals');root.replaceChildren();const items=await ar.json();
   document.getElementById('approval-section').hidden=false;
@@ -220,8 +229,9 @@ async function boot(){
  if(token){const r=await fetch('/auth/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})});
    if(!r.ok){state.textContent='令牌无效或已使用';return} csrf=(await r.json()).csrf;sessionStorage.setItem('csrf',csrf)}
  if(!csrf){state.textContent='请从托盘重新打开管理台';return}if(!await refresh())return;
- for(const b of document.querySelectorAll('[data-pause]'))b.onclick=async()=>{const [channel,value]=b.dataset.pause.split(':');
-  await mutate(`/api/pause/${channel==='global'?'global':encodeURIComponent(channel)}`,{paused:value==='1'});await refresh()};
+ for(const b of document.querySelectorAll('[data-pause]'))b.onclick=async()=>{let [channel,value]=b.dataset.pause.split(':');if(channel==='channel')channel=activeChannel;
+  const result=await mutate(`/api/pause/${channel==='global'?'global':encodeURIComponent(channel)}`,{paused:value==='1'});
+  if(!result.ok)state.textContent='恢复核验未通过，通道仍暂停';else await refresh()};
  document.getElementById('stop').onclick=async()=>{if(!confirm('立即停止全部出站操作，并要求重启后才能恢复？'))return;
   await mutate('/api/emergency-stop');await refresh()};}
 boot();

@@ -62,6 +62,7 @@ class PolicyConfig(BaseModel):
             "wechat_lab",
             "personal_wechat",
             "wechat_personal_lab",
+            "wechat_agent_lab",
         }:
             return self.wechat_lab
         return self.fallback

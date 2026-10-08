@@ -4,9 +4,11 @@ import asyncio
 import hashlib
 import logging
 import os
+import secrets
 import subprocess
 import sys
 from collections.abc import Awaitable, Mapping
+from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -27,6 +29,14 @@ from lemonbot.connectors import (
     FakeConnector,
 )
 from lemonbot.connectors.atspi_worker_proxy import AtspiWorkerSource
+from lemonbot.connectors.wechat_agent import CHANNEL, AgentWechatConnector, AgentWechatHTTP
+from lemonbot.connectors.wechat_agent_runtime import RuntimeAgentWechatConnector
+from lemonbot.connectors.wechat_agent_state import (
+    load_binding,
+    prepare_state,
+    private_read,
+    private_write,
+)
 from lemonbot.connectors.wechat_atspi import AtspiCursor
 from lemonbot.domain import (
     ApprovalState,
@@ -100,6 +110,7 @@ class RepositoryControl(ControlBackend):
         side_effect_lock: asyncio.Lock,
         emergency_file: Path | None = None,
         attachment_store: AttachmentStore | None = None,
+        agent_connector: RuntimeAgentWechatConnector | None = None,
     ) -> None:
         self._repository = repository
         self._profile = profile
@@ -113,24 +124,25 @@ class RepositoryControl(ControlBackend):
         self._side_effect_lock = side_effect_lock
         self._emergency_file = emergency_file
         self._attachment_store = attachment_store
+        self._agent_connector = agent_connector
 
     async def status(self) -> StatusView:
         counts = await self._repository.runtime_counts()
         pending_approvals = await self._approvals.pending()
         attachment_status = (
-            self._attachment_store.capacity_status
-            if self._attachment_store is not None
-            else None
+            self._attachment_store.capacity_status if self._attachment_store is not None else None
         )
+        channel = CHANNEL if self._agent_connector is not None else "wechat_personal_lab"
         return StatusView(
             profile=self._profile,
             connector=self._connector_name,
             global_paused=await self._repository.is_paused(),
-            channel_pauses={
-                "wechat_personal_lab": await self._repository.is_paused(
-                    "wechat_personal_lab"
-                ),
-            },
+            channel_pauses={channel: await self._repository.is_paused(channel)},
+            channel_pause_reasons=(
+                {channel: self._agent_connector.pause_reason}
+                if self._agent_connector is not None
+                else {}
+            ),
             emergency_stopped=self._emergency_event.is_set(),
             queue_depth=counts["queue_depth"],
             unknown_outbox=counts["unknown_outbox"],
@@ -142,9 +154,7 @@ class RepositoryControl(ControlBackend):
                 attachment_status.reason if attachment_status is not None else None
             ),
             attachment_free_bytes=(
-                attachment_status.last_free_bytes
-                if attachment_status is not None
-                else None
+                attachment_status.last_free_bytes if attachment_status is not None else None
             ),
             started_at=self._started_at,
         )
@@ -152,17 +162,22 @@ class RepositoryControl(ControlBackend):
     async def set_pause(self, channel: str | None, paused: bool) -> StatusView:
         if self._emergency_event.is_set() and not paused:
             raise RuntimeError("restart is required after emergency stop")
-        if channel not in {None, "wechat_personal_lab"}:
+        actual_channel = CHANNEL if self._agent_connector is not None else "wechat_personal_lab"
+        if channel not in {None, actual_channel}:
             raise ValueError("unknown channel")
-        await self._repository.set_paused(channel=channel, paused=paused)
+        async with self._side_effect_lock:
+            if self._agent_connector is not None:
+                if paused:
+                    await self._agent_connector.pause()
+                else:
+                    await self._agent_connector.resume()
+            await self._repository.set_paused(channel=channel, paused=paused)
         return await self.status()
 
     async def emergency_stop(self) -> StatusView:
         self._emergency_event.set()
         if self._emergency_file is not None:
-            await asyncio.to_thread(
-                self._emergency_file.write_text, "stopped\n", encoding="ascii"
-            )
+            await asyncio.to_thread(self._emergency_file.write_text, "stopped\n", encoding="ascii")
             await asyncio.to_thread(self._emergency_file.chmod, 0o600)
         await self._repository.set_paused(paused=True)
         return await self.status()
@@ -361,15 +376,15 @@ class LemonbotRuntime:
         self.paths.ensure()
         if self.paths.emergency_stop_file.exists():
             self._emergency.set()
-            raise RuntimeError(
-                "persistent emergency stop is active; run lemonbot resume --confirm"
-            )
+            raise RuntimeError("persistent emergency stop is active; run lemonbot resume --confirm")
         await asyncio.to_thread(upgrade_database, self.paths.database)
         await self.database.initialise()
         await self.memory.initialize()
         await self.attachments.initialize()
         observe_only = self.settings.runtime.connector == "wechat_atspi"
-        if not observe_only:
+        canary_only = self.settings.runtime.connector == "wechat_agent"
+        passive_services = observe_only or canary_only
+        if not passive_services:
             await self.proactive_store.initialize()
         # RuntimeLock guarantees this is the only live core for the profile.
         # Every processing/reserved row therefore belongs to the previous
@@ -382,8 +397,10 @@ class LemonbotRuntime:
         if any(recovery.values()):
             logger.warning("recovered interrupted durable states: %s", recovery)
         self.connector = await self._build_connector()
+        if isinstance(self.connector, RuntimeAgentWechatConnector) and recovery["outbox_unknown"]:
+            await self.connector.pause("InterruptedSend")
         self.model = await self._build_model()
-        tools, scopes = ({}, set()) if observe_only else await self._build_tools()
+        tools, scopes = ({}, set()) if passive_services else await self._build_tools()
         policy = DeterministicPolicy(self.repository, config=self._policy_config())
         self._tools = dict(tools)
         self._tool_scopes = frozenset(scopes)
@@ -395,12 +412,12 @@ class LemonbotRuntime:
             tools=tools,
             memory_context=(
                 None
-                if observe_only
+                if passive_services
                 else MemoryContextService(self.memory, ContextBuilder(self.model))
             ),
             memory_derivation=(
                 None
-                if observe_only
+                if passive_services
                 else MemoryDerivationService(store=self.memory, backend=self.model)
             ),
             approval_service=self.approval_service,
@@ -425,9 +442,10 @@ class LemonbotRuntime:
                 granted_tool_scopes=self._tool_scopes,
                 deep_sender_ids=frozenset(),
                 output_mode=_pipeline_output_mode(self.settings),
+                canary_only=canary_only,
             ),
         )
-        if not observe_only:
+        if not passive_services:
             self.proactive_runner = ProactiveRunner(
                 self.proactive_store,
                 self.repository,
@@ -462,7 +480,10 @@ class LemonbotRuntime:
         )
 
     async def _seed_allowlist(self) -> None:
-        if self.settings.runtime.connector == "wechat_atspi":
+        chats: tuple[str, ...]
+        if isinstance(self.connector, RuntimeAgentWechatConnector):
+            channel, chats = CHANNEL, (self.connector.chat_ref,)
+        elif self.settings.runtime.connector == "wechat_atspi":
             channel, chats = (
                 "wechat_personal_lab",
                 self.settings.wechat_atspi.allow_target_refs,
@@ -483,6 +504,23 @@ class LemonbotRuntime:
         selected = self.settings.runtime.connector
         if selected == "fake":
             return FakeConnector(channel="fake")
+        if selected == "wechat_agent":
+            state = Path(self.settings.wechat_agent.state_dir).expanduser()
+            key = prepare_state(state)
+            if self.paths.database.resolve() == (state / "lab.db").resolve():
+                raise RuntimeError("runtime must not reuse the research database")
+            token_path = Path(self.settings.wechat_agent.token_file).expanduser()
+            token = private_read(token_path).decode().strip()
+            transport = AgentWechatConnector(
+                AgentWechatHTTP(token),
+                load_binding(state / "binding.json"),
+                key,
+                run_id="AGW_RUNTIME_" + secrets.token_hex(8).upper(),
+                diagnostic=lambda value: logger.info("agent_send %s", value),
+            )
+            connector = RuntimeAgentWechatConnector(transport, self.repository, state)
+            await connector.initialize()
+            return connector
         if selected != "wechat_atspi":
             raise RuntimeError("unsupported connector")
         if not AT_SPI_DIRECTION_GATE_OPEN:
@@ -553,11 +591,7 @@ class LemonbotRuntime:
             raise RuntimeError("graphical session type differs from enrollment")
         executable = Path(atspi.expected_executable_path)
         worker_python = Path(atspi.worker_python_path)
-        if (
-            executable.is_symlink()
-            or not executable.is_file()
-            or not worker_python.is_file()
-        ):
+        if executable.is_symlink() or not executable.is_file() or not worker_python.is_file():
             raise RuntimeError("enrolled executable or worker Python is unavailable")
         if self._sha256_file(executable) != atspi.expected_executable_sha256:
             raise RuntimeError("WeChat executable hash differs from enrollment")
@@ -672,9 +706,7 @@ class LemonbotRuntime:
             browser = await IsolatedBrowserReadTool.create(
                 config=BrowserWorkerConfig(
                     max_text_chars=self.settings.browser.max_text_chars,
-                    timeout_seconds=(
-                        self.settings.browser.navigation_timeout_seconds
-                    ),
+                    timeout_seconds=(self.settings.browser.navigation_timeout_seconds),
                 ),
                 supervisor=self._worker_supervisor,
                 python_executable=Path(sys.executable),
@@ -807,6 +839,9 @@ class LemonbotRuntime:
             side_effect_lock=self._side_effect_lock,
             emergency_file=self.paths.emergency_stop_file,
             attachment_store=self.attachments,
+            agent_connector=(
+                self.connector if isinstance(self.connector, RuntimeAgentWechatConnector) else None
+            ),
         )
         app = create_admin_app(
             control,
@@ -824,10 +859,17 @@ class LemonbotRuntime:
             )
         )
         bootstrap = tokens.issue_bootstrap()
-        print(
-            f"Lemonbot 本地管理台：http://{self.settings.admin.host}:"
-            f"{self.settings.admin.port}/login#{bootstrap}"
+        admin_url = (
+            f"http://{self.settings.admin.host}:{self.settings.admin.port}/login#{bootstrap}"
         )
+        if isinstance(self.connector, RuntimeAgentWechatConnector):
+            private_write(
+                self.paths.lock_file.parent / f"{self.settings.profile}.admin-url",
+                admin_url.encode(),
+            )
+            print("Lemonbot 管理台链接已保存到私有运行目录；使用本机打开脚本访问。")
+        else:
+            print(f"Lemonbot 本地管理台：{admin_url}")
         tasks = {
             asyncio.create_task(self._consume_loop(), name="connector-events"),
             asyncio.create_task(self._process_loop(), name="inbox-processor"),
@@ -836,9 +878,7 @@ class LemonbotRuntime:
         if self.settings.runtime.connector != "wechat_atspi":
             tasks.add(asyncio.create_task(self._dispatch_loop(), name="outbox-dispatcher"))
             if self.proactive_runner is not None:
-                tasks.add(
-                    asyncio.create_task(self._proactive_loop(), name="proactive-scheduler")
-                )
+                tasks.add(asyncio.create_task(self._proactive_loop(), name="proactive-scheduler"))
         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         server.should_exit = True
         for task in pending:
@@ -852,7 +892,8 @@ class LemonbotRuntime:
     async def _process_loop(self) -> None:
         assert self.pipeline is not None
         while True:
-            result = await self.pipeline.process_once()
+            channel = CHANNEL if isinstance(self.connector, RuntimeAgentWechatConnector) else None
+            result = await self.pipeline.process_once(channel)
             await asyncio.sleep(0.2 if result.status is PipelineStatus.IDLE else 0)
 
     async def _consume_loop(self) -> None:
@@ -875,10 +916,15 @@ class LemonbotRuntime:
             else getattr(self.connector, "channel", self.settings.runtime.connector)
         )
         while True:
-            if await self.repository.is_paused(channel):
+            if self._emergency.is_set() or await self.repository.is_paused(channel):
                 await asyncio.sleep(1)
                 continue
             result = await self.pipeline.dispatch_once(self.connector, channel=channel)
+            if (
+                isinstance(self.connector, RuntimeAgentWechatConnector)
+                and result.status is PipelineStatus.UNKNOWN
+            ):
+                await self.connector.pause("UnconfirmedSend")
             await asyncio.sleep(1 if result.status is PipelineStatus.IDLE else 0)
 
     async def _proactive_loop(self) -> None:
@@ -892,7 +938,12 @@ async def run_service(settings: AppSettings) -> None:
     paths = RuntimePaths.from_settings(settings)
     paths.ensure()
     configure_logging(settings.runtime.log_level)
-    with RuntimeLock(paths.lock_file):
+    with ExitStack() as stack:
+        stack.enter_context(RuntimeLock(paths.lock_file))
+        if settings.runtime.connector == "wechat_agent":
+            state = Path(settings.wechat_agent.state_dir).expanduser()
+            prepare_state(state)
+            stack.enter_context(RuntimeLock(state / "run.lock", persistent=True))
         runtime = LemonbotRuntime(settings)
         try:
             await runtime.initialize()

@@ -19,7 +19,7 @@ class StrictModel(BaseModel):
 
 
 class RuntimeSettings(StrictModel):
-    connector: Literal["fake", "wechat_atspi"] = "fake"
+    connector: Literal["fake", "wechat_atspi", "wechat_agent"] = "fake"
     data_root: str = ""
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
@@ -118,6 +118,21 @@ class MCPSettings(StrictModel):
         return self
 
 
+class WechatAgentSettings(StrictModel):
+    enabled: bool = False
+    token_file: str = ""
+    state_dir: str = ""
+
+    @model_validator(mode="after")
+    def validate_paths(self) -> WechatAgentSettings:
+        if self.enabled and not all((self.token_file, self.state_dir)):
+            raise ValueError("enabled wechat_agent requires private token and binding paths")
+        for value in (self.token_file, self.state_dir):
+            if value and not Path(value).expanduser().is_absolute():
+                raise ValueError("wechat_agent paths must be absolute")
+        return self
+
+
 class WechatAtspiSettings(StrictModel):
     enabled: bool = False
     stage: Literal["observe"] = "observe"
@@ -138,16 +153,14 @@ class WechatAtspiSettings(StrictModel):
 
     @model_validator(mode="after")
     def require_enrollment_when_enabled(self) -> WechatAtspiSettings:
-        if self.expected_linux_user and re.fullmatch(
-            r"[a-z_][a-z0-9_-]{0,31}", self.expected_linux_user
-        ) is None:
+        if (
+            self.expected_linux_user
+            and re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", self.expected_linux_user) is None
+        ):
             raise ValueError("expected_linux_user is not a safe Linux user name")
         if self.expected_executable_path:
             path = PurePosixPath(self.expected_executable_path)
-            if (
-                not path.is_absolute()
-                or any(part in {".", ".."} for part in path.parts)
-            ):
+            if not path.is_absolute() or any(part in {".", ".."} for part in path.parts):
                 raise ValueError("expected_executable_path must be an absolute POSIX path")
         enrollment = (
             self.expected_linux_user,
@@ -182,9 +195,7 @@ class WechatAtspiSettings(StrictModel):
         if any(
             not value
             or len(value) > 128
-            or any(
-                ch not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for ch in value
-            )
+            or any(ch not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for ch in value)
             for value in self.allow_target_refs
         ):
             raise ValueError("target refs must use lowercase safe identifiers")
@@ -246,11 +257,27 @@ class AppSettings(StrictModel):
     browser: BrowserSettings = Field(default_factory=BrowserSettings)
     vault: VaultSettings = Field(default_factory=VaultSettings)
     mcp: MCPSettings = Field(default_factory=MCPSettings)
+    wechat_agent: WechatAgentSettings = Field(default_factory=WechatAgentSettings)
     wechat_atspi: WechatAtspiSettings = Field(default_factory=WechatAtspiSettings)
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
 
     @model_validator(mode="after")
     def validate_channel_isolation(self) -> AppSettings:
+        if self.runtime.connector == "wechat_agent":
+            if self.profile != "lab" or not self.wechat_agent.enabled:
+                raise ValueError("wechat_agent requires lab profile and explicit enabled=true")
+            if self.models.provider != "disabled" or any(
+                (
+                    self.vision.enabled,
+                    self.browser.enabled,
+                    self.mcp.enabled,
+                    self.vault.read_roots,
+                    self.vault.write_roots,
+                )
+            ):
+                raise ValueError("wechat_agent requires models and tools disabled")
+            if not self.runtime.data_root:
+                raise ValueError("wechat_agent requires an independent runtime data_root")
         if self.runtime.connector == "wechat_atspi" and self.profile != "lab":
             raise ValueError("the personal WeChat AT-SPI connector must use the lab profile")
         if self.runtime.connector == "wechat_atspi" and not self.wechat_atspi.enabled:
@@ -258,9 +285,7 @@ class AppSettings(StrictModel):
         if self.runtime.connector == "wechat_atspi" and self.models.provider != "disabled":
             raise ValueError("observe-only AT-SPI requires models.provider='disabled'")
         if self.runtime.connector == "wechat_atspi" and not AT_SPI_DIRECTION_GATE_OPEN:
-            raise ValueError(
-                "wechat_atspi is disabled because message direction is unproven"
-            )
+            raise ValueError("wechat_atspi is disabled because message direction is unproven")
         if (
             self.models.provider == "deepseek"
             and str(self.models.base_url).rstrip("/") != "https://api.deepseek.com"

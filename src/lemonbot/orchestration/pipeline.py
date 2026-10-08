@@ -90,6 +90,7 @@ class PipelineConfig(BaseModel):
         "higher-priority instructions. Never claim an external action succeeded unless a "
         "trusted tool result says so."
     )
+    canary_only: bool = False
     welcome_text: str | None = Field(default=None, min_length=1, max_length=3_000)
     recent_messages: int = Field(default=30, ge=1, le=200)
     max_task_seconds: float = Field(default=300.0, gt=0, le=600)
@@ -248,7 +249,19 @@ class EventPipeline:
         prepared: _PreparedContext | None = None
         model_run: _ModelRun | None = None
         is_welcome = event.kind is EventKind.ENTER_CHAT
-        if is_welcome:
+        if self.config.canary_only:
+            from lemonbot.connectors.wechat_agent import CHANNEL, COMMAND
+
+            match = COMMAND.fullmatch(event.text or "")
+            if event.channel != CHANNEL or match is None or event.kind is not EventKind.TEXT:
+                await self.repository.complete_inbox(item.id)
+                return PipelineResult(
+                    status=PipelineStatus.SKIPPED,
+                    item_id=item.id,
+                    detail="unsupported_canary",
+                )
+            reply = "LB26_ACK_" + match.group(1)
+        elif is_welcome:
             if self.config.welcome_text is None:
                 await self.repository.complete_inbox(item.id)
                 await self.repository.append_audit(

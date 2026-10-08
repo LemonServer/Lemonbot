@@ -1582,7 +1582,16 @@ def resume(config: ConfigOption = None, confirm: bool = typer.Option(False, "--c
         await database.initialise()
         try:
             repository = CoreRepository(database)
-            await repository.clear_runtime_state_prefix("atspi:cursor:")
+            if settings.runtime.connector == "wechat_agent":
+                from lemonbot.connectors.wechat_agent import CHANNEL
+                from lemonbot.connectors.wechat_agent_state import prepare_state, private_write
+
+                state = Path(settings.wechat_agent.state_dir).expanduser()
+                prepare_state(state)
+                private_write(state / "paused.json", b'{"reason":"EmergencyResetPending"}')
+                await repository.set_paused(channel=CHANNEL, paused=True)
+            else:
+                await repository.clear_runtime_state_prefix("atspi:cursor:")
             await repository.set_paused(paused=False)
         finally:
             await database.close()
@@ -1594,7 +1603,10 @@ def resume(config: ConfigOption = None, confirm: bool = typer.Option(False, "--c
     except (AlreadyRunningError, RuntimeError, OSError):
         typer.echo("无法安全重置 Observe baseline；急停保持生效。", err=True)
         raise typer.Exit(1) from None
-    typer.echo("急停已解除；下次启动会重新建立 baseline，不补抓停机消息。")
+    if settings.runtime.connector == "wechat_agent":
+        typer.echo("急停已解除；启动后仍暂停，须在管理台重新核验并恢复微信通道。")
+    else:
+        typer.echo("急停已解除；下次启动会重新建立 baseline，不补抓停机消息。")
 
 
 @secret_app.command("set")

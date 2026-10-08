@@ -161,6 +161,20 @@ class DeterministicPolicy:
                 "chat is not enrolled in the allowlist",
             )
 
+        if (
+            action.channel == "wechat_agent_lab"
+            and not action.proactive
+            and self._is_quiet(self._now().astimezone(self.timezone))
+        ):
+            return await self._decision(
+                action,
+                PolicyDecision.DENY,
+                "quiet_hours",
+                "canary reply is in quiet hours",
+                retry_after_seconds=self._quiet_retry_seconds(
+                    self._now().astimezone(self.timezone)
+                ),
+            )
         limits = self.config.limits_for(action.channel)
         if action.proactive or kind == "proactive_message":
             return await self._evaluate_proactive(action, limits)

@@ -1,0 +1,30 @@
+schema_version = 2
+profile = "lab"
+timezone = "Asia/Shanghai"
+
+[runtime]
+connector = "fake" # Change to "wechat_agent" together with enabled=true below.
+data_root = "~/.local/share/Lemonbot-agent-wechat"
+log_level = "INFO"
+
+[admin]
+host = "127.0.0.1"
+port = 8766
+
+[wechat_agent]
+# Explicitly opt in only after the independent channel acceptance passes.
+enabled = false
+token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"
+state_dir = "~/.local/state/lemonbot/agent-wechat-lab"
+
+[models]
+provider = "disabled"
+
+[vision]
+enabled = false
+
+[browser]
+enabled = false
+
+[mcp]
+enabled = false
