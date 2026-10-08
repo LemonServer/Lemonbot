@@ -309,6 +309,7 @@ def _sanitized_testing_send_report(report: object) -> dict[str, object]:
     canary_hash = report.get("canary_sha256")
     outcome = report.get("outcome")
     commit_mechanism = report.get("commit_mechanism")
+    draft_confirmation = report.get("draft_confirmation")
     readback_count = report.get("readback_match_count")
     extents = report.get("readback_item_window_extents")
     fixed_bools = {
@@ -331,13 +332,15 @@ def _sanitized_testing_send_report(report: object) -> dict[str, object]:
         )
     }
     if (
-        report.get("schema_version") != 1
+        type(report.get("schema_version")) is not int
+        or report.get("schema_version") != 1
         or not isinstance(surface_hash, str)
         or re.fullmatch(r"[0-9a-f]{64}", surface_hash) is None
         or not isinstance(canary_hash, str)
         or re.fullmatch(r"[0-9a-f]{64}", canary_hash) is None
-        or outcome not in {"readback_unattributed", "unknown"}
-        or commit_mechanism not in {"activate", "focus_only"}
+        or outcome not in ("readback_unattributed", "unknown")
+        or commit_mechanism not in ("activate", "focus_only")
+        or draft_confirmation not in ("exact_atspi", "operator_plus_setter")
         or not isinstance(readback_count, int)
         or isinstance(readback_count, bool)
         or not 0 <= readback_count <= 16
@@ -347,8 +350,26 @@ def _sanitized_testing_send_report(report: object) -> dict[str, object]:
         or fixed_bools["direction_proven"] is not False
         or fixed_bools["acknowledged"] is not False
         or fixed_bools["retry_allowed"] is not False
+        or type(report.get("actions_performed")) is not int
         or report.get("actions_performed")
         != (2 if commit_mechanism == "focus_only" else 1)
+        or (
+            draft_confirmation == "operator_plus_setter"
+            and (
+                fixed_bools["operator_confirmed_empty"] is not True
+                or fixed_bools["used_existing_canary"] is not False
+            )
+        )
+        or (
+            (outcome == "readback_unattributed")
+            != (readback_count == 1 and fixed_bools["draft_empty_after"] is True)
+        )
+        or (outcome == "unknown" and extents is not None)
+        or (
+            commit_mechanism == "focus_only"
+            and fixed_bools["send_action_returned"]
+            is not fixed_bools["keyboard_event_returned"]
+        )
         or (
             commit_mechanism == "activate"
             and any(
@@ -395,6 +416,7 @@ def _sanitized_testing_send_report(report: object) -> dict[str, object]:
         "surface_sha256": surface_hash,
         "canary_sha256": canary_hash,
         "commit_mechanism": commit_mechanism,
+        "draft_confirmation": draft_confirmation,
         **fixed_bools,
         "readback_match_count": readback_count,
         "readback_item_window_extents": safe_extents,
@@ -530,7 +552,12 @@ def _read_visual_calibration_sample(path: Path):  # type: ignore[no-untyped-def]
         or not isinstance(report.get("calibration_sample"), dict)
     ):
         raise ValueError("visual report is invalid")
-    return VisualCalibrationSample.model_validate(report["calibration_sample"])
+    capture_facts = report.get("capture_facts")
+    frames = capture_facts.get("frames_seen") if isinstance(capture_facts, dict) else None
+    if type(frames) is not int or not 2 <= frames <= 30:
+        raise ValueError("visual report lacks bounded multi-frame evidence")
+    _sanitized_portal_capture_report(capture_facts, expected_frames=frames)
+    return VisualCalibrationSample.model_validate(report["calibration_sample"], strict=True)
 
 
 @channel_app.command("linux-atspi-probe")
@@ -626,6 +653,11 @@ def linux_atspi_testing_send_canary(
         if completed.returncode != 0:
             raise ValueError("testing send probe failed")
         report = _sanitized_testing_send_report(child_report)
+        if (
+            report["used_existing_canary"] is not False
+            or report["operator_confirmed_empty"] is not True
+        ):
+            raise ValueError("testing send did not use a new confirmed-empty draft")
     except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
         typer.echo(
             "testing canary 发送结果未知；禁止自动重试。"
@@ -679,6 +711,81 @@ def linux_atspi_testing_send_existing_canary(
     typer.echo(json.dumps(report, ensure_ascii=True, sort_keys=True))
 
 
+def _sanitized_portal_capture_report(
+    report: object, *, expected_frames: int,
+) -> dict[str, object]:
+    if not isinstance(report, dict):
+        raise ValueError("Portal capture report is invalid")
+    fixed_values: dict[str, object] = {
+        "schema_version": 1,
+        "capture_source": "xdg-desktop-portal",
+        "source_kind": "window",
+        "portal_authorized": True,
+        "local_processing_only": True,
+        "cloud_processing_used": False,
+        "cursor_included": False,
+        "pixels_persisted": False,
+        "selected_stream_count": 1,
+        "frames_seen": expected_frames,
+    }
+    for key, expected in fixed_values.items():
+        value = report.get(key)
+        if type(value) is not type(expected) or value != expected:
+            raise ValueError("Portal capture evidence is unsafe")
+    sizes = report.get("frame_sizes")
+    if (
+        not isinstance(sizes, list)
+        or len(sizes) != 1
+        or not isinstance(sizes[0], list)
+        or len(sizes[0]) != 2
+        or any(type(value) is not int or not 1 <= value <= 16_384 for value in sizes[0])
+        or report.get("pixel_formats") != ["RGBA"]
+    ):
+        raise ValueError("Portal frame geometry is unsafe or changed")
+    return {**fixed_values, "frame_sizes": sizes, "pixel_formats": ["RGBA"]}
+
+
+@channel_app.command("linux-atspi-testing-profile-read")
+def linux_atspi_testing_profile_read(
+    confirm_testing: ConfirmTestingOption = False,
+    pid: LinuxProbePidOption = None,
+) -> None:
+    """Read one already-open testing profile in a short-lived process."""
+    if not confirm_testing:
+        typer.echo("请确认当前 testing 群成员资料卡已打开。", err=True)
+        raise typer.Exit(2)
+    try:
+        command, environment = _probe_command(_wechat_pids(pid), 10_000)
+        command[2] = str(Path(__file__).with_name("research") / "profile_probe.py")
+        command = command[:-2]  # This reader has its own fixed traversal bound.
+        completed = subprocess.run(  # noqa: S603
+            command, env=environment, capture_output=True, timeout=45, check=False,
+        )
+        report = json.loads(completed.stdout)
+        if completed.returncode != 0 or not isinstance(report, dict):
+            raise ValueError("profile worker failed")
+        ref = report.get("identifier_ref")
+        if (
+            not isinstance(ref, str) or re.fullmatch(r"profile_[0-9a-f]{64}", ref) is None
+            or report.get("identifier_kind") != "displayed_weixin_id"
+            or report.get("reference_scope") != "probe_run"
+            or type(report.get("actions_performed")) is not int
+            or report.get("actions_performed") != 0
+            or report.get("automatic_message_binding_proven") is not False
+            or report.get("identity_authorized") is not False
+        ):
+            raise ValueError("profile evidence invalid")
+        safe = {
+            "schema_version": 1, "identifier_kind": "displayed_weixin_id",
+            "identifier_ref": ref, "reference_scope": "probe_run", "actions_performed": 0,
+            "automatic_message_binding_proven": False, "identity_authorized": False,
+        }
+    except (OSError, subprocess.SubprocessError, UnicodeError, ValueError):
+        typer.echo("资料卡读取失败或超时；未输出账号原文，未执行动作。", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(safe, sort_keys=True))
+
+
 @channel_app.command("linux-portal-screen-probe")
 def linux_portal_screen_probe(
     frames: PortalFrameCountOption = 2,
@@ -698,8 +805,9 @@ def linux_portal_screen_probe(
         report = json.loads(completed.stdout.decode("utf-8"))
         if completed.returncode != 0 or not isinstance(report, dict):
             child_error = report.get("error") if isinstance(report, dict) else None
-            if child_error in {
+            if isinstance(child_error, str) and child_error in {
                 "PortalCaptureError",
+                "PortalFrameChanged",
                 "PortalDenied",
                 "PortalProbeError",
                 "PortalProtocolError",
@@ -708,6 +816,7 @@ def linux_portal_screen_probe(
             }:
                 error_code = str(child_error)
             raise ValueError("Portal probe failed")
+        report = _sanitized_portal_capture_report(report, expected_frames=frames)
     except (OSError, subprocess.SubprocessError, UnicodeError, json.JSONDecodeError, ValueError):
         typer.echo(
             f"Portal 只读画面探测失败（安全代码：{error_code}）；"
@@ -754,13 +863,14 @@ def linux_portal_group_calibration(
         layouts = report.get("row_layout_fingerprints") if isinstance(report, dict) else None
         if completed.returncode != 0 or not isinstance(layouts, dict):
             child_error = report.get("error") if isinstance(report, dict) else None
-            if child_error in {
+            if isinstance(child_error, str) and child_error in {
                 "PortalCaptureError",
                 "PortalDenied",
                 "PortalOCRFailure",
                 "PortalProbeError",
                 "PortalProtocolError",
                 "PortalRowChanged",
+                "PortalFrameChanged",
                 "PortalRowOutOfFrame",
                 "PortalRowUnresolved",
                 "PortalTimeout",
@@ -768,6 +878,7 @@ def linux_portal_group_calibration(
             }:
                 error_code = str(child_error)
             raise ValueError("Portal row probe failed")
+        capture_facts = _sanitized_portal_capture_report(report, expected_frames=frames)
         self_layout = layouts.get("self")
         peer_layout = layouts.get("peer")
         continuation_layout = layouts.get("peer_continuation")
@@ -775,7 +886,9 @@ def linux_portal_group_calibration(
         continuation_proven = report.get("continuation_binding_proven") is True
         display_sender = report.get("unverified_display_sender")
         if (
-            not isinstance(self_layout, str)
+            type(report.get("segment_label_anchor_proven")) is not bool
+            or type(report.get("continuation_binding_proven")) is not bool
+            or not isinstance(self_layout, str)
             or not isinstance(peer_layout, str)
             or not isinstance(continuation_layout, str)
             or re.fullmatch(r"[0-9a-f]{64}", self_layout) is None
@@ -822,6 +935,7 @@ def linux_portal_group_calibration(
                 "reason_codes": reason_codes,
                 "unverified_display_sender": display_sender if segment_proven else None,
                 "calibration_sample": sample.model_dump(mode="json"),
+                "capture_facts": capture_facts,
             },
             ensure_ascii=True,
             sort_keys=True,

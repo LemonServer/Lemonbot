@@ -13,12 +13,15 @@ from lemonbot.connectors.linux_atspi_probe import (
     _alt_s_keyboard_event,
     _canary_matches,
     _inspect_app,
+    _parser,
     _testing_action_surface,
     _testing_draft_state,
     _testing_focus_only,
     _testing_input_focus_only,
     _testing_send_canary,
     _testing_submit_confirmed_draft,
+    _validate_probe_mode,
+    main,
     probe,
 )
 
@@ -849,12 +852,9 @@ def test_testing_draft_state_hashes_generated_transcript_canary() -> None:
     assert len(report["transcript_canaries"][0]["canary_sha256"]) == 64  # type: ignore[index]
 
 
-def test_testing_send_cli_filters_child_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(cli, "_wechat_pids", lambda _pid: (1234,))
-    monkeypatch.setattr(cli, "_probe_command", lambda _pids, _max_nodes: (["probe"], {}))
-    child_report = {
+@pytest.fixture
+def testing_send_report() -> dict[str, object]:
+    return {
         "schema_version": 1,
         "surface_sha256": "a" * 64,
         "canary_sha256": "b" * 64,
@@ -862,6 +862,7 @@ def test_testing_send_cli_filters_child_output(
         "operator_confirmed_empty": True,
         "used_existing_canary": False,
         "commit_mechanism": "activate",
+        "draft_confirmation": "exact_atspi",
         "send_action_invoked": True,
         "send_action_returned": True,
         "focus_action_invoked": False,
@@ -879,13 +880,36 @@ def test_testing_send_cli_filters_child_output(
         "retry_allowed": False,
         "untrusted": "secret body",
     }
-    monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+
+
+@pytest.mark.parametrize(
+    "changes, expected_exit",
+    [
+        ({}, 0),
+        ({"used_existing_canary": True, "input_was_empty": False}, 1),
+        ({"operator_confirmed_empty": False}, 1),
+        ({"outcome": ["secret body"]}, 1),
+        ({"readback_match_count": 0}, 1),
+    ],
+)
+def test_testing_send_cli_filters_child_output(
+    monkeypatch: pytest.MonkeyPatch, testing_send_report: dict[str, object],
+    changes: dict[str, object], expected_exit: int,
+) -> None:
+    monkeypatch.setattr(cli, "_wechat_pids", lambda _pid: (1234,))
+    monkeypatch.setattr(cli, "_probe_command", lambda _pids, _max_nodes: (["probe"], {}))
+    child_report = testing_send_report
+    child_report.update(changes)
+    calls = 0
+
+    def run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        nonlocal calls
+        calls += 1
+        return subprocess.CompletedProcess(
             args=[], returncode=0, stdout=json.dumps(child_report).encode()
-        ),
-    )
+        )
+
+    monkeypatch.setattr(cli.subprocess, "run", run)
 
     result = CliRunner().invoke(
         app,
@@ -897,10 +921,99 @@ def test_testing_send_cli_filters_child_output(
         ],
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == expected_exit, result.output
+    assert calls == 1
     assert "secret body" not in result.output
-    assert '"actions_performed": 1' in result.output
-    assert '"acknowledged": false' in result.output
+    if expected_exit == 0:
+        assert '"actions_performed": 1' in result.output
+        assert '"acknowledged": false' in result.output
+        assert '"draft_confirmation": "exact_atspi"' in result.output
+    else:
+        assert "结果未知；禁止自动重试" in result.output
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"readback_match_count": 0},
+        {"readback_match_count": 2},
+        {"draft_empty_after": False},
+        {"outcome": "unknown"},
+        {"outcome": ["secret body"]},
+        {"commit_mechanism": {"secret body": True}},
+        {"schema_version": True},
+        {"actions_performed": True},
+        {"draft_confirmation": None},
+        {"draft_confirmation": "operator_plus_setter", "operator_confirmed_empty": False},
+        {"draft_confirmation": "operator_plus_setter", "used_existing_canary": True,
+         "input_was_empty": False},
+        {"commit_mechanism": "focus_only", "actions_performed": 2,
+         "focus_action_invoked": True, "focus_action_returned": True,
+         "focused_before_commit": True, "keyboard_event_invoked": True,
+         "keyboard_event_returned": False},
+    ],
+)
+def test_testing_send_report_rejects_inconsistent_evidence(
+    testing_send_report: dict[str, object], changes: dict[str, object],
+) -> None:
+    testing_send_report.update(changes)
+    with pytest.raises(ValueError, match="unsafe"):
+        cli._sanitized_testing_send_report(testing_send_report)
+
+
+def test_testing_send_report_preserves_opaque_draft_evidence(
+    testing_send_report: dict[str, object],
+) -> None:
+    testing_send_report.update(
+        draft_confirmation="operator_plus_setter", outcome="unknown",
+        readback_match_count=0, readback_item_window_extents=None, draft_empty_after=False,
+    )
+    report = cli._sanitized_testing_send_report(testing_send_report)
+    assert report["draft_confirmation"] == "operator_plus_setter"
+    assert report["outcome"] == "unknown"
+    assert report["acknowledged"] is False
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ["--testing-send-existing-canary", "--testing-send-precommit-only"],
+        ["--testing-send-canary", "--testing-action-surface"],
+        ["--semantic-kind", "group", "--testing-send-canary"],
+        ["--testing-send-canary", "--testing-send-existing-canary"],
+        ["--operator-confirmed-empty-draft"],
+        ["--confirmed-draft-focus-input"],
+        ["--expected-canary-sha256", "secret body"],
+        ["--testing-submit-confirmed-draft"],
+        ["--testing-submit-confirmed-draft", "--expected-canary-sha256", "a" * 64,
+         "--confirmed-draft-use-space", "--confirmed-draft-use-alt-s"],
+    ],
+)
+def test_probe_rejects_conflicting_modes_before_atspi(
+    options: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+) -> None:
+    def forbidden() -> None:
+        pytest.fail("invalid options must not load AT-SPI")
+
+    monkeypatch.setattr("lemonbot.connectors.linux_atspi_probe._load_atspi", forbidden)
+    assert main(["--pid", "1234", *options]) == 1
+    assert json.loads(capsys.readouterr().out) == {"error": "ValueError"}
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        [], ["--testing-action-surface"], ["--testing-draft-state"],
+        ["--semantic-kind", "group"],
+        ["--testing-send-canary", "--testing-send-precommit-only",
+         "--operator-confirmed-empty-draft"],
+        ["--testing-send-existing-canary"],
+        ["--testing-submit-confirmed-draft", "--expected-canary-sha256", "a" * 64,
+         "--confirmed-draft-use-alt-s", "--confirmed-draft-focus-input"],
+    ],
+)
+def test_probe_accepts_unambiguous_modes(options: list[str]) -> None:
+    _validate_probe_mode(_parser().parse_args(["--pid", "1234", *options]))
 
 
 def test_canary_match_uses_the_message_row_not_its_list_container() -> None:

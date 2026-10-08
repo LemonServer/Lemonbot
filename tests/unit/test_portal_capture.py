@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -191,6 +192,18 @@ def test_row_argument_has_only_fixed_canary_labels_and_integer_geometry() -> Non
         _parse_row("sender-name:1,2,3,4")
 
 
+def test_missing_label_crop_cannot_prove_absence_of_sender(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("no crop must not start an OCR worker")
+
+    monkeypatch.setattr(portal_capture.subprocess, "run", forbidden)
+    assert _local_label_ocr(
+        None, python_executable="unused", session_salt=b"a" * 32, session_ref="test",
+    ) == {"text_count": 0, "ambiguous": True, "unverified_display_sender": None}
+
+
 def test_portal_probe_command_inherits_only_graphical_session_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -266,8 +279,45 @@ def _semantic_report(path: Path) -> None:
     path.chmod(0o600)
 
 
+def _capture_report(frames: int = 3) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "capture_source": "xdg-desktop-portal",
+        "source_kind": "window",
+        "portal_authorized": True,
+        "local_processing_only": True,
+        "cloud_processing_used": False,
+        "cursor_included": False,
+        "pixels_persisted": False,
+        "selected_stream_count": 1,
+        "frames_seen": frames,
+        "frame_sizes": [[640, 480]],
+        "pixel_formats": ["RGBA"],
+    }
+
+
+_UNSAFE_CAPTURE_CHANGES: list[dict[str, object]] = [
+    {"schema_version": True},
+    {"capture_source": "private-source"},
+    {"source_kind": "monitor"},
+    {"portal_authorized": None},
+    {"local_processing_only": False},
+    {"cloud_processing_used": True},
+    {"cursor_included": True},
+    {"pixels_persisted": True},
+    {"selected_stream_count": 2},
+    {"selected_stream_count": True},
+    {"frames_seen": 1},
+    {"frame_sizes": [[640, 480], [800, 600]]},
+    {"frame_sizes": [[True, 480]]},
+    {"frame_sizes": [[640, 0]]},
+    {"pixel_formats": ["secret-format"]},
+]
+
+
+@pytest.mark.parametrize("changes", [{}, *_UNSAFE_CAPTURE_CHANGES])
 def test_group_calibration_writes_only_private_fail_closed_sample(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changes: dict[str, object],
 ) -> None:
     semantic = (tmp_path / "semantic.json").resolve()
     output = (tmp_path / "visual.json").resolve()
@@ -292,6 +342,9 @@ def test_group_calibration_writes_only_private_fail_closed_sample(
             returncode=0,
             stdout=json.dumps(
                 {
+                    **_capture_report(),
+                    **changes,
+                    "untrusted": "private-screen-content",
                     "row_layout_fingerprints": {
                         "self": "a" * 64,
                         "peer": "b" * 64,
@@ -320,6 +373,11 @@ def test_group_calibration_writes_only_private_fail_closed_sample(
         ],
     )
 
+    assert "private-screen-content" not in result.output
+    if changes:
+        assert result.exit_code == 1, result.output
+        assert not output.exists()
+        return
     assert result.exit_code == 0, result.output
     assert captured_rows == {
         "self": (0, 160, 640, 60),
@@ -328,6 +386,7 @@ def test_group_calibration_writes_only_private_fail_closed_sample(
     }
     report = json.loads(output.read_text(encoding="ascii"))
     assert report["passed"] is False
+    assert report["capture_facts"] == _capture_report()
     assert report["calibration_sample"]["portal_authorized"] is True
     assert report["calibration_sample"]["segment_label_anchor_proven"] is True
     assert report["calibration_sample"]["continuation_binding_proven"] is True
@@ -335,6 +394,42 @@ def test_group_calibration_writes_only_private_fail_closed_sample(
     assert report["unverified_display_sender"] == "uds_" + "c" * 64
     assert output.stat().st_mode & 0o077 == 0
     assert "item_window_extents" not in output.read_text(encoding="ascii")
+    assert "private-screen-content" not in output.read_text(encoding="ascii")
+
+
+@pytest.mark.parametrize("changes", [{}, *_UNSAFE_CAPTURE_CHANGES])
+def test_screen_probe_validates_and_filters_success_report(
+    monkeypatch: pytest.MonkeyPatch, changes: dict[str, object],
+) -> None:
+    monkeypatch.setattr(cli, "_portal_probe_command", lambda *_args: (["probe"], {}))
+    child_report = {**_capture_report(2), **changes, "untrusted": "private-screen-content"}
+    monkeypatch.setattr(
+        cli.subprocess, "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(child_report).encode(),
+        ),
+    )
+    result = CliRunner().invoke(app, ["channel", "linux-portal-screen-probe"])
+    assert "private-screen-content" not in result.output
+    if changes:
+        assert result.exit_code == 1
+    else:
+        assert result.exit_code == 0
+        assert json.loads(result.output) == _capture_report(2)
+
+
+def test_screen_probe_hides_malformed_error_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "_portal_probe_command", lambda *_args: (["probe"], {}))
+    monkeypatch.setattr(
+        cli.subprocess, "run",
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=b'{"error": ["private-screen-content"]}',
+        ),
+    )
+    result = CliRunner().invoke(app, ["channel", "linux-portal-screen-probe"])
+    assert result.exit_code == 1
+    assert "private-screen-content" not in result.output
+    assert "PortalProbeError" in result.output
 
 
 def test_group_calibration_rejects_semantic_report_without_private_permissions(
@@ -368,6 +463,7 @@ def _visual_report(path: Path, run_ref: str, *, restart: bool, lock_cycle: bool)
                 "schema_version": 1,
                 "kind": "group",
                 "passed": False,
+                "capture_facts": _capture_report(),
                 "calibration_sample": {
                     "schema_version": 1,
                     "run_ref": run_ref,
@@ -420,3 +516,74 @@ def test_two_round_visual_verification_still_grants_no_runtime_capability(
     assert verified["decision"]["connector_enrollment_allowed"] is False
     assert verified["decision"]["reply_generation_allowed"] is False
     assert output.stat().st_mode & 0o077 == 0
+
+
+@pytest.mark.parametrize("change", ["missing_capture", "one_frame", "resize", "string_boolean"])
+def test_visual_verification_rejects_incomplete_or_coerced_evidence(
+    tmp_path: Path, change: str,
+) -> None:
+    first, second, output = (tmp_path / name for name in ("one.json", "two.json", "out.json"))
+    _visual_report(first, "restart", restart=True, lock_cycle=False)
+    _visual_report(second, "lock", restart=False, lock_cycle=True)
+    report = json.loads(second.read_text())
+    if change == "missing_capture":
+        report.pop("capture_facts")
+    elif change == "one_frame":
+        report["capture_facts"]["frames_seen"] = 1
+    elif change == "resize":
+        report["capture_facts"]["frame_sizes"].append([800, 600])
+    else:
+        report["calibration_sample"]["lock_cycle_observed"] = "true"
+    second.write_text(json.dumps(report))
+
+    result = CliRunner().invoke(
+        app, ["channel", "linux-portal-group-calibration-verify",
+              "--report", str(first), "--report", str(second), "--output", str(output)],
+    )
+    assert result.exit_code == 1
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("resize", [False, True])
+def test_capture_stops_pipeline_on_frame_size_change(
+    monkeypatch: pytest.MonkeyPatch, resize: bool,
+) -> None:
+    states: list[int] = []
+    pulled = 0
+
+    def pull_sample(_signal: str, _timeout: int) -> SimpleNamespace:
+        nonlocal pulled
+        pulled += 1
+        values = {"width": 800 if resize and pulled > 1 else 640,
+                  "height": 480, "format": "RGBA"}
+        structure = SimpleNamespace(get_value=values.get)
+        caps = SimpleNamespace(get_structure=lambda _index: structure)
+        return SimpleNamespace(get_caps=lambda: caps)
+
+    source = SimpleNamespace(set_property=lambda *_args: None)
+    sink = SimpleNamespace(emit=pull_sample)
+    pipeline = SimpleNamespace(
+        get_by_name=lambda name: source if name == "portal_source" else sink,
+        set_state=lambda state: states.append(state),
+    )
+    gst = SimpleNamespace(
+        init=lambda _args: None, parse_launch=lambda _description: pipeline,
+        State=SimpleNamespace(PLAYING=1, NULL=0),
+        StateChangeReturn=SimpleNamespace(FAILURE=-1), SECOND=1_000_000_000,
+    )
+    monkeypatch.setattr(portal_capture, "_load_gi", lambda: (None, None, gst))
+    session = portal_capture._PortalSession("private-session", 42, 123)
+    if resize:
+        with pytest.raises(PortalCaptureError) as caught:
+            portal_capture._consume_frames(
+                session, frame_count=3, timeout_seconds=5, rows={}, ocr_python=None,
+            )
+        assert _safe_error_code(caught.value) == "PortalFrameChanged"
+        assert pulled == 2
+    else:
+        report = portal_capture._consume_frames(
+            session, frame_count=3, timeout_seconds=5, rows={}, ocr_python=None,
+        )
+        assert report["frames_seen"] == 3
+        assert report["frame_sizes"] == [[640, 480]]
+    assert states == [1, 0]

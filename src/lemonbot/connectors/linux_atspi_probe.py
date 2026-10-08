@@ -1560,6 +1560,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     try:
+        _validate_probe_mode(arguments)
         if arguments.testing_draft_state:
             report = testing_draft_state_probe(
                 frozenset(arguments.pid),
@@ -1623,6 +1624,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     print(json.dumps(report, ensure_ascii=True, sort_keys=True))
     return 0
+
+
+def _validate_probe_mode(arguments: argparse.Namespace) -> None:
+    # Reject conflicting modes before loading AT-SPI. In particular, a diagnostic
+    # flag must never be silently ignored in favour of a sending branch.
+    modes = (
+        arguments.semantic_kind is not None,
+        arguments.testing_action_surface,
+        arguments.testing_focus_only,
+        arguments.testing_input_focus_only,
+        arguments.testing_send_canary,
+        arguments.testing_send_existing_canary,
+        arguments.testing_submit_confirmed_draft,
+        arguments.testing_draft_state,
+    )
+    if sum(modes) > 1:
+        raise ValueError("probe modes are mutually exclusive")
+    if (
+        arguments.testing_send_precommit_only or arguments.operator_confirmed_empty_draft
+    ) and not arguments.testing_send_canary:
+        raise ValueError("new-canary options require new-canary mode")
+    if (
+        arguments.expected_canary_sha256 is not None
+        or arguments.confirmed_draft_use_space
+        or arguments.confirmed_draft_use_alt_s
+        or arguments.confirmed_draft_focus_input
+    ) and not arguments.testing_submit_confirmed_draft:
+        raise ValueError("confirmed-draft options require confirmed-draft mode")
+    if arguments.testing_submit_confirmed_draft and (
+        re.fullmatch(r"[0-9a-f]{64}", arguments.expected_canary_sha256 or "") is None
+        or (arguments.confirmed_draft_use_space and arguments.confirmed_draft_use_alt_s)
+    ):
+        raise ValueError("confirmed-draft arguments are invalid")
 
 
 if __name__ == "__main__":

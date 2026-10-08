@@ -52,6 +52,7 @@ class PortalCaptureError(PortalProbeError):
 
 
 _CAPTURE_ERROR_CODES = {
+    "frame size changed during capture": "PortalFrameChanged",
     "row does not fit the frame": "PortalRowOutOfFrame",
     "row has no pixels": "PortalRowUnresolved",
     "no stable row region": "PortalRowUnresolved",
@@ -190,9 +191,10 @@ def _local_label_ocr(
     session_ref: str,
 ) -> dict[str, object]:
     if png is None:
+        # An unavailable crop cannot prove that the continuation has no label.
         return {
             "text_count": 0,
-            "ambiguous": False,
+            "ambiguous": True,
             "unverified_display_sender": None,
         }
     executable = Path(python_executable)
@@ -409,7 +411,9 @@ class _PortalClient:
             raise PortalProtocolError("session bus has no unique name")
         self._unique_name = str(unique_name)
 
-    def _request(self, method: str, parameters: Any, token: str) -> dict[str, Any]:
+    def _request(
+        self, method: str, parameters: Any, token: str, *, interface: str = SCREENCAST_IFACE,
+    ) -> dict[str, Any]:
         expected_path = _request_path(self._unique_name, token)
         response: dict[str, Any] = {}
         loop = self._glib.MainLoop()
@@ -452,7 +456,7 @@ class _PortalClient:
             reply = self._connection.call_sync(
                 PORTAL_BUS,
                 PORTAL_PATH,
-                SCREENCAST_IFACE,
+                interface,
                 method,
                 parameters,
                 self._glib.VariantType.new("(o)"),
@@ -614,6 +618,8 @@ def _consume_frames(
             if not 1 <= width <= 16_384 or not 1 <= height <= 16_384 or pixel_format != "RGBA":
                 raise PortalCaptureError("unsafe frame geometry")
             sizes.add((width, height))
+            if len(sizes) != 1:
+                raise PortalCaptureError("frame size changed during capture")
             formats.add(pixel_format)
             if rows:
                 buffer = sample.get_buffer()
@@ -716,6 +722,9 @@ def portal_probe(
         "schema_version": 1,
         "capture_source": "xdg-desktop-portal",
         "source_kind": "window",
+        "portal_authorized": True,
+        "local_processing_only": True,
+        "cloud_processing_used": False,
         "cursor_included": False,
         "pixels_persisted": False,
         "selected_stream_count": 1,
