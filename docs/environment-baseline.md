@@ -108,13 +108,13 @@ uv run --locked python -m lemonbot.research.agent_wechat_lab run \
 
 ## 当前恢复限制
 
-2026-10-08 只读复核发现之前连续测试的相同指令和 ACK 各有多条 API 记录；第二条出站保留
-UNKNOWN，程序因 `AmbiguousReadback` 已停止。重复内容可能来自实际重复发送或上游读取行为，
-现有证据不能区分。self 测试标记也同时出现在 self/对端消息中，不能计为严格通过。
-本轮不重新启动实验、不发送消息。下一项是定位重复记录来源，之后才恢复连续验收。
+2026-10-08 新标记受控单条、连续两条与 self 忽略已通过，旧 UNKNOWN 保留不重发。
+已执行一次固定容器保留卷重启，API 身份稳定，但前台仍需人工打开 testing；不能以 API
+logged_in 快照替代重启后实际收发。尚未完成切走恢复、三十分钟观察或正式 runtime 实测。
 
-单条成功不意味着重启、切走暂停、三十分钟持续运行或正式集成已通过。
-原 native AT-SPI 与产品 runtime 配置保持关闭，实验不调用模型或工具。
+正式连接器已提供默认关闭的配置和模拟测试，使用同一传输并共享持久锁；独立 data_root，
+不迁移旧实验任务。恢复步骤见 [runtime 手册](wechat-agent-runtime.md)。原 native AT-SPI
+继续关闭，本阶段不调用模型或工具。
 
 ## 磁盘整理记录
 

@@ -1,12 +1,11 @@
 # Linux 微信代码现状
 
-> 当前主线更新（2026-10-08）：**单条实机闭环通过；连续验收暂停**。独立 agent-wechat 模块
-> 已完成模拟 HTTP、SQLite 持久化和故障恢复，全仓 448 项测试、Ruff、mypy 与锁检查通过。
-> 历史固定版的登录和新标记单条 ACKNOWLEDGED 已实测；现有连续试验 API 中有重复标记/回执，
-> 程序因 AmbiguousReadback 停止，UNKNOWN 不重发，原因未定位。self、重启、切走恢复及
-> 三十分钟尚未严格通过。PR #171 冻结，独立入口未注册正式 runtime。
-> 当前顺序见 [Linux 计划](../PLAN_linux.md)，环境见 [固定基线](environment-baseline.md)，
-> 证据与历史记录见 [复现报告](agent-wechat-reproduction.md)。
+> 当前主线更新（2026-10-08）：新标记受控单条、连续两条和 self 忽略均实机通过。
+> 旧 UNKNOWN 不重发；一次保留卷容器重启后 API 身份稳定，前台待人工恢复，后续重启新
+> 指令、切走恢复与三十分钟观察未完成。默认关闭的正式 runtime 已实现并完成模拟检查，
+> 实机启用仍等待完整通道验收；PR #171 冻结，原生 AT-SPI 门禁不变。
+> 467 项测试、Ruff、mypy 与锁检查通过。详见 [Linux 计划](../PLAN_linux.md)、
+> [runtime 手册](wechat-agent-runtime.md)和 [复现报告](agent-wechat-reproduction.md)。
 
 ## 原生 AT-SPI 历史状态
 

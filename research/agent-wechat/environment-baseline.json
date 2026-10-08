@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline_name": "historical-fixed-20261008",
-  "recorded_at_utc": "2026-10-08T05:06:34.510254+00:00",
+  "recorded_at_utc": "2026-10-08T05:56:35.646560+00:00",
   "recorded_timezone": "Asia/Shanghai",
   "host": {
     "os": "Ubuntu 24.04.3 LTS",
@@ -34,7 +34,7 @@
     "oci_revision": null,
     "container_name": "lemonbot-agent-wechat-repro",
     "container_status": "running",
-    "container_started_at_utc": "2026-10-06T06:04:54.600894372Z",
+    "container_started_at_utc": "2026-10-08T05:39:55.237202558Z",
     "privileged": false,
     "cap_add": [
       "CAP_SYS_PTRACE"
@@ -100,15 +100,29 @@
     "mypy": "1.20.2"
   },
   "file_sha256": {
-    "uv.lock": "0eddf56da15ae0f5f31adfd6181217a018cf76cd7b2391f16d008157888ed963",
+    "config/wechat-agent.example.toml": "28b516c727a0d3fff1b55ebafc18a77445618ee47965dd65657309b2e929c393",
     "pyproject.toml": "41fc4de61b8f35897bc8232186302547fa781b34244a0d8d1262bb6adef15e06",
-    "src/lemonbot/research/agent_wechat.py": "732cd76f0aad4a8f0a90dc7052abbf4911f6213c983e8ca2ef31f6a67dbb92a1",
-    "src/lemonbot/research/agent_wechat_lab.py": "9629b2a5385f2781f8ba105f670d703a617dd699d5769797e60521b140b0a4da",
     "scripts/agent_wechat_fixed_runtime.py": "4c512ec0dd35c5d9f4ebdf467754077842a88f3ed637f0fa8563f6884fcba4c2",
     "scripts/agent_wechat_login_ready.py": "42ca4ed867c502961fdb2a1783130aeddc1a31196de6ecd03c6688a961fd0181",
     "scripts/agent_wechat_recovery_job.py": "eea8d3e15d5bd3b9e8fc80cf0d4d107f91e538c0f3245416343817f115bbcd6c",
     "scripts/agent_wechat_repro.py": "e68efa245fa0b42c3c5e2efdff0bf16d6da24ce021c49a946deadaf8c8445fb7",
-    "scripts/agent_wechat_vnc_probe.py": "1cd6c74e699961012eed2cd4d7d4a7081293bb64a5f89a716610a9cd81c6d920"
+    "scripts/agent_wechat_vnc_probe.py": "1cd6c74e699961012eed2cd4d7d4a7081293bb64a5f89a716610a9cd81c6d920",
+    "scripts/open_agent_wechat_admin.py": "608d9a9db2db0f75d806d073afc8b733ec784bf679c2a42596b67d8b7ac291b2",
+    "src/lemonbot/admin/app.py": "947cca7f4031391437bd36a70cbd7a413f0c814572dd7b81d7159b692633505f",
+    "src/lemonbot/admin/control.py": "6bca6bd92b54ace59a90f6b2efb7e6fe13a3f4b9e37e297ad6b68cd48d0b803e",
+    "src/lemonbot/cli.py": "97f846d5e14cf3b9aa9010a1e700d5dbdfd027d7cddd6310e9662bd710718740",
+    "src/lemonbot/config/settings.py": "703a7deafeac0417f2558020ca31d4690f3fb2b414197b8c9ea35876c97ba56d",
+    "src/lemonbot/connectors/wechat_agent.py": "14e175f708a6272c9606c537d73076a07da3c2c122da57e4e47e1bbce57bda2f",
+    "src/lemonbot/connectors/wechat_agent_runtime.py": "c320612150ff50f010e194fdf710afc72badc54d50f22a252118a84e91616202",
+    "src/lemonbot/connectors/wechat_agent_state.py": "a2a77898837e5f6a903727547f008cde31507d53cab208811b9ac9518edc4e2e",
+    "src/lemonbot/orchestration/pipeline.py": "d5e3cbcfe6893374e242b0566d3f9b48118995a0cdc36322e3705379444cd42e",
+    "src/lemonbot/policy/config.py": "845bd507ea515421738de5a91219e8da16fba2d4657dd5569b5b24c27d826753",
+    "src/lemonbot/policy/engine.py": "e57fc96786354a4c395e1c82daf7f3c377b871d62527bc68dbddad22b84a8073",
+    "src/lemonbot/research/agent_wechat.py": "154b8b3f556c3b1d46f164ce8a4dfaafc2bd61ec18191d78cb4049961cac1f43",
+    "src/lemonbot/research/agent_wechat_lab.py": "86cf3b1381ffcf58fc3601c76704a74817c930033f2aee85ac4688df89ee0b6f",
+    "src/lemonbot/runtime.py": "66c5aa31bd247ba99a6fbec8d739ad9547a2e2f760aee65644334b2173af1f74",
+    "src/lemonbot/runtime_lock.py": "87c7791bbcfa34a5ef89aa170447a5276551cac8d551ebf822b96538e0714dd8",
+    "uv.lock": "0eddf56da15ae0f5f31adfd6181217a018cf76cd7b2391f16d008157888ed963"
   },
   "experimental_adapter": {
     "api": "http://127.0.0.1:6174",
@@ -125,15 +139,21 @@
   },
   "validation": {
     "single_live_e2e_passed": true,
-    "continuous_live_e2e_passed": false,
-    "last_lab_pause_code": "AmbiguousReadback",
+    "continuous_live_e2e_passed": true,
+    "last_lab_pause_code": null,
     "restart_e2e_passed": false,
     "thirty_minutes_passed": false,
-    "automated_tests_passed": 448,
+    "automated_tests_passed": 467,
     "ruff_passed": true,
-    "mypy_source_files_passed": 108,
-    "uv_lock_check_passed": true
+    "mypy_source_files_passed": 111,
+    "uv_lock_check_passed": true,
+    "self_ignore_live_passed": true,
+    "historical_pause_code": "AmbiguousReadback",
+    "last_foreground_guard_code": "ChatListStructureMissing",
+    "foreground_resume_pending": true,
+    "formal_runtime_live_enabled": false,
+    "formal_runtime_live_passed": false
   },
   "sensitive_state_in_repository": false,
-  "lemonbot_code_commit": "773187cf083d1b9d5f23fc5314d8474c3c40d6b6"
+  "lemonbot_code_commit": "c02d9e1721a41d12c934587e146eb5df4d0acab1"
 }

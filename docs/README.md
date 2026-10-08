@@ -1,7 +1,7 @@
 # 项目文档索引
 
-更新：2026-10-08。当前结论是**单条实机闭环通过，连续验收因回执歧义暂停**。
-完整里程碑尚未通过，不进入正式 runtime 集成。
+更新：2026-10-08。当前结论是**新受控单条、连续与 self 实机通过，重启/前台恢复/观察待验证**。
+正式 runtime 代码与模拟检查已完成，实机启用仍等待完整通道验收。
 
 ## 当前文档
 
@@ -12,6 +12,7 @@
 | [固定环境与恢复](environment-baseline.md) | 实际版本、制品锁、原卷恢复、暂停与数据保留 |
 | [复现报告](agent-wechat-reproduction.md) | agent-wechat 调研、实验步骤与按日期记录的结果 |
 | [通道状态](linux-wechat-current-status.md) | 当前摘要与原生路线的历史事实 |
+| [runtime 手册](wechat-agent-runtime.md) | 默认关闭的新入口、独立数据库、暂停恢复与许可状态 |
 | [安全边界](security.md) | 正式 runtime、原生探针和独立实验的不同作用域 |
 | [操作与 Observe 参考](operations.md) | 当前入口及原生研究/未来 Observe 的历史操作 |
 
@@ -26,6 +27,9 @@
 | [首轮收发](evidence/agent-wechat-first-e2e-20261006.json) | 对端收到，但自动确认 UNKNOWN，不重发 |
 | [单条闭环](evidence/agent-wechat-single-e2e-20261006.json) | 新标记自动 ACKNOWLEDGED 且对端确认 |
 | [连续复核](evidence/agent-wechat-continuous-followup-20261008.json) | API 存在重复标记和回执，程序暂停；原因未确定 |
+| [受控单条](evidence/agent-wechat-controlled-single-20261008.json) | 一次 POST、一条新 self ACK、对端确认 |
+| [连续与 self](evidence/agent-wechat-continuous-self-20261008.json) | 两条分别回复一次，self 已读但不回复 |
+| [本轮 runtime 阶段](evidence/agent-wechat-runtime-stage-20261008.json) | 代码检查通过，重启后实机步骤仍待完成 |
 | [磁盘清理](evidence/disk-cleanup-20261008.json) | 仅清理缓存/未使用的淘汰扩展，保留微信数据与镜像 |
 
 ## 历史设计与研究

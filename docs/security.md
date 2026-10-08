@@ -6,13 +6,14 @@
 agent-wechat 实验：固定 digest、原独立卷、localhost API、额外 SYS_PTRACE 和上游所需
 seccomp 配置，接受 Hook/微信数据库密钥提取；不挂宿主微信目录或 Docker socket。
 底层微信可能同步其他会话，不能宣称群级隔离；适配器只读取绑定 testing 消息并持久化
-合成指令，身份使用 HMAC 引用。实验复用独立 inbox/outbox，但不注册正式 runtime、
+合成指令，身份使用 HMAC 引用。实验复用独立 inbox/outbox，正式 runtime 接入默认关闭且只允许 lab，
 不调用模型或工具。发送意图先持久化，只提交一次，只有唯一的新 self 回执才确认；
 缺身份、前台变化、账号变化、分页边界丢失或回读歧义均暂停，UNKNOWN 不自动重发。
 凭据、比较键、原始账号/群标识和数据库不入库，报告不输出无关聊天。
 
-当前连续实验因 AmbiguousReadback 暂停。已有单条成功不解锁产品能力；本节描述已授权
-实验的实际范围，不授予新操作权限。详见 [环境基线](environment-baseline.md)。
+新标记受控单条、连续与 self 已通过，但重启/前台恢复/观察未完成，正式实机接入未启用。
+暂停原因持久化，显式恢复重验账号、目标群、前台并重建基线；实验和 runtime 共享互斥锁。
+本节描述已授权实验的实际范围，不授予新操作权限。详见 [环境基线](environment-baseline.md)。
 
 ## 原生 AT-SPI 信任边界
 

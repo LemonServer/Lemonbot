@@ -6,13 +6,12 @@ agent-wechat，在 `testing` 群实现合成指令的接收、发送者识别、
 
 ## 当前状态（2026-10-08）
 
-- **单条实机闭环通过：**入站一条、发送一次、精确回读 self 回复并自动记录
-  `ACKNOWLEDGED`，对端确认收到。
-- **连续验收受阻：**已有测试的 API 中出现相同标记的多条消息和回执，实验程序以
-  `AmbiguousReadback` 暂停；对应 `UNKNOWN` 不重发，重复记录原因未定位。
-- 容器/程序重启、前台切走恢复及三十分钟连续运行尚未完成本轮验收。
-- PR #171 冻结，保留历史固定镜像和原数据卷。原生 `wechat_atspi` runtime 与
-  enrollment 仍关闭；独立实验入口没有加入正式 runtime。
+- **新标记收发通过：**一次 POST、一条精确确认的 self ACK；连续两条对端消息分别回复
+  一次，sender 一致；self 标记被读取但不回复。
+- 旧 UNKNOWN 保留不重发。已执行一次保留卷容器重启，API 身份稳定，但前台待人工恢复；
+  重启新指令、切走恢复和三十分钟观察尚未完成。
+- 默认关闭的 wechat_agent runtime 代码及模拟测试已实现，实机启用等待完整通道验收。
+  PR #171 冻结，原生 AT-SPI 门禁不变。
 
 ## 开始使用
 
@@ -25,7 +24,7 @@ uv run --locked python -m lemonbot.research.agent_wechat_lab demo
 
 输出明确标记 `simulated_http_not_live`；模拟通过不代表实机通过。
 实机启动和暂停恢复按 [固定环境与恢复手册](docs/environment-baseline.md)执行。
-当前实验已暂停，恢复发送须重新核验前台并使用全新标记。
+正式入口与显式恢复见 [runtime 手册](docs/wechat-agent-runtime.md)。恢复发送须核验前台并使用全新标记。
 
 ## 文档入口
 
@@ -44,7 +43,7 @@ uv run --locked ruff check .
 uv run --locked mypy src
 ```
 
-2026-10-08 全仓 448 项测试通过，Ruff、mypy（108 个源文件）和锁文件检查通过。
+2026-10-08 全仓 467 项测试通过，Ruff、mypy（111 个源文件）和锁文件检查通过。
 存在一条依赖层 Starlette/httpx 弃用警告。正式配置保持 `runtime.connector = "fake"`、
 `wechat_atspi.enabled = false`、`models.provider = "disabled"` 和 `vision.enabled = false`。
-本阶段不启用正式机器人，不修改产品数据库 schema，不自动导航或处理多群与媒体。
+正式连接器默认关闭；本阶段不修改数据库 schema，不启用模型、工具、自动导航、多群或媒体。

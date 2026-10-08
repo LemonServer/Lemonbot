@@ -1,7 +1,8 @@
 # Linux 操作与历史 Observe 参考
 
 当前 agent-wechat 实验按 [固定环境与恢复手册](environment-baseline.md)及
-[Linux 计划](../PLAN_linux.md)执行。单条实机通过，连续验收因 AmbiguousReadback 暂停；
+[Linux 计划](../PLAN_linux.md)执行。新标记单条、连续与 self 通过，重启/前台/观察待验收；
+默认关闭的正式入口见 [runtime 手册](wechat-agent-runtime.md)；
 本页以下原生 AT-SPI / Observe 命令属于历史参考，不是容器实验的启动说明。
 
 原生路线的实现和实机结论见 [`linux-wechat-current-status.md`](linux-wechat-current-status.md)。

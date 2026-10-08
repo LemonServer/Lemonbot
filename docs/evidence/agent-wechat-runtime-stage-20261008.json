@@ -1,0 +1,41 @@
+{
+  "recorded_at_utc": "2026-10-08T05:56:35.646560+00:00",
+  "code_commit": "c02d9e1721a41d12c934587e146eb5df4d0acab1",
+  "effective_work_budget_seconds": 21600,
+  "elapsed_work_upper_bound_seconds": 1953,
+  "budget_exhausted": false,
+  "awaiting": "manual_testing_foreground_after_single_container_restart",
+  "live_runtime_enabled": false,
+  "code_checks": {
+    "pytest_passed": 467,
+    "ruff_passed": true,
+    "mypy_source_files_passed": 111,
+    "lock_check_passed": true,
+    "private_value_scan_passed": true
+  },
+  "channel_checks": {
+    "controlled_one_post_one_ack": true,
+    "continuous_two_commands_two_acks": true,
+    "sender_consistent": true,
+    "self_seen_without_reply": true,
+    "container_restarted_once": true,
+    "fixed_image_original_volumes_token_ports_verified": true,
+    "x11vnc_viewonly_zero": true,
+    "api_account_and_target_refs_stable": true,
+    "frontend_guard_after_restart": "ChatListStructureMissing",
+    "restart_new_command_passed": false,
+    "foreground_pause_resume_passed": false,
+    "thirty_minute_soak_passed": false
+  },
+  "lab_outbox_states": {
+    "acknowledged": 5,
+    "unknown": 2
+  },
+  "old_unknown_attempts": [
+    1,
+    1
+  ],
+  "stopped_lab_service": "lemonbot-agent-wechat-controlled-20261008.service",
+  "result": "code_passed_live_pending",
+  "free_gib": 20.71
+}
