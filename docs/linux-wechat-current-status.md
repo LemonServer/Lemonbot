@@ -1,9 +1,19 @@
 # Linux 微信代码现状
 
-> 复核日期：2026-09-05（Asia/Shanghai）；代码基线：`66de344`
-> 适用环境：Ubuntu 24.04 Desktop、GNOME Wayland、官方微信 4.1.1.8  
-> 当前结论：只读研究可继续；自动发送尚未被独立证明；生产 connector、enrollment、模型和 outbox
-> 仍保持硬关闭。
+> 当前主线更新（2026-10-08）：**单条实机闭环通过；连续验收暂停**。独立 agent-wechat 模块
+> 已完成模拟 HTTP、SQLite 持久化和故障恢复，全仓 448 项测试、Ruff、mypy 与锁检查通过。
+> 历史固定版的登录和新标记单条 ACKNOWLEDGED 已实测；现有连续试验 API 中有重复标记/回执，
+> 程序因 AmbiguousReadback 停止，UNKNOWN 不重发，原因未定位。self、重启、切走恢复及
+> 三十分钟尚未严格通过。PR #171 冻结，独立入口未注册正式 runtime。
+> 当前顺序见 [Linux 计划](../PLAN_linux.md)，环境见 [固定基线](environment-baseline.md)，
+> 证据与历史记录见 [复现报告](agent-wechat-reproduction.md)。
+
+## 原生 AT-SPI 历史状态
+
+> 研究事实复核：2026-09-10；路线更新：2026-09-29（Asia/Shanghai）。代码历史基线：`f96d479` + 本次归档的研究修改。
+> 已确认状态：Lemonbot 原生产 connector、enrollment、模型和 outbox 仍硬关闭。
+> 2026-09-29 历史优先级：限时复现 agent-wechat；环境状态及逐步验收见
+> [`agent-wechat-reproduction.md`](agent-wechat-reproduction.md)。阶段结论为部分通过：核心 API 收发、身份区分、连续 sender 一致、重启和送达确认成功；testing 已在前台时 `/open` 跳过，Escape 后从无会话视图打开返回 `no_action_selected`。上游 a11y 回退端点在固定镜像中为 404，离屏列表未验证。当时实验容器停止，两个专用数据卷保留；暂不集成。当时通用 `/api/status` 报告 `logged_out`；本次登录以当前 `/api/status/auth` 实测为准。
 
 本文是当前进度、阻塞和研究结果的统一入口。下一阶段实施顺序见
 [`PLAN_linux.md`](../PLAN_linux.md)，命令与操作要求见 [`operations.md`](operations.md)，
@@ -101,7 +111,9 @@ transcript 命中始终为 0。当前正确结论是：**自动发送尚未被�
 - 对用户已确认仍在草稿区的 canary，仅持有 SHA-256 并执行一次恢复提交。
 - Return keysym `0xFF0D` 和 Space keysym `0x20` 的正确 AT-SPI `SYM` 调用。
 - `LOCKMODIFIERS → S → UNLOCKMODIFIERS`，且 Alt 解锁位于 `finally`。
-- 保持操作者当前焦点、不再调用任何聚焦接口的提交分支。
+
+2026-09-07 代码复核：当前 confirmed-draft 分支仍会聚焦输入框或发送按钮；历史记录中的
+“保持操作者当前焦点”分支不在当前实现中，不能按已有能力使用。
 
 上述代码不得接入 connector。公共 `linux-atspi-testing-send-canary` 的接口、脱敏器和运行手册在
 发送机制稳定前还需要再次收敛，不能将内部 argparse 研究开关视为受支持命令。
@@ -130,6 +142,29 @@ git diff --check: passed
 后续验收须在 Ubuntu 使用锁定依赖执行完整回归，并把代码 SHA、环境、通过/失败/跳过数与
 实机报告一起记录。fake 树测试只验证程序分支，不替代客户端能力证明。
 
+### 2026-09-07 离线推进
+
+已从本地 `origin/main` 快进合入 `f96d479` 文档提交；未访问远端服务器、未 push。本轮修复：
+
+- 内部探针在加载 AT-SPI 前拒绝互斥模式、孤立参数和无效确认哈希，防止“仅检查”选项被发送
+  分支忽略。
+- 公共发送报告保留草稿确认方式，校验本次命令模式、回读数量、草稿清空状态与结果的一致性；
+  无效报告只返回未知，且不重试或输出原文。
+- 新增假控件/子进程报告回归，覆盖重复回读、矛盾证据、畸形字段和参数混用。
+- Portal CLI 统一校验并过滤来源、单窗口、帧数、尺寸和本地处理声明；新校准报告保存
+  `capture_facts`，合并时拒绝缺失捕获证据和类型不严格的样本。历史报告须重新采集。
+- 捕获尺寸变化立即停止管线；无法裁剪标签时返回 OCR 歧义，不能误作“已确认没有标签”。
+- 补充账号、目标会话、私聊对端和群 sender 的身份依据复核，明确视觉通过仍不能进入 Observe。
+
+验证环境为 Ubuntu 24.04.3 LTS / Python 3.12.3，使用现有 `.venv`：完整 pytest 为
+`350 passed, 0 failed, 0 skipped`，1 个上述第三方弃用 warning；Ruff、严格 mypy（104 个
+源文件）、`uv lock --check --offline` 和 `git diff --check` 均通过。沙箱内最小
+`aiosqlite.connect(":memory:")` 也超时，完整 pytest 经授权在沙箱外执行。未重新同步依赖；
+本机未发现 `gitleaks` 可执行文件，本轮未执行密钥扫描，仍需 CI 验证。
+
+本轮未调用真实微信、Portal 或 OCR，未新增方向、身份、生命周期或自动发送实机证据。
+当时提出的视觉校准顺序已由 2026-09-29 的 agent-wechat 限时复现计划取代。
+
 ## 仍然关闭的安全门禁
 
 - AT-SPI 无法区分 self/peer 消息方向，也无法证明群 sender 身份。
@@ -139,12 +174,41 @@ git diff --check: passed
 - Portal 视觉校准尚未完成两轮、重启和锁屏/解锁覆盖。
 - 因此不得 enrollment，不得运行 connector，不得接模型、自动回复、主动消息或联系人白名单。
 
-## 下一步与停止条件
+## 历史身份调研与 Observe 门禁结论（截至 2026-09-10）
 
-优先完成现有只读视觉校准，再单独评估账号、目标会话、私聊对端和群 sender 的身份依据。
-具体交付、顺序和验收见 [`PLAN_linux.md`](../PLAN_linux.md)。发送研究降为独立、有限实验，
-不作为解锁 Observe 的捷径。`Alt press → S press/release → Alt release` 仍是未执行候选，
+> 本节记录当时的 AT-SPI/资料卡研究和 Observe 门禁判断；其中视觉校准作为下一项工作的建议已过期。
+> 当前执行顺序以 [`PLAN_linux.md`](../PLAN_linux.md) 和
+> [`agent-wechat-reproduction.md`](agent-wechat-reproduction.md) 为准。
+
+2026-09-09/10 新的非 OCR 实机结论见
+[`AT-SPI 身份调研`](atspi-identity-research.md)：`testing` 子树的独立 accessible ID 均为空，
+消息行无关系或动作；但操作者从消息头像打开资料卡后，`Weixin ID` 标签与非空值可直接读取。
+使用两个独立子进程完成的一轮同成员资料卡关闭/重开对比，字段值摘要与结构均一致。不同成员
+对比因暂时缺少第二个样本而未执行；长连接比较曾挂起，独立短生命周期读取恢复正常。
+这修正了“缺少任何具体身份来源”的研究前提，但尚未证明自动消息到资料卡绑定、跨重启稳定性，
+不能据此开启 Observe。当时建议优先验证资料卡字段与消息关联；该建议已由 2026-09-29 的复现计划取代。
+
+### 身份依据复核（2026-09-07，代码审阅与既有实机记录）
+
+| 对象 | 当前证据来源 | 能证明什么 | 尚缺什么 |
+|---|---|---|---|
+| 登录账号 | `semantic_probe` 将操作者输入的登记短语转成 `account_fingerprint` | 本次使用了相同登记短语 | 客户端当前登录账号与该短语的机器可验证绑定 |
+| 目标会话 | 精确标题匹配、header 路径与标题 SHA-256 | 当前树中找到对应标题及结构位置 | 不依赖显示名、能区分同名会话且跨重启稳定的目标身份 |
+| 私聊对端 | 已知方向 canary、消息行结构；未来视觉布局线索 | 本轮合成消息位置；视觉通过后最多提供方向线索 | 对端稳定身份与入站来源的独立绑定 |
+| 群 sender | `_sender_identity_candidate` 搜索非正文子节点的 ID 类属性；OCR 标签转为会话内加盐摘要 | ID 属性候选或局部显示标签相同 | 已测客户端无稳定 sender 属性；候选属性本身也需要证明其代表微信身份 |
+
+依据见 [`linux_atspi_probe.py`](../src/lemonbot/connectors/linux_atspi_probe.py) 的
+`semantic_probe` / `_sender_identity_candidate`，以及
+[`visual_calibration.py`](../src/lemonbot/research/visual_calibration.py) 的显示标签摘要与方向判定。
+表中身份缺口是代码审阅结合既有记录得出的结论，本轮没有新实机观测。哈希不会把用户输入、
+标题或显示标签转成经过验证的微信身份。
+
+因此当前证据不足以进入 Observe；即便两轮视觉校准通过，上述账号、目标与 sender 绑定仍须
+独立解决。没有新的具体身份来源时停止 connector 扩展，继续修改轮询或发送方式不能解除该阻塞。
+
+当时的视觉校准和身份评估建议不再是当前实施顺序；当前工作以新的
+[`agent-wechat-reproduction.md`](agent-wechat-reproduction.md) 为准。发送研究仍不作为解锁 Observe 的捷径。`Alt press → S press/release → Alt release` 仍是未执行候选，
 不能写成成功机制；`LOCKMODIFIERS` 的失败记录不应被重复解释为成功证据。
 
-若当前边界内没有新的可靠身份来源，应交付“当前约束下无法进入 Observe”的明确结论并停止
-connector 扩展。改变平台、产品范围或信任边界需要新的决策，不能通过改门禁常量解决。
+Observe 门禁仍保持关闭。复现 agent-wechat 的成功只作为后续适配层输入，不自动开启生产 connector；
+改变产品范围或信任边界不能通过改门禁常量解决。

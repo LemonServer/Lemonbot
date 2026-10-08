@@ -1,0 +1,56 @@
+{
+  "recorded_date": "2026-10-08",
+  "run_id": "AGW_LAB_20261006_CONTINUOUS_9438A152",
+  "scope": "read_only_followup_of_existing_trial",
+  "results": [
+    {
+      "label": "peer_1",
+      "inbound_count": 1,
+      "outbox": [
+        {
+          "state": "acknowledged",
+          "attempts": 1,
+          "failure_code": null
+        }
+      ]
+    },
+    {
+      "label": "peer_2",
+      "inbound_count": 1,
+      "outbox": [
+        {
+          "state": "unknown",
+          "attempts": 1,
+          "failure_code": "SendNotConfirmedNoRetry"
+        }
+      ]
+    },
+    {
+      "label": "self",
+      "inbound_count": 0,
+      "outbox": []
+    }
+  ],
+  "api_exact_command_counts": [
+    2,
+    2,
+    2
+  ],
+  "api_exact_ack_counts": [
+    2,
+    2,
+    0
+  ],
+  "api_self_flags_for_self_marker": [
+    false,
+    true
+  ],
+  "pause_code": "AmbiguousReadback",
+  "continuous_e2e_passed": false,
+  "self_ignored_passed": null,
+  "restart_passed": false,
+  "thirty_minutes_passed": false,
+  "cause_of_duplicate_api_messages": "not_determined",
+  "automatic_retry_performed": false,
+  "messages_sent_this_followup": false
+}

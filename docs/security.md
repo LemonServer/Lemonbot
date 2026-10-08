@@ -1,6 +1,20 @@
 # Linux-only 安全模型
 
-## 当前信任边界
+## 当前作用域（2026-10-08）
+
+正式 runtime 的 wechat_atspi/enrollment 仍关闭，原生探针保留以下边界。另有已授权的独立
+agent-wechat 实验：固定 digest、原独立卷、localhost API、额外 SYS_PTRACE 和上游所需
+seccomp 配置，接受 Hook/微信数据库密钥提取；不挂宿主微信目录或 Docker socket。
+底层微信可能同步其他会话，不能宣称群级隔离；适配器只读取绑定 testing 消息并持久化
+合成指令，身份使用 HMAC 引用。实验复用独立 inbox/outbox，但不注册正式 runtime、
+不调用模型或工具。发送意图先持久化，只提交一次，只有唯一的新 self 回执才确认；
+缺身份、前台变化、账号变化、分页边界丢失或回读歧义均暂停，UNKNOWN 不自动重发。
+凭据、比较键、原始账号/群标识和数据库不入库，报告不输出无关聊天。
+
+当前连续实验因 AmbiguousReadback 暂停。已有单条成功不解锁产品能力；本节描述已授权
+实验的实际范围，不授予新操作权限。详见 [环境基线](environment-baseline.md)。
+
+## 原生 AT-SPI 信任边界
 
 Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`0600` enrollment、SQLite 数据库
 和固定 systemd 部署。聊天文本、AT-SPI 属性、网页、附件、OCR、视觉结果、模型结果和工具输出
@@ -27,7 +41,7 @@ Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`06
 
 管理员离线 CLI 的显式数据删除不是模型能力，必须停止服务并带 `--confirm`。
 
-## 微信身份与隐私
+## 微信身份与隐私（原生 AT-SPI 路线）
 
 - 只允许独立测试号，个人微信自动化不代表腾讯授权，存在非零封号风险。
 - 不读取微信数据库、Cookie、登录材料或附件缓存；不使用 Hook、注入、ptrace、协议逆向、
@@ -38,7 +52,7 @@ Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`06
   报告和管理台响应不得打印正文。
 - header 摘要仍可能被字典猜测，不应当作匿名化；bundle 和报告按本地私有数据保护。
 
-## 独立 testing 发送研究边界
+## 原生 AT-SPI 独立 testing 发送研究边界
 
 独立 testing canary 发送研究不是 worker 或 runtime 能力。仅允许操作者对当次明确授权的
 `testing` 群随机 canary 进行聚焦、写入和单次提交实验；不接受任意消息，不接入模型/outbox。
@@ -65,7 +79,8 @@ runtime 启动处拒绝通道。
 
 ## 入站一致性
 
-以下是未来只读 connector 的必要条件；当前没有任何入站消息获准进入数据库。
+以下是未来原生只读 connector 的必要条件；该路线当前没有入站消息获准进入数据库。
+独立 agent-wechat 实验的合成指令持久化按本页当前作用域执行。
 
 - 当前目标必须存在于 enrollment 和配置 allowlist，chat kind/header 摘要必须精确一致。
 - 第一个 snapshot 只建立 baseline。

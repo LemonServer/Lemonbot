@@ -1,0 +1,21 @@
+{
+  "run_id": "AGW_LAB_20261006_5860E533",
+  "recorded_at_utc": "2026-10-06T06:42:25.858884+00:00",
+  "mode": "live_testing_lab",
+  "inbound_count": 1,
+  "outbound_intents": 1,
+  "post_attempts": 1,
+  "outbox_state": "unknown",
+  "failure_code": "SendNotConfirmedNoRetry",
+  "dispatch_started_at_utc": "2026-10-06 06:36:43.230514",
+  "unknown_at_utc": "2026-10-06 06:36:59.929143",
+  "peer_confirmed_received": true,
+  "unique_self_ack_read_back": true,
+  "peer_and_self_senders_distinct": true,
+  "persisted_sender_reference_matches": true,
+  "automatic_confirmation_passed": false,
+  "restart_passed": false,
+  "closed_loop_passed": false,
+  "timeout_cause": "suspected_not_proven",
+  "action": "preserve_unknown_no_resend"
+}

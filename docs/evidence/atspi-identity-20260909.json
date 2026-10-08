@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-09-09",
+  "code_base": "f96d4799fa1698a7aeb200e39d351579ba2ac7ea",
+  "working_tree_modified": true,
+  "client_version": "4.1.1.8",
+  "client_executable_sha256": "1630e2bf9ad852e4fca938bb83f99c40d5d8acecdd09b6aa4aac53df761377cf",
+  "session": {
+    "type": "wayland",
+    "active": true,
+    "remote": false,
+    "locked": false
+  },
+  "authorization_scope": "testing",
+  "chat_subtree": {
+    "nodes": 210,
+    "truncated": false,
+    "accessible_id_reads_ok": 210,
+    "nonempty_accessible_ids": 0,
+    "relation_reads_ok": 210,
+    "nodes_with_relations": 2,
+    "relation_source_classification": "input_scrollbars",
+    "relation_types": [
+      3
+    ],
+    "nodes_with_attributes": 0,
+    "message_rows": 7,
+    "message_rows_with_children": 0,
+    "message_rows_with_relations": 0,
+    "message_rows_with_actions": 0
+  },
+  "operator_opened_profile": {
+    "opening_method": "operator_clicked_message_avatar",
+    "visited": 147,
+    "hidden_pruned": 50,
+    "reported_visible_nodes": 97,
+    "truncated": false,
+    "nonempty_accessible_ids": 0,
+    "nodes_with_relations": 0,
+    "identifier_label": "Weixin ID",
+    "label_role": "label",
+    "value_role": "label",
+    "label_and_value_are_siblings": true,
+    "nonempty_value_read": true,
+    "raw_value_persisted": false,
+    "reopen_comparison": "passed_one_operator_confirmed_round_with_fresh_processes",
+    "restart_stability": "not_tested",
+    "different_members_distinguished": "not_tested_operator_has_no_second_member_available",
+    "operator_confirmed_same_member_reopened": true,
+    "fresh_process_reads_after_reopen": {
+      "snapshots": 2,
+      "same_value": true,
+      "same_field_structure": true,
+      "reopen_value_comparison_proven": false
+    },
+    "initial_long_lived_reopen_attempt": "inconclusive_probe_did_not_return_terminated",
+    "reopen_same_value": true,
+    "reopen_same_field_structure": true
+  },
+  "probe_sources": {
+    "probe.py": "30961cf9f6e6f5c817ff0097d8543bb0e0a1ba7ba7ddd98414cdb9106665fe0a",
+    "card_probe.py": "77b620f1e5ef5dc87ab51970a270e6cd86a3bbddbafe1a2c2f948d9222341c0c",
+    "compare_profile.py": "894bbf8717e17f2e723846086266aee65d608daf62eed4300ec8b4a9e02bddfc",
+    "snapshot_profile.py": "33bfee0694c754136534083bffca7e511d1ecfa448879283e970120bb1ef423b",
+    "fresh_compare.py": "cff2537ad61048d5779b1da21b8e4b19f51cadb2f657a8f27cfdc84d0aafae84",
+    "fresh_reopen.py": "1da78e4533b19eae204d8fdfbdf8b00b32ea749b1c3c7719209f64149ee91586"
+  },
+  "automatic_actions_performed": 0,
+  "automatic_message_to_profile_binding_proven": false,
+  "identity_authorized": false,
+  "connector_enrollment_allowed": false,
+  "followup_date": "2026-09-10"
+}

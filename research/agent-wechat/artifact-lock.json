@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "resolved_at_utc": "2026-09-29T09:15:42Z",
+  "image": "ghcr.io/thisnick/agent-wechat@sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43",
+  "image_id": "sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43",
+  "arch": "amd64",
+  "source_commit": "96c2e90c497d999bf5189a134a9b3b293731f42e",
+  "image_source_label": null,
+  "image_revision_label": null,
+  "source_revision_label_matches": false
+}

@@ -1,0 +1,33 @@
+{
+  "recorded_date": "2026-10-08",
+  "free_before_bytes": 18692603904,
+  "free_after_bytes": 22292410368,
+  "released_bytes": 3599806464,
+  "removed_relative_paths": [
+    ".vscode/extensions/openai.codex-audio-26.928.31416",
+    ".vscode/extensions/openai.chatgpt-26.928.31416-linux-x64",
+    ".vscode/extensions/openai.codex-audio-26.930.41038",
+    ".vscode/extensions/openai.chatgpt-26.930.41038-linux-x64",
+    ".vscode/extensions/openai.codex-audio-26.930.61225",
+    ".vscode/extensions/ms-python.python-2026.6.0-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/openai.codex-audio-26.928.31416",
+    ".config/Code/CachedExtensionVSIXs/.45cd8e80-5a16-4457-882a-4552be439f1a",
+    ".config/Code/CachedExtensionVSIXs/ms-python.python-2026.6.0-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/openai.codex-audio-26.930.41038",
+    ".config/Code/CachedExtensionVSIXs/ms-python.vscode-python-envs-1.38.0-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/openai.chatgpt-26.928.31416-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/.9bd2c573-d165-47c4-8dcc-88872ee90827",
+    ".config/Code/CachedExtensionVSIXs/ms-python.debugpy-2026.6.0-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/.499b6575-fa70-4e4d-bb26-3c872040b217",
+    ".config/Code/CachedExtensionVSIXs/openai.chatgpt-26.930.61225-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/openai.chatgpt-26.930.41038-linux-x64",
+    ".config/Code/CachedExtensionVSIXs/ms-python.vscode-pylance-2026.4.1",
+    ".config/Code/CachedExtensionVSIXs/openai.codex-audio-26.930.61225",
+    ".cache/thumbnails",
+    ".cache/gnome-desktop-thumbnailer"
+  ],
+  "retained_in_use_obsolete_extensions": [
+    "openai.chatgpt-26.930.61225-linux-x64"
+  ],
+  "docker_images_volumes_and_account_data_preserved": true
+}

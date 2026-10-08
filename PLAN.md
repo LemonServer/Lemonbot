@@ -5,7 +5,7 @@
 > 调整。当前通道结论、Windows 失败实验和 Linux AT-SPI 下一步见
 > [`docs/research-handoff.md`](docs/research-handoff.md)。
 
-> 2026-09-05 导航更新：当前进度统一见
+> 2026-10-08 导航更新：完整导航见 [文档索引](docs/README.md)，当前进度统一见
 > [`docs/linux-wechat-current-status.md`](docs/linux-wechat-current-status.md)，下一阶段顺序见
 > [`PLAN_linux.md`](PLAN_linux.md)。本文保留历史设计，不作为现行部署或通道启用步骤。
 

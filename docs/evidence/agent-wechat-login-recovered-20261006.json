@@ -1,0 +1,21 @@
+{
+  "recorded_at_utc": "2026-10-06T06:22:36.776864+00:00",
+  "scope": "current_test_account_novnc_login_recovery",
+  "image_digest": "sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43",
+  "container_started_at_utc": "2026-10-06T06:04:54.600894372Z",
+  "user_confirmed_login": true,
+  "auth_logged_in": true,
+  "login_user_present": true,
+  "chat_list_readable": true,
+  "chat_list_nonempty": true,
+  "original_container_mounts_validated": true,
+  "localhost_only": true,
+  "server_viewonly_disabled": true,
+  "temporary_proxy_removed": true,
+  "vnc_binary_subprotocol": true,
+  "rfb_version": "003.008",
+  "new_lab_e2e_passed": false,
+  "messages_sent_this_phase": false,
+  "fresh_account_qr_verified": false,
+  "host_reboot_verified": false
+}

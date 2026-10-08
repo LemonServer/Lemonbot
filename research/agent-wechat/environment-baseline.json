@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "baseline_name": "historical-fixed-20261008",
+  "recorded_at_utc": "2026-10-08T05:06:34.510254+00:00",
+  "recorded_timezone": "Asia/Shanghai",
+  "host": {
+    "os": "Ubuntu 24.04.3 LTS",
+    "architecture": "x86_64",
+    "kernel": "7.0.0-30-generic",
+    "python": "3.12.3",
+    "uv": "0.12.5",
+    "filesystem": "ext4",
+    "root_device": "/dev/sda2",
+    "disk_capacity_gib": 50,
+    "packages": {
+      "containerd": "2.2.1-0ubuntu1~24.04.3",
+      "docker.io": "29.1.3-0ubuntu3~24.04.2",
+      "gnome-shell": "46.0-0ubuntu6~24.04.9",
+      "python3-gi": "3.48.2-1",
+      "python3.12": "3.12.3-1ubuntu0.16",
+      "xdg-desktop-portal": "1.18.4-1ubuntu2.24.04.2",
+      "xdg-desktop-portal-gnome": "46.2-0ubuntu1"
+    }
+  },
+  "docker": {
+    "docker_server_version": "29.1.3",
+    "containerd_package": "2.2.1-0ubuntu1~24.04.3",
+    "image_id": "sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43",
+    "image_repo_digests": [
+      "ghcr.io/thisnick/agent-wechat@sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43"
+    ],
+    "architecture": "amd64",
+    "os": "linux",
+    "oci_revision": null,
+    "container_name": "lemonbot-agent-wechat-repro",
+    "container_status": "running",
+    "container_started_at_utc": "2026-10-06T06:04:54.600894372Z",
+    "privileged": false,
+    "cap_add": [
+      "CAP_SYS_PTRACE"
+    ],
+    "security_options": [
+      "seccomp=unconfined"
+    ],
+    "port_bindings": {
+      "6174/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "6174"
+        }
+      ]
+    },
+    "restart_policy": {
+      "Name": "no",
+      "MaximumRetryCount": 0
+    },
+    "mounts": [
+      {
+        "type": "volume",
+        "source": "lemonbot-agent-wechat-repro-data",
+        "destination": "/data",
+        "writable": true
+      },
+      {
+        "type": "volume",
+        "source": "lemonbot-agent-wechat-repro-home",
+        "destination": "/home/wechat",
+        "writable": true
+      },
+      {
+        "type": "bind",
+        "source": "persistent_api_token",
+        "destination": "/data/auth-token",
+        "writable": false
+      }
+    ],
+    "container_packages": {
+      "libatspi2.0-0": "2.44.0-3",
+      "libgtk-3-0": "3.24.33-1ubuntu2.2",
+      "wechat": "4.1.13.23",
+      "x11vnc": "0.9.16-8",
+      "xvfb": "2:21.1.4-2ubuntu1.7~22.04.16"
+    },
+    "container_os_release": {
+      "PRETTY_NAME": "Ubuntu 22.04.5 LTS",
+      "VERSION_ID": "22.04",
+      "ID": "ubuntu"
+    }
+  },
+  "artifact_lock": "artifact-lock.json",
+  "source_revision_bound_to_image": false,
+  "lemonbot_dependencies": {
+    "lemonbot": "0.1.0",
+    "httpx": "0.28.1",
+    "sqlalchemy": "2.0.52",
+    "aiosqlite": "0.22.1",
+    "pydantic": "2.13.4",
+    "pytest": "8.4.2",
+    "ruff": "0.16.3",
+    "mypy": "1.20.2"
+  },
+  "file_sha256": {
+    "uv.lock": "0eddf56da15ae0f5f31adfd6181217a018cf76cd7b2391f16d008157888ed963",
+    "pyproject.toml": "41fc4de61b8f35897bc8232186302547fa781b34244a0d8d1262bb6adef15e06",
+    "src/lemonbot/research/agent_wechat.py": "732cd76f0aad4a8f0a90dc7052abbf4911f6213c983e8ca2ef31f6a67dbb92a1",
+    "src/lemonbot/research/agent_wechat_lab.py": "9629b2a5385f2781f8ba105f670d703a617dd699d5769797e60521b140b0a4da",
+    "scripts/agent_wechat_fixed_runtime.py": "4c512ec0dd35c5d9f4ebdf467754077842a88f3ed637f0fa8563f6884fcba4c2",
+    "scripts/agent_wechat_login_ready.py": "42ca4ed867c502961fdb2a1783130aeddc1a31196de6ecd03c6688a961fd0181",
+    "scripts/agent_wechat_recovery_job.py": "eea8d3e15d5bd3b9e8fc80cf0d4d107f91e538c0f3245416343817f115bbcd6c",
+    "scripts/agent_wechat_repro.py": "e68efa245fa0b42c3c5e2efdff0bf16d6da24ce021c49a946deadaf8c8445fb7",
+    "scripts/agent_wechat_vnc_probe.py": "1cd6c74e699961012eed2cd4d7d4a7081293bb64a5f89a716610a9cd81c6d920"
+  },
+  "experimental_adapter": {
+    "api": "http://127.0.0.1:6174",
+    "poll_sleep_seconds": 2,
+    "page_size": 100,
+    "maximum_pages": 10,
+    "read_timeout_seconds": 10,
+    "send_timeout_seconds": 25,
+    "connect_timeout_seconds": 10,
+    "readback_seconds": 10,
+    "automatic_unknown_retry": false,
+    "model_calls": 0,
+    "scope": "testing synthetic text commands with manual foreground"
+  },
+  "validation": {
+    "single_live_e2e_passed": true,
+    "continuous_live_e2e_passed": false,
+    "last_lab_pause_code": "AmbiguousReadback",
+    "restart_e2e_passed": false,
+    "thirty_minutes_passed": false,
+    "automated_tests_passed": 448,
+    "ruff_passed": true,
+    "mypy_source_files_passed": 108,
+    "uv_lock_check_passed": true
+  },
+  "sensitive_state_in_repository": false,
+  "lemonbot_code_commit": "773187cf083d1b9d5f23fc5314d8474c3c40d6b6"
+}

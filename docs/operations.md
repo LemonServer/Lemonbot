@@ -1,13 +1,17 @@
-# Linux Observe 运行手册
+# Linux 操作与历史 Observe 参考
 
-当前实现和实机结论的短版入口见 [`linux-wechat-current-status.md`](linux-wechat-current-status.md)。
+当前 agent-wechat 实验按 [固定环境与恢复手册](environment-baseline.md)及
+[Linux 计划](../PLAN_linux.md)执行。单条实机通过，连续验收因 AmbiguousReadback 暂停；
+本页以下原生 AT-SPI / Observe 命令属于历史参考，不是容器实验的启动说明。
+
+原生路线的实现和实机结论见 [`linux-wechat-current-status.md`](linux-wechat-current-status.md)。
 
 > 当前停机门禁（2026-09-05）：AT-SPI 无法证明微信 4.1.1.8 的消息方向或群发送者，自动发送也
 > 尚未被独立证明。
 > `linux-atspi-enroll` 与 `wechat_atspi` runtime 均被代码拒绝。本文的 enrollment、worker 和
 > Observe 章节仅保留为未来门禁重新评审时的操作参考，当前不得执行部署。
 
-## 固定部署环境
+## 原生 AT-SPI 历史部署环境
 
 - Ubuntu 24.04 Desktop x86_64、GNOME Wayland、本地图形登录。
 - 专用非 sudo 用户、独立微信测试号、NAT 网络，无端口转发、共享目录、共享剪贴板或 linger。
@@ -22,7 +26,7 @@ sudo apt install python3-gi gir1.2-atspi-2.0 at-spi2-core \
 gsettings set org.gnome.desktop.interface toolkit-accessibility true
 ```
 
-不要用脚本登录微信、反复处理验证、冻结客户端版本或绕过风控。客户端升级后停止 Lemonbot，
+原生 AT-SPI 路线不通过脚本处理登录验证。宿主客户端升级后停止该路线，
 重新计算包和文件摘要并从语义探针开始复核。
 
 ## 只读探针
@@ -60,6 +64,16 @@ Python 事件绑定曾出现原生崩溃，因此语义探测不注册事件监�
 uv run lemonbot channel linux-atspi-testing-send-canary \
   --confirm-testing-send --confirm-empty-draft --timeout-seconds 20
 ```
+
+公共报告保留 `draft_confirmation`：`exact_atspi` 表示精确草稿回读，
+`operator_plus_setter` 仅表示操作者确认空框且 setter 返回成功，不能提升为机器确认。
+CLI 会核对本次新建/恢复模式、回读数量、草稿是否清空与结果标签；矛盾或畸形报告一律按
+结果未知退出，不重试、不输出子进程原文。`readback_unattributed` 必须同时满足唯一回读和
+草稿清空，仍不是方向或投递证明。
+
+内部探针的研究模式互斥；模式冲突、缺少 canary 哈希、按键选项冲突或选项不属于当前模式时，
+在加载 AT-SPI 前拒绝。尤其 `--testing-send-precommit-only` 仅适用于
+`--testing-send-canary`，与恢复发送混用不会进入发送分支。内部实验开关仍不是受支持的公共 API。
 
 ### 历史实验说明（截至 2026-09-03）
 

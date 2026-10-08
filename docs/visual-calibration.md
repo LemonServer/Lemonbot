@@ -1,5 +1,8 @@
 # Portal 视觉校准研究设计
 
+> 归档说明（2026-10-08）：本研究默认关闭，暂缓实机校准；当前主线为固定 agent-wechat
+> 单群实验，见 [文档索引](README.md)。
+
 ## 状态与目标
 
 当前实施优先级见 [`PLAN_linux.md`](../PLAN_linux.md)，已有实机证据与测试环境见
@@ -45,6 +48,12 @@ uv run lemonbot channel linux-portal-group-calibration \
 每一轮都会再次出现 Portal 选择器，且单轮报告固定 `passed=false`。完成两轮并确实分别覆盖微信
 重启和锁屏/解锁后，才可离线合并：
 
+- 第一轮：操作者手动重启微信后重新生成语义 canary 报告，运行校准时加 `--confirm-restart`。
+- 第二轮：操作者完成锁屏/解锁后重新生成另一份语义 canary 报告，输出到不同文件，运行校准时
+  加 `--confirm-lock-cycle`。每轮都要在该轮语义报告生成后 5 分钟内开始校准。
+
+这两个选项记录操作者实际完成的生命周期步骤，不会代为重启或锁屏。未完成的步骤不要确认。
+
 ```bash
 uv run lemonbot channel linux-portal-group-calibration-verify \
   --report /absolute/path/visual-round-1.json \
@@ -53,6 +62,15 @@ uv run lemonbot channel linux-portal-group-calibration-verify \
 ```
 
 即使合并结果 `passed=true`，identity、connector enrollment 和回复生成仍固定为 false。
+
+从 2026-09-07 起，报告包含经过白名单校验的 `capture_facts`：Portal 来源与授权声明、单窗口、
+本地处理、未使用云处理、未保存像素、隐藏光标、实际帧数、唯一帧尺寸和 RGBA 格式。CLI 要求
+实际帧数等于请求值；校准至少需要两帧，采集途中尺寸变化立即停止。子进程额外字段不会输出
+或保存。离线合并也会复查这些字段，并严格检查样本布尔值，避免把字符串或整数转换成证据。
+
+缺少 `capture_facts` 的历史报告不能参与新验证，须重新采集，不能手工补写证据。声明和操作者
+确认只用于本地研究记录，不是对报告真实性、微信窗口身份或生命周期的独立机器证明。
+标签裁剪区域不可用时 OCR 返回歧义，不能当作“已确认无标签”来证明连续消息归属。
 
 Linux 微信 4.1.1.8 实测把消息 item 的矩形暴露为“同原点、累计高度”，不能直接当作单行截图
 区域。语义报告必须同时记录每条 canary 的前一兄弟矩形；只有原点/宽度相同、累计高度严格增加、

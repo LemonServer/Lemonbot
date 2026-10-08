@@ -1,0 +1,21 @@
+{
+  "run_id": "AGW_LAB_20261006_RETEST_2FB4DECF",
+  "recorded_at_utc": "2026-10-06T06:45:53.280813+00:00",
+  "mode": "live_testing_lab",
+  "inbound_count": 1,
+  "inbound_completed": true,
+  "outbox_count": 1,
+  "post_attempts": 1,
+  "outbox_state": "acknowledged",
+  "external_receipt_present": true,
+  "acknowledgement_time_present": true,
+  "reply_linked_to_inbound": true,
+  "peer_confirmed_received": true,
+  "single_message_e2e_passed": true,
+  "full_milestone_passed": false,
+  "continuous_messages_passed": false,
+  "restart_passed": false,
+  "foreground_pause_passed": false,
+  "thirty_minutes_passed": false,
+  "original_unknown_not_retried": true
+}

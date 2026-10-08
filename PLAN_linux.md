@@ -1,34 +1,40 @@
-# Lemonbot Linux-only 下一阶段计划：通道可行性决策
+# Lemonbot Linux 下一阶段：testing 群收发闭环
 
-> 更新：2026-09-05。纯 AT-SPI 在已测微信 4.1.1.8 上无法证明方向或群 sender，enrollment 与
-> runtime 保持硬关闭。当前事实、提交与测试证据统一见
-> [`docs/linux-wechat-current-status.md`](docs/linux-wechat-current-status.md)。
+> 更新：2026-10-08。当前阶段：**单条实机闭环通过，连续验收因回执歧义暂停**。
+> 全仓 448 项自动化测试通过，Ruff、mypy（108 个源文件）及锁文件检查通过。
+> 历史固定镜像和原卷保留，PR #171 冻结。新标记单条入站一条、发送一次、精确回读后自动
+> ACKNOWLEDGED，且获对端确认。2026-10-08 复核连续试验发现相同指令与 ACK 的多条 API
+> 记录，第二条出站 UNKNOWN，实验程序以 AmbiguousReadback 停止。UNKNOWN 不重发。
+> 下一项只定位重复记录来源，再以全新标记恢复连续验收；本轮磁盘/文档整理未发送消息。
+> 环境恢复以 [固定基线](docs/environment-baseline.md) 为准，完整导航见 [文档索引](docs/README.md)。
 
-## 当前实施顺序
+## 首版能力和现有交付
 
-目标是交付可复核的能力矩阵、校准结果和能否进入 Observe 的明确结论。维持 Ubuntu 24.04、
-GNOME Wayland、官方客户端及现有信任边界；不扩展模型、工具或主动聊天，不修改数据库 schema、
-`Connector`、`ModelBackend` 或 outbox 接口，不把研究报告直接转换为 enrollment。
+目标：对端发送新的合成命令 → 识别并持久化 → 自动回执 → 重启后不重复发送。接受手动扫码和将 testing 保持前台。
 
-1. **统一证据基线。** 每次实验记录代码 SHA、客户端/会话环境、独立运行编号、结果与停止原因。
-   区分实测、推断、未执行候选；历史授权不作为新的动作实验授权。
-2. **完成只读视觉校准。** 使用现有 Portal/OCR 命令取得至少两轮独立 canary 报告，覆盖微信
-   重启和锁屏/解锁，验证方向布局、段首标签与连续消息归属。取消授权、布局漂移或 OCR 歧义
-   立即停止；不放宽判定换取通过。细节见 [`docs/visual-calibration.md`](docs/visual-calibration.md)。
-3. **出具身份可行性结论。** 分开列明账号、目标会话、私聊对端、群 sender 的证据来源。显示名、
-   位置与会话内标签哈希不能证明稳定身份。纯 AT-SPI 失败路径只有出现新的具体证据来源才追加
-   实验；若仍无可靠来源，明确记录无法进入 Observe 并停止 connector 扩展。
-4. **限定发送研究。** 它是独立候选实验，不是当前只读里程碑的前置步骤。继续时须对当次 testing
-   canary 发送明确授权，先只读验证键盘映射和合成能力，再验证真实按键序列。每次只提交一个
-   新 canary，人工操作与自动提交分阶段隔离，Alt release 位于 `finally`。进入提交后禁止自动
-   重试；唯一回读最多记为 `readback_unattributed`。真实序列失败后停止键盘路线，不自动转为
-   坐标点击。研究命令和内部开关应在机制有结论后收敛。
-5. **按证据决定后续。** 只有方向、身份、生命周期与隔离条件具备证明，才另行设计接入和连续
-   24 小时 Observe 验收。缺少证据时交付不可行性报告；平台、产品范围和信任边界的变更另行决策。
+- `src/lemonbot/research/agent_wechat.py` 提供独立 HTTP connector，实现现有 `events()`、`deliver()`、`health()`；未加入正式 runtime 配置。
+- `src/lemonbot/research/agent_wechat_lab.py` 提供 `demo`、`enroll`、`run`、`marker` 命令，复用 CoreRepository、现有 inbox/outbox schema，使用独立私有 lab.db。
+- 只接收 testing 的 LB26_E2E_ 加 24 位大写十六进制随机值，确定性回复 LB26_ACK_ 加同一值。账号、sender 和事件转为带域的 HMAC 引用；正文仅合成命令进入实验库。
+- 每两秒有界轮询、启动历史基线、最多十页。offset 分页时头部变化、锚点丢失、身份缺失均暂停；不承诺停机补抓。回复使用稳定 UUID，可能已经发送的状态进入 UNKNOWN，禁止自动重试。
+- 前台门禁核验唯一 testing 群、登录账号及固定客户端中与 Chats 列表同一窗口、位于该窗口顶部七十像素内的右侧标题。结构/标题变化或弹窗会暂停。显式 `run --resume` 重新核验并建立基线，不自动导航。
+- 不启用模型、工具、正式机器人服务，不改产品 schema 或解除 AT-SPI 门禁。没有复制上游源码。
 
-本阶段验收包括 Ubuntu 锁定依赖下的完整 pytest、Ruff、mypy 和密钥扫描，记录失败与跳过原因；
-伪造通过报告不能解锁 enrollment/runtime/模型调用。实机校准必须有两轮与生命周期证据，发送
-实验必须覆盖人工干扰、重复命中和超时不产生成功回执或自动重试。单元测试不替代实机证明。
+## 操作顺序与止损
+
+1. **离线交付（完成）。** 模拟 HTTP 演示已验证持久化、重启、重复消息和超时不重发；相关实验/复现/broker 及恢复脚本与登录衔接 90 项测试通过。这些结果不替代微信实机证据。
+2. **扩容后恢复固定版（完成）。** 固定镜像、原卷、持久 token、localhost 绑定及 viewonly=0 均核验通过；用户确认登录，当前认证/登录用户/聊天列表满足条件。此前跨日 lease 失败已有脱敏证据记录，不继续环境排列组合。
+3. **闭环验收（暂停，沿用剩余预算）。** 先定位现有 API 重复指令/回执来源，不放宽唯一回读或自动重发。随后继续 单条和连续对端指令、self 不回复、重启新指令、切走暂停/显式恢复、三十分钟持续运行；真实收发只在 testing。用户确认对端实际送达。
+4. **交付结论。** 分别记录“闭环通过”“代码通过、实机受阻”“通道缺陷”。仅通过后另行设计正式 runtime 接入、许可检查和后续自动导航，不自动启用模型。
+
+本里程碑最多六小时有效工作；下载、用户扩容/扫码等待另计。旧诊断预算不重置。不再创建新卷或重启排列组合，不清理保留镜像、容器、数据卷。
+
+## 固定基线与恢复条件
+
+- 镜像：ghcr.io/thisnick/agent-wechat@sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43，OCI index 固定，选择 AMD64。镜像与源码 commit 未被 OCI revision 证明绑定；不宣称验证同一源码构建。
+- 历史研究锁文件及 token 仍在持久 state；使用 `scripts/agent_wechat_repro.py start`，不运行重新解析 latest 的 pin。
+- localhost API、独立原历史卷、SYS_PTRACE、上游 seccomp 设置；不挂宿主微信数据，不授予 privileged。
+- noVNC Connect 只建立 viewer。浏览器输入还需 x11vnc viewonly=0；API/容器内控制不依赖 viewer 已连接。
+- 恢复方法、命令与实机验收表统一见 [复现报告](docs/agent-wechat-reproduction.md)。
 
 ## 历史 Observe 设计参考
 

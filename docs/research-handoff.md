@@ -2,10 +2,13 @@
 
 > 文档整理：2026-09-05（Asia/Shanghai）
 > 文档性质：历史研发档案；其中命令和“当前实现”描述不得作为运行手册
-> 当前结论：主线已切换为 Linux-only，但 AT-SPI-only 在微信 4.1.1.8 上无法证明消息方向或群
+> 当时结论：主线已切换为 Linux-only，但 AT-SPI-only 在微信 4.1.1.8 上无法证明消息方向或群
 > sender；enrollment 与 connector runtime 已硬关闭。当前只允许 AT-SPI 只读研究和独立、默认
 > 关闭的 Portal 视觉校准研究。生产 connector 的发送、草稿和模型调用均未启用；已有代码中的
 > testing 专用一次性 canary 发送研究命令不接入 runtime/outbox；首次实机尝试仅留下草稿，未发送。
+
+> 当前导航（2026-10-08）：主线转为固定 agent-wechat 独立实验，单条闭环通过、连续验收暂停。
+> 统一入口见 [文档索引](README.md)，版本与恢复见 [环境基线](environment-baseline.md)。
 
 ## 先读这里
 
