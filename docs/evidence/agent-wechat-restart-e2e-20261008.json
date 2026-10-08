@@ -1,0 +1,79 @@
+{
+  "recorded_at_utc": "2026-10-08T06:24:31.742979+00:00",
+  "run_id": "AGW_RESTART_20261008_8DDDE225",
+  "mode": "live_testing",
+  "guard_passed": true,
+  "command_count": 1,
+  "command_is_self": [
+    false
+  ],
+  "sender_refs": [
+    "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+  ],
+  "ack_count": 1,
+  "ack_is_self": [
+    true
+  ],
+  "inbound_states": [
+    "completed"
+  ],
+  "outbox_states": [
+    "acknowledged"
+  ],
+  "attempts": [
+    1
+  ],
+  "receipts_present": true,
+  "inbound_linked": true,
+  "sender_matches_persisted": true,
+  "old_unknown_attempts": [
+    1,
+    1
+  ],
+  "diagnostics": [
+    {
+      "run_id": "AGW_DF1552EE14B5F9AE",
+      "stage": "before_send",
+      "message_ref": "de3dc65d-b3a0-57f4-b41a-41bf73bd768f",
+      "post_count": 0,
+      "send_seconds": 0.0,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_DF1552EE14B5F9AE",
+      "stage": "post_returned",
+      "message_ref": "de3dc65d-b3a0-57f4-b41a-41bf73bd768f",
+      "post_count": 1,
+      "send_seconds": 7.465,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_DF1552EE14B5F9AE",
+      "stage": "readback",
+      "message_ref": "de3dc65d-b3a0-57f4-b41a-41bf73bd768f",
+      "post_count": 1,
+      "send_seconds": 7.465,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_DF1552EE14B5F9AE",
+      "stage": "readback",
+      "message_ref": "de3dc65d-b3a0-57f4-b41a-41bf73bd768f",
+      "post_count": 1,
+      "send_seconds": 7.465,
+      "match_count": 1,
+      "records": [
+        {
+          "local_ref": "local_42fe22c8bdacb17c1cbd692f0f4e5f713c45fd5858dbba9390fcdb30b9573281",
+          "server_ref": "server_fb88d45fbb5b729b04739b5fddee2a4f504d78ddc7f0b1f6f056cadad505c703",
+          "timestamp_ref": "time_9a3be6b5820cebb0dfe88a3a9289e3b107c1bd52081d8f34e8d17c1cc9a63ce1",
+          "is_self": true
+        }
+      ]
+    }
+  ],
+  "peer_confirmed": true
+}

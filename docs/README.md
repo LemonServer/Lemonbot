@@ -1,6 +1,6 @@
 # 项目文档索引
 
-更新：2026-10-08。当前结论是**新受控单条、连续与 self 实机通过，重启/前台恢复/观察待验证**。
+更新：2026-10-08。当前结论是**新受控单条、连续与 self 实机通过，重启新指令通过，前台恢复/观察待验证**。
 正式 runtime 代码与模拟检查已完成，实机启用仍等待完整通道验收。
 
 ## 当前文档
@@ -29,6 +29,7 @@
 | [连续复核](evidence/agent-wechat-continuous-followup-20261008.json) | API 存在重复标记和回执，程序暂停；原因未确定 |
 | [受控单条](evidence/agent-wechat-controlled-single-20261008.json) | 一次 POST、一条新 self ACK、对端确认 |
 | [连续与 self](evidence/agent-wechat-continuous-self-20261008.json) | 两条分别回复一次，self 已读但不回复 |
+| [重启收发](evidence/agent-wechat-restart-e2e-20261008.json) | 新指令各一次 ACK，sender 稳定，UNKNOWN 不重发 |
 | [本轮 runtime 阶段](evidence/agent-wechat-runtime-stage-20261008.json) | 代码检查通过，重启后实机步骤仍待完成 |
 | [磁盘清理](evidence/disk-cleanup-20261008.json) | 仅清理缓存/未使用的淘汰扩展，保留微信数据与镜像 |
 

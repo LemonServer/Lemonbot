@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline_name": "historical-fixed-20261008",
-  "recorded_at_utc": "2026-10-08T05:56:35.646560+00:00",
+  "recorded_at_utc": "2026-10-08T06:31:12.281915+00:00",
   "recorded_timezone": "Asia/Shanghai",
   "host": {
     "os": "Ubuntu 24.04.3 LTS",
@@ -113,7 +113,7 @@
     "src/lemonbot/cli.py": "97f846d5e14cf3b9aa9010a1e700d5dbdfd027d7cddd6310e9662bd710718740",
     "src/lemonbot/config/settings.py": "703a7deafeac0417f2558020ca31d4690f3fb2b414197b8c9ea35876c97ba56d",
     "src/lemonbot/connectors/wechat_agent.py": "14e175f708a6272c9606c537d73076a07da3c2c122da57e4e47e1bbce57bda2f",
-    "src/lemonbot/connectors/wechat_agent_runtime.py": "c320612150ff50f010e194fdf710afc72badc54d50f22a252118a84e91616202",
+    "src/lemonbot/connectors/wechat_agent_runtime.py": "35a239a61300de15bd2fa6064af27ccadbebce3dbd92e6cebbb8cf7ed970cf3d",
     "src/lemonbot/connectors/wechat_agent_state.py": "a2a77898837e5f6a903727547f008cde31507d53cab208811b9ac9518edc4e2e",
     "src/lemonbot/orchestration/pipeline.py": "d5e3cbcfe6893374e242b0566d3f9b48118995a0cdc36322e3705379444cd42e",
     "src/lemonbot/policy/config.py": "845bd507ea515421738de5a91219e8da16fba2d4657dd5569b5b24c27d826753",
@@ -141,19 +141,20 @@
     "single_live_e2e_passed": true,
     "continuous_live_e2e_passed": true,
     "last_lab_pause_code": null,
-    "restart_e2e_passed": false,
+    "restart_e2e_passed": true,
     "thirty_minutes_passed": false,
-    "automated_tests_passed": 467,
+    "automated_tests_passed": 468,
     "ruff_passed": true,
     "mypy_source_files_passed": 111,
     "uv_lock_check_passed": true,
     "self_ignore_live_passed": true,
     "historical_pause_code": "AmbiguousReadback",
-    "last_foreground_guard_code": "ChatListStructureMissing",
+    "last_foreground_guard_code": null,
     "foreground_resume_pending": true,
     "formal_runtime_live_enabled": false,
-    "formal_runtime_live_passed": false
+    "formal_runtime_live_passed": false,
+    "sender_stable_after_restart": true
   },
   "sensitive_state_in_repository": false,
-  "lemonbot_code_commit": "c02d9e1721a41d12c934587e146eb5df4d0acab1"
+  "lemonbot_code_commit": "5f461c04904b73faec9432733742f774ca2dd733"
 }

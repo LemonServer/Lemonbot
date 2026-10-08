@@ -1,7 +1,7 @@
 # Linux 操作与历史 Observe 参考
 
 当前 agent-wechat 实验按 [固定环境与恢复手册](environment-baseline.md)及
-[Linux 计划](../PLAN_linux.md)执行。新标记单条、连续与 self 通过，重启/前台/观察待验收；
+[Linux 计划](../PLAN_linux.md)执行。新标记单条、连续与 self 通过，重启新指令通过，前台/观察待验收；
 默认关闭的正式入口见 [runtime 手册](wechat-agent-runtime.md)；
 本页以下原生 AT-SPI / Observe 命令属于历史参考，不是容器实验的启动说明。
 

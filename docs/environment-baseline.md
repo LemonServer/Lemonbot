@@ -109,8 +109,9 @@ uv run --locked python -m lemonbot.research.agent_wechat_lab run \
 ## 当前恢复限制
 
 2026-10-08 新标记受控单条、连续两条与 self 忽略已通过，旧 UNKNOWN 保留不重发。
-已执行一次固定容器保留卷重启，API 身份稳定，但前台仍需人工打开 testing；不能以 API
-logged_in 快照替代重启后实际收发。尚未完成切走恢复、三十分钟观察或正式 runtime 实测。
+已执行一次固定容器保留卷重启；用户手动恢复 testing 后前台守卫通过，实验程序以新基线
+恢复。新指令入站/回复各一条，sender 摘要稳定，旧 UNKNOWN 不重发。尚未完成切走恢复、
+三十分钟观察或正式 runtime 实测。
 
 正式连接器已提供默认关闭的配置和模拟测试，使用同一传输并共享持久锁；独立 data_root，
 不迁移旧实验任务。恢复步骤见 [runtime 手册](wechat-agent-runtime.md)。原 native AT-SPI
