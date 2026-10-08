@@ -346,3 +346,22 @@ async def test_management_bootstrap_is_private_and_not_logged(
         assert url.split("#", 1)[1] not in capsys.readouterr().out
     finally:
         await runtime.close()
+
+
+async def test_runtime_preserves_pause_code_written_by_independent_lab(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock = SimulatedWechat()
+    runtime = await setup_runtime(tmp_path, monkeypatch, mock)
+    await runtime.close()
+    private_write(tmp_path / "binding" / "paused.json", b'{"code":"TestingNotForeground"}')
+    runtime = await setup_runtime(tmp_path, monkeypatch, mock)
+    try:
+        assert isinstance(runtime.connector, RuntimeAgentWechatConnector)
+        assert runtime.connector.pause_reason == "TestingNotForeground"
+        assert not runtime.connector.ready
+        assert await runtime.repository.is_paused(CHANNEL)
+        assert mock.posts == 0
+    finally:
+        await runtime.close()

@@ -48,7 +48,9 @@ class RuntimeAgentWechatConnector(Connector):
             # Read only to verify ownership/permissions, never replay upstream text.
             try:
                 value = json.loads(private_read(self.pause_file))
-                reason = value.get("reason", value.get("error", "ExplicitResumeRequired"))
+                reason = value.get(
+                    "reason", value.get("code", value.get("error", "ExplicitResumeRequired"))
+                )
                 if not isinstance(reason, str) or not re.fullmatch(
                     r"[A-Za-z0-9:_-]{1,160}", reason
                 ):
