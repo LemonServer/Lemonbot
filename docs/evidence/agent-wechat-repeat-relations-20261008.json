@@ -1,0 +1,91 @@
+{
+  "run_id": "AGW_LAB_20261006_CONTINUOUS_9438A152",
+  "scope": "testing_old_canary_only",
+  "relations": [
+    {
+      "label": "peer1",
+      "kind": "command",
+      "count": 2,
+      "records": [
+        {
+          "local_ref": "local_ebc6cdaf30030a238ec068e5424cb133b52724a5110d15dd9e5d884990ae2842",
+          "server_ref": "server_f1db8e2a651f5aa405a0cd6187d181e4c176c0b663e1587e722f253eb6484bfb",
+          "timestamp": "2026-10-08T04:56:32+00:00",
+          "is_self": false,
+          "sender_ref": "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+        },
+        {
+          "local_ref": "local_77c97366a32de885014f043caf8b1133525cc39b2843c58dc7defc8282708860",
+          "server_ref": "server_2eee76eb356a0a12d7723002352656eefab0104a8746da5ff8546fdcf81864ac",
+          "timestamp": "2026-10-06T06:47:19+00:00",
+          "is_self": false,
+          "sender_ref": "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+        }
+      ]
+    },
+    {
+      "label": "peer1",
+      "kind": "ack",
+      "count": 2,
+      "records": [
+        {
+          "local_ref": "local_7ba692bea2b20962a4a5f991548d37a99a86af21ea25e383a75ae27af13238a0",
+          "server_ref": "server_c103718d414408e6cbb02e91c695268caed27a6d03e3c3dd52f23db4aa38207c",
+          "timestamp": "2026-10-06T06:48:22+00:00",
+          "is_self": true,
+          "sender_ref": "sender_a13be9e5f5f6628924efa67cc5155922d072f2dd043cbba07e32d716ee71c518"
+        },
+        {
+          "local_ref": "local_7c5c0982bbbf24021c751d7eac225516c38d51550f22f34f1faab062c1369d35",
+          "server_ref": "server_87695669e6af615e76949bdbe48127af2b75e7cd33030e7ee3b3277d49dd03a8",
+          "timestamp": "2026-10-06T06:47:56+00:00",
+          "is_self": true,
+          "sender_ref": "sender_a13be9e5f5f6628924efa67cc5155922d072f2dd043cbba07e32d716ee71c518"
+        }
+      ]
+    },
+    {
+      "label": "peer2",
+      "kind": "command",
+      "count": 2,
+      "records": [
+        {
+          "local_ref": "local_c1276456ff367ef588223de541b328c33571e8df92378e2e5dec08d528564af3",
+          "server_ref": "server_32f6217e8371d90485a296264e971c34c31cf25c2419b42610f3353f3ac28ff0",
+          "timestamp": "2026-10-08T04:56:44+00:00",
+          "is_self": false,
+          "sender_ref": "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+        },
+        {
+          "local_ref": "local_86b706d35fa8ff4eb46928c85f2dd6b1fcc329114c3b149d737a75aca0f05fcb",
+          "server_ref": "server_313c9b99e247174f46ec0f66df8d98e0328967533d0abca4e7864eb2aa8a6d51",
+          "timestamp": "2026-10-06T06:47:30+00:00",
+          "is_self": false,
+          "sender_ref": "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+        }
+      ]
+    },
+    {
+      "label": "peer2",
+      "kind": "ack",
+      "count": 2,
+      "records": [
+        {
+          "local_ref": "local_6e73cc3e8e9c0cc1d844c739d29d79e99422fe72241205676aba79a88678f20d",
+          "server_ref": "server_b8d290439de15ff52e8d81fd33cfff06b92d44e0804bd7f84f3a26dff886be53",
+          "timestamp": "2026-10-06T06:48:48+00:00",
+          "is_self": true,
+          "sender_ref": "sender_a13be9e5f5f6628924efa67cc5155922d072f2dd043cbba07e32d716ee71c518"
+        },
+        {
+          "local_ref": "local_6c585a32226f1c6c8b627867152a1729108197518bf391c6fd2f470263fe5058",
+          "server_ref": "server_749749bb603120f4761bd852c97b84624031bec408d3fdd53aacdfc7c6389c54",
+          "timestamp": "2026-10-06T06:48:40+00:00",
+          "is_self": true,
+          "sender_ref": "sender_a13be9e5f5f6628924efa67cc5155922d072f2dd043cbba07e32d716ee71c518"
+        }
+      ]
+    }
+  ],
+  "raw_identifiers_persisted": false
+}

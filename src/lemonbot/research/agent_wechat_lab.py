@@ -9,108 +9,41 @@ import os
 import secrets
 import stat
 import tempfile
-from dataclasses import asdict
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 
+from lemonbot.connectors.wechat_agent_state import (
+    DEFAULT_STATE as DEFAULT_STATE,
+)
+from lemonbot.connectors.wechat_agent_state import (
+    load_binding as load_binding,
+)
+from lemonbot.connectors.wechat_agent_state import (
+    prepare_state as prepare_state,
+)
+from lemonbot.connectors.wechat_agent_state import (
+    private_read as private_read,
+)
+from lemonbot.connectors.wechat_agent_state import (
+    private_write as private_write,
+)
+from lemonbot.connectors.wechat_agent_state import (
+    save_binding as save_binding,
+)
 from lemonbot.domain.models import DeliveryStatus
 from lemonbot.research.agent_wechat import (
     CHANNEL,
     AgentWechatConnector,
     AgentWechatHTTP,
-    Binding,
     LabPaused,
     enroll,
     reply_for,
 )
 from lemonbot.runtime_lock import AlreadyRunningError, RuntimeLock
 from lemonbot.storage import CoreRepository, Database
-
-DEFAULT_STATE = Path.home() / ".local/state/lemonbot/agent-wechat-lab"
-
-
-def private_read(path: Path) -> bytes:
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    with os.fdopen(fd, "rb") as stream:
-        info = os.fstat(stream.fileno())
-        if (
-            not stat.S_ISREG(info.st_mode)
-            or info.st_uid != os.getuid()
-            or stat.S_IMODE(info.st_mode) & 0o077
-            or info.st_size > 65_536
-        ):
-            raise LabPaused("UnsafePrivateFile")
-        return stream.read()
-
-
-def private_write(path: Path, value: bytes) -> None:
-    temp = path.with_name(path.name + ".tmp")
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "wb") as stream:
-        stream.write(value)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temp, path)
-    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(directory)
-    finally:
-        os.close(directory)
-
-
-def prepare_state(path: Path) -> bytes:
-    if path.absolute() != path.resolve():
-        raise LabPaused("UnsafeStateDirectory")
-    path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if path.stat().st_uid != os.getuid():
-        raise LabPaused("UnsafeStateDirectory")
-    os.chmod(path, 0o700)
-    key_path = path / "comparison-key"
-    if not key_path.exists():
-        private_write(key_path, secrets.token_bytes(32))
-    key = private_read(key_path)
-    if len(key) != 32:
-        raise LabPaused("InvalidComparisonKey")
-    return key
-
-
-def save_binding(path: Path, binding: Binding) -> None:
-    if path.exists():
-        previous = load_binding(path)
-        if (
-            previous.account_ref != binding.account_ref
-            or previous.chat_id != binding.chat_id
-            or previous.chat_ref != binding.chat_ref
-        ):
-            raise LabPaused("ExistingBindingChanged")
-    private_write(path, json.dumps(asdict(binding)).encode())
-
-
-def load_binding(path: Path) -> Binding:
-    try:
-        value = json.loads(private_read(path))
-        binding = Binding(
-            account_ref=value["account_ref"],
-            chat_id=value["chat_id"],
-            chat_ref=value["chat_ref"],
-            header_path=tuple(value["header_path"]),
-            header_roles=tuple(value["header_roles"]),
-        )
-        if (
-            not isinstance(binding.chat_id, str)
-            or not binding.chat_id.endswith("@chatroom")
-            or not binding.account_ref.startswith("account_")
-            or not binding.chat_ref.startswith("chat_")
-            or any(type(i) is not int or i < 0 for i in binding.header_path)
-            or any(not isinstance(role, str) for role in binding.header_roles)
-        ):
-            raise ValueError
-        return binding
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        raise LabPaused("InvalidOrMissingBinding") from None
 
 
 class LabRunner:
@@ -203,13 +136,20 @@ class SimulatedWechat:
         elif path == "/api/debug/a11y":
             data = {
                 "tree": {
-                    "role": "frame", "name": "synthetic-wechat",
+                    "role": "frame",
+                    "name": "synthetic-wechat",
                     "bounds": {"x": 0, "y": 0, "width": 1024, "height": 800},
                     "children": [
-                        {"role": "list", "name": "Chats",
-                         "bounds": {"x": 0, "y": 0, "width": 272, "height": 800}},
-                        {"role": "label", "name": self.title,
-                         "bounds": {"x": 300, "y": 20, "width": 100, "height": 30}},
+                        {
+                            "role": "list",
+                            "name": "Chats",
+                            "bounds": {"x": 0, "y": 0, "width": 272, "height": 800},
+                        },
+                        {
+                            "role": "label",
+                            "name": self.title,
+                            "bounds": {"x": 300, "y": 20, "width": 100, "height": 30},
+                        },
                     ],
                 },
             }
@@ -225,7 +165,7 @@ class SimulatedWechat:
         elif path.startswith("/api/messages/"):
             offset = int(request.url.params["offset"])
             limit = int(request.url.params["limit"])
-            data = self.rows[offset:offset + limit]
+            data = self.rows[offset : offset + limit]
         else:
             return httpx.Response(404)
         return httpx.Response(200, json=data)
@@ -288,14 +228,18 @@ async def demo(state: Path) -> dict[str, Any]:
             and restarted["new_inbound"] == 0
             and not duplicate_inserted
             and mock.posts == 2
-            and unknown is not None and unknown.value == "unknown"
+            and unknown is not None
+            and unknown.value == "unknown"
         )
         return {
-            "mode": "simulated_http_not_live", "ok": ok,
-            "first": first, "restart": restarted,
+            "mode": "simulated_http_not_live",
+            "ok": ok,
+            "first": first,
+            "restart": restarted,
             "duplicate_inserted": duplicate_inserted,
-            "post_count": mock.posts, "unknown_not_retried": unknown is not None
-            and unknown.value == "unknown", "model_calls": 0,
+            "post_count": mock.posts,
+            "unknown_not_retried": unknown is not None and unknown.value == "unknown",
+            "model_calls": 0,
         }
     finally:
         await connector.close()
@@ -313,16 +257,28 @@ async def run_live(args: argparse.Namespace) -> None:
         if args.command == "enroll":
             binding = await enroll(http, key)
             save_binding(state / "binding.json", binding)
-            print(json.dumps({
-                "ok": True, "enrolled": "testing", "header_path": binding.header_path,
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "enrolled": "testing",
+                        "header_path": binding.header_path,
+                    }
+                )
+            )
             return
         if not args.confirm_testing:
             raise LabPaused("ExplicitTestingConfirmationRequired")
         if (state / "paused.json").exists() and not args.resume:
             raise LabPaused("ExplicitResumeRequired")
         binding = load_binding(state / "binding.json")
-        connector = AgentWechatConnector(http, binding, key)
+        connector = AgentWechatConnector(
+            http,
+            binding,
+            key,
+            run_id="AGW_" + secrets.token_hex(8).upper(),
+            diagnostic=lambda value: print(json.dumps({"send_diagnostic": value}), flush=True),
+        )
         database_path = state / "lab.db"
         fd = os.open(database_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         try:
@@ -376,13 +332,13 @@ def main() -> None:
             if args.state_dir is None:
                 with tempfile.TemporaryDirectory(prefix="lemonbot-agent-demo-") as directory:
                     state = Path(directory)
-                    with RuntimeLock(state / "run.lock"):
+                    with RuntimeLock(state / "run.lock", persistent=True):
                         result = asyncio.run(demo(state))
             else:
                 args.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                 if any(args.state_dir.iterdir()):
                     raise LabPaused("DemoRequiresEmptyDirectory")
-                with RuntimeLock(args.state_dir / "run.lock"):
+                with RuntimeLock(args.state_dir / "run.lock", persistent=True):
                     result = asyncio.run(demo(args.state_dir))
             print(json.dumps(result))
             if not result["ok"]:
@@ -392,7 +348,7 @@ def main() -> None:
                 parser.error("token-file is required for live commands")
             args.state_dir = args.state_dir or DEFAULT_STATE
             prepare_state(args.state_dir)
-            with RuntimeLock(args.state_dir / "run.lock"):
+            with RuntimeLock(args.state_dir / "run.lock", persistent=True):
                 asyncio.run(run_live(args))
     except (LabPaused, AlreadyRunningError) as error:
         print(json.dumps({"ok": False, "paused": str(error)}))

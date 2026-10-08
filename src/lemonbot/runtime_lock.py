@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from importlib import import_module
 from pathlib import Path
 from typing import BinaryIO, Protocol, cast
@@ -26,14 +27,20 @@ def _linux_fcntl() -> _FcntlModule:
 
 
 class RuntimeLock:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, persistent: bool = False) -> None:
         self._path = path
+        self._persistent = persistent
         self._stream: BinaryIO | None = None
 
     def __enter__(self) -> RuntimeLock:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        stream = self._path.open("a+b")
+        fd = os.open(self._path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        stream = os.fdopen(fd, "a+b")
         try:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                raise RuntimeError("unsafe runtime lock file")
+            os.fchmod(stream.fileno(), 0o600)
             fcntl = _linux_fcntl()
             try:
                 fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -60,4 +67,5 @@ class RuntimeLock:
             fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
         finally:
             stream.close()
-            self._path.unlink(missing_ok=True)
+            if not self._persistent:
+                self._path.unlink(missing_ok=True)

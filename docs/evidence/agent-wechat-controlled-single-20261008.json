@@ -1,0 +1,69 @@
+{
+  "recorded_at_utc": "2026-10-08T05:30:54.638351+00:00",
+  "run_id": "AGW_CONTROLLED_20261008_20303071",
+  "inbound_count": 1,
+  "outbox_count": 1,
+  "api_command_count": 1,
+  "api_ack_count": 1,
+  "command_is_peer": true,
+  "ack_is_self": true,
+  "sender_matches_persisted": true,
+  "outbox_state": "acknowledged",
+  "outbox_attempts": 1,
+  "receipt_present": true,
+  "reply_linked": true,
+  "post_count": 1,
+  "send_diagnostics": [
+    {
+      "run_id": "AGW_5045A2B8A1529A34",
+      "stage": "before_send",
+      "message_ref": "12c3e494-e89a-55ca-b6c4-f56a8d1c1930",
+      "post_count": 0,
+      "send_seconds": 0.0,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_5045A2B8A1529A34",
+      "stage": "post_returned",
+      "message_ref": "12c3e494-e89a-55ca-b6c4-f56a8d1c1930",
+      "post_count": 1,
+      "send_seconds": 9.823,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_5045A2B8A1529A34",
+      "stage": "readback",
+      "message_ref": "12c3e494-e89a-55ca-b6c4-f56a8d1c1930",
+      "post_count": 1,
+      "send_seconds": 9.823,
+      "match_count": 0,
+      "records": []
+    },
+    {
+      "run_id": "AGW_5045A2B8A1529A34",
+      "stage": "readback",
+      "message_ref": "12c3e494-e89a-55ca-b6c4-f56a8d1c1930",
+      "post_count": 1,
+      "send_seconds": 9.823,
+      "match_count": 1,
+      "records": [
+        {
+          "local_ref": "local_64c00f2c39ccfe5c32aca1691bfd1c0f6d51f1b4865d7b4d755321aff8f74c16",
+          "server_ref": "server_b0919530cae93e490046ea4d8db1d4698d2bce633e0e80ab878748bd1a8f71a9",
+          "timestamp_ref": "time_924ae109076f426fd57159aa42a722f64244275c7d2c0f7a25bec9d5218cfda8",
+          "is_self": true
+        }
+      ]
+    }
+  ],
+  "peer_confirmed": true,
+  "controlled_single_automatic_passed": true,
+  "historical_unknown_attempts": [
+    1,
+    1
+  ],
+  "full_channel_validation_passed": false,
+  "peer_ack_count": 1
+}

@@ -33,6 +33,56 @@ COMMAND_A = "LB26_E2E_" + "A" * 24
 COMMAND_B = "LB26_E2E_" + "B" * 24
 
 
+async def test_send_diagnostics_count_once_and_hide_message_and_identifiers() -> None:
+    mock = SimulatedWechat()
+    http = mock.http()
+    binding = await enroll(http, KEY)
+    diagnostics: list[dict[str, Any]] = []
+    connector = AgentWechatConnector(
+        http, binding, KEY, run_id="AGW_TEST", diagnostic=diagnostics.append,
+        readback_seconds=0,
+    )
+    try:
+        event = connector.event(mock.append(COMMAND_A))
+        assert event is not None
+        message = reply_for(event)
+        receipt = await connector.deliver(message)
+        assert receipt.status is DeliveryStatus.ACKNOWLEDGED
+        await connector.deliver(message)
+        assert mock.posts == http.post_count == 1
+        assert [r["stage"] for r in diagnostics] == [
+            "before_send", "post_returned", "readback",
+        ]
+        assert diagnostics[-1]["match_count"] == 1
+        assert diagnostics[-1]["records"][0]["is_self"] is True
+        serialized = json.dumps(diagnostics)
+        assert mock.chat not in serialized and mock.account not in serialized
+        assert message.text not in serialized and "synthetic-token" not in serialized
+    finally:
+        await connector.close()
+
+
+async def test_timeout_diagnostic_preserves_single_unknown_attempt() -> None:
+    mock = SimulatedWechat()
+    mock.send_timeout = True
+    http = mock.http()
+    diagnostics: list[dict[str, Any]] = []
+    connector = AgentWechatConnector(
+        http, await enroll(http, KEY), KEY, diagnostic=diagnostics.append,
+    )
+    try:
+        event = connector.event(mock.append(COMMAND_A))
+        assert event is not None
+        message = reply_for(event)
+        assert (await connector.deliver(message)).status is DeliveryStatus.UNKNOWN
+        assert (await connector.deliver(message)).status is DeliveryStatus.UNKNOWN
+        assert diagnostics[-1]["stage"] == "unconfirmed"
+        assert diagnostics[-1]["post_count"] == mock.posts == 1
+        assert diagnostics[-1]["send_seconds"] >= 0
+    finally:
+        await connector.close()
+
+
 async def setup_lab(
     mock: SimulatedWechat, path: Path | None = None,
 ) -> tuple[AgentWechatConnector, Database, LabRunner]:

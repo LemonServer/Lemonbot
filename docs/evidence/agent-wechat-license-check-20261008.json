@@ -1,0 +1,15 @@
+{
+  "recorded_at_utc": "2026-10-08T05:29:11.482007+00:00",
+  "source_commit": "96c2e90c497d999bf5189a134a9b3b293731f42e",
+  "source_tree_url": "https://api.github.com/repos/thisnick/agent-wechat/git/trees/96c2e90c497d999bf5189a134a9b3b293731f42e?recursive=1",
+  "license_file_paths_found": [],
+  "root_package_json_license": null,
+  "root_package_json_private": true,
+  "rust_server_cargo_license": null,
+  "author_permission_supplied": false,
+  "source_revision_bound_to_image": false,
+  "formal_runtime_integration_enabled": false,
+  "decision": "independent_local_http_adapter_only_no_upstream_code_or_image_distribution",
+  "new_messages_sent_during_license_check": false,
+  "user_requested_local_integration_despite_unresolved_license": true
+}

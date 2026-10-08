@@ -1,0 +1,90 @@
+{
+  "run_id": "AGW_RELIABILITY_20261008_2611CBC5",
+  "mode": "live_testing",
+  "peer_confirmed": true,
+  "peer_ack_counts": [
+    1,
+    1
+  ],
+  "self_ack_count": 0,
+  "commands": [
+    {
+      "is_self_trial": false,
+      "command_count": 1,
+      "directions": [
+        false
+      ],
+      "sender_refs": [
+        "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+      ],
+      "ack_count": 1,
+      "ack_self": [
+        true
+      ],
+      "inbound_count": 1,
+      "inbound_states": [
+        "completed"
+      ],
+      "outbox_count": 1,
+      "outbox_states": [
+        "acknowledged"
+      ],
+      "attempts": [
+        1
+      ],
+      "sender_matches_persisted": true,
+      "receipts_present": true,
+      "linked_inbound": true
+    },
+    {
+      "is_self_trial": false,
+      "command_count": 1,
+      "directions": [
+        false
+      ],
+      "sender_refs": [
+        "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+      ],
+      "ack_count": 1,
+      "ack_self": [
+        true
+      ],
+      "inbound_count": 1,
+      "inbound_states": [
+        "completed"
+      ],
+      "outbox_count": 1,
+      "outbox_states": [
+        "acknowledged"
+      ],
+      "attempts": [
+        1
+      ],
+      "sender_matches_persisted": true,
+      "receipts_present": true,
+      "linked_inbound": true
+    },
+    {
+      "is_self_trial": true,
+      "command_count": 1,
+      "directions": [
+        true
+      ],
+      "sender_refs": [
+        "sender_a13be9e5f5f6628924efa67cc5155922d072f2dd043cbba07e32d716ee71c518"
+      ],
+      "ack_count": 0,
+      "ack_self": [],
+      "inbound_count": 0,
+      "inbound_states": [],
+      "outbox_count": 0,
+      "outbox_states": [],
+      "attempts": [],
+      "sender_matches_persisted": true,
+      "receipts_present": true,
+      "linked_inbound": true
+    }
+  ],
+  "channel_fully_validated": false,
+  "restart_foreground_and_soak_pending": true
+}
