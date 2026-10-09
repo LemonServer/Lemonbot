@@ -94,15 +94,25 @@ class TwoChats(SimulatedWechat):
         return super().handle(request)
 
     async def metadata(self, request: httpx.Request) -> httpx.Response:
+        assert not request.url.path.startswith("/mentions/"), (
+            "mentions must share the text snapshot"
+        )
         if request.url.path.startswith("/messages/"):
             identifier = request.url.path.removeprefix("/messages/")
             offset = request.url.params.get("offset", "0")
             rows = self.handle(
                 httpx.Request(
-                    "GET", f"http://127.0.0.1:6174/api/messages/{identifier}?limit=100&offset={offset}"
+                    "GET",
+                    f"http://127.0.0.1:6174/api/messages/{identifier}?limit=100&offset={offset}",
                 )
             ).json()
-            return httpx.Response(200, json={"accountVerified": True, "rows": rows})
+            return httpx.Response(
+                200,
+                json={
+                    "accountVerified": True,
+                    "rows": [{**r, "mentionedSelf": r.get("_mentionedSelf", False)} for r in rows],
+                },
+            )
         if request.url.path == "/changes":
             epoch = "f" * 32
             after = int(request.url.params.get("after", "0"))
@@ -179,6 +189,31 @@ async def test_idle_does_not_poll_and_notification_reads_both_bound_chats(tmp_pa
         assert sorted(e.text for e in events) == ["group question", "private question"]
         assert len({e.metadata["context_scope"] for e in events}) == 2
         assert await transport.poll() == []
+    finally:
+        await transport.close()
+
+
+async def test_missing_atomic_mention_metadata_pauses_group(tmp_path: Path) -> None:
+    mock = TwoChats()
+    transport = await setup(mock, tmp_path)
+    child = next(c for c in transport.children.values() if c.target.is_group)
+
+    async def missing(request: httpx.Request) -> httpx.Response:
+        response = await mock.metadata(request)
+        payload = response.json()
+        for row in payload["rows"]:
+            row.pop("mentionedSelf", None)
+        return httpx.Response(200, json=payload)
+
+    try:
+        mock.add(mock.group, "@self 请记住青柠", mention=True)
+        async with httpx.AsyncClient(
+            base_url="http://127.0.0.1:6175", transport=httpx.MockTransport(missing)
+        ) as metadata:
+            child.metadata = metadata
+            with pytest.raises(LabPaused, match="MentionMetadataUnavailable"):
+                await child.page()
+        assert mock.posts == 0
     finally:
         await transport.close()
 

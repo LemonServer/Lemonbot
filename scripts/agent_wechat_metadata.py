@@ -214,6 +214,7 @@ class SourceReader:
             key,
             "SELECT m.local_id,m.server_id,m.local_type,m.create_time,"  # noqa: S608 -- fixed MD5 table name and bounded integer offset
             "hex(m.message_content) AS content,m.WCDB_CT_message_content AS compressed,"
+            "hex(m.source) AS source,m.WCDB_CT_source AS source_compressed,"
             'n.user_name AS sender FROM "' + table + '" m LEFT JOIN Name2Id n '
             "ON m.real_sender_id=n.rowid ORDER BY m.create_time DESC,m.local_id DESC "
             "LIMIT 100 OFFSET " + str(offset),
@@ -241,6 +242,12 @@ class SourceReader:
                     "sender": sender,
                     "type": message_type,
                     "content": text,
+                    "mentionedSelf": mentioned_self(
+                        decode_source(row["source"] or "", row["source_compressed"] or 0),
+                        self.canonical_identity,
+                    )
+                    if chat_id.endswith("@chatroom")
+                    else False,
                     "timestamp": datetime.fromtimestamp(
                         row["create_time"], timezone.utc  # noqa: UP017 -- container Python 3.10
                     ).isoformat(),

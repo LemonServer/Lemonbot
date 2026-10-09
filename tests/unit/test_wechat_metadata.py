@@ -168,17 +168,21 @@ def test_snapshot_messages_preserve_sender_and_strip_only_confirmed_group_prefix
                 "local_type": 0x100000001,
                 "create_time": 1700000000,
                 "sender": "peer",
-                "content": b"peer:\nnew synthetic text".hex(),
+                "content": 'peer:\n修复验收：请记住群聊短词“青柠”，用一句话确认。'.encode().hex(),
                 "compressed": 0,
+                "source": b"<msgsource><atuserlist>self</atuserlist></msgsource>".hex(),
+                "source_compressed": 0,
             }
         ],
     )
     group = reader.messages("group@chatroom", 0)
     assert group["accountVerified"] is True
-    assert group["rows"][0]["content"] == "new synthetic text"
+    assert group["rows"][0]["content"] == '修复验收：请记住群聊短词“青柠”，用一句话确认。'
     assert group["rows"][0]["sender"] == "peer"
     assert group["rows"][0]["isSelf"] is False
     assert group["rows"][0]["type"] == 1
+    assert group["rows"][0]["mentionedSelf"] is True
+    assert reader.messages("peer", 0)["rows"][0]["mentionedSelf"] is False
     assert reader.messages("peer", 0)["rows"][0]["content"].startswith("peer:\n")
     with pytest.raises(ValueError, match="TargetNotBound"):
         reader.messages("unrelated", 0)

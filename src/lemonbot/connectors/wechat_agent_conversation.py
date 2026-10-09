@@ -220,28 +220,13 @@ class ConversationTransport(AgentWechatConnector):
             self.pause("MessageSnapshotUnavailable")
         if self.target.is_group:
             try:
-                response = await self.metadata.get(
-                    "/mentions/" + quote(self.binding.chat_id, safe=""),
-                    params={"ids": ",".join(str(r["localId"]) for r in rows)},
-                )
-                response.raise_for_status()
-                payload = response.json()
-                if payload.get("accountVerified") is not True:
-                    raise ValueError
-                mentions = {}
-                for entry in payload["rows"]:
-                    if (
-                        type(entry.get("localId")) is not int
-                        or type(entry.get("mentionedSelf")) is not bool
-                    ):
+                # Content and source metadata belong to the same validated
+                # snapshot; a second query would add latency and a race.
+                for row in rows:
+                    if type(row.get("mentionedSelf")) is not bool:
                         raise ValueError
-                    if entry["localId"] in mentions:
-                        raise ValueError
-                    mentions[entry["localId"]] = entry["mentionedSelf"]
-                if set(mentions) != {r["localId"] for r in rows}:
-                    raise ValueError
-                rows = [{**r, "_mentionedSelf": mentions[r["localId"]]} for r in rows]
-            except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                rows = [{**r, "_mentionedSelf": r["mentionedSelf"]} for r in rows]
+            except ValueError:
                 self.pause("MentionMetadataUnavailable")
         return rows
 

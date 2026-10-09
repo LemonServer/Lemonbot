@@ -97,5 +97,29 @@
     "ruff_passed": true,
     "mypy_source_files_passed": 114,
     "waiting_for_two_new_peer_messages": true
+  },
+  "conversation_reply_followup": {
+    "recorded_date": "2026-10-09",
+    "group_and_private_receipts": "acknowledged",
+    "attempts_each": 1,
+    "user_confirmed_simplified_instructions": true,
+    "content_truncation_observed": false,
+    "context_live_acceptance_complete": false,
+    "old_unknown_retried": false,
+    "latency_seconds": {
+      "group_inbound_to_receipt": 77.48,
+      "private_inbound_to_receipt": 66.1,
+      "group_dispatch_to_receipt": 36.32,
+      "private_dispatch_to_receipt": 29.07
+    },
+    "optimization": "text_and_mentions_in_same_validated_snapshot",
+    "before_group_read_seconds": 6.261,
+    "after_group_read_seconds": [
+      3.725,
+      3.054,
+      3.724
+    ],
+    "optimized_end_to_end_verified": false,
+    "targeted_tests_passed": 34
   }
 }
