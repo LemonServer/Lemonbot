@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline_name": "historical-fixed-20261008",
-  "recorded_at_utc": "2026-10-08T07:30:57.087560+00:00",
+  "recorded_at_utc": "2026-10-09T06:29:07.588955+00:00",
   "recorded_timezone": "Asia/Shanghai",
   "host": {
     "os": "Ubuntu 24.04.3 LTS",
@@ -152,11 +152,16 @@
     "historical_pause_code": "AmbiguousReadback",
     "last_foreground_guard_code": null,
     "foreground_resume_pending": false,
-    "formal_runtime_live_enabled": true,
-    "formal_runtime_live_passed": false,
+    "formal_runtime_live_enabled": false,
+    "formal_runtime_live_passed": true,
     "sender_stable_after_restart": true,
     "formal_runtime_first_e2e_passed": true,
-    "foreground_pause_resume_passed": true
+    "foreground_pause_resume_passed": true,
+    "formal_runtime_restart_e2e_passed": true,
+    "formal_runtime_pause_resume_passed": true,
+    "formal_runtime_soak_passed": false,
+    "formal_runtime_shortened_observation_user_accepted": true,
+    "formal_runtime_soak_elapsed_seconds": 744.2489354600002
   },
   "sensitive_state_in_repository": false,
   "lemonbot_code_commit": "215bcdb3c33d5b8d9ec9d6e4c62c44bbc5f402b2"

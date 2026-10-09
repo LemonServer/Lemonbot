@@ -1,7 +1,6 @@
 # 项目文档索引
 
-更新：2026-10-08。当前结论是**新受控单条、连续与 self 实机通过，重启新指令通过，前台恢复/观察待验证**。
-正式 runtime 代码与模拟检查已完成，实机启用仍等待完整通道验收。
+更新：2026-10-09。**正式 runtime 接入验收通过**，限人工登录、前台 testing 单群合成指令，模型及工具关闭。
 
 ## 当前文档
 
@@ -30,7 +29,14 @@
 | [受控单条](evidence/agent-wechat-controlled-single-20261008.json) | 一次 POST、一条新 self ACK、对端确认 |
 | [连续与 self](evidence/agent-wechat-continuous-self-20261008.json) | 两条分别回复一次，self 已读但不回复 |
 | [重启收发](evidence/agent-wechat-restart-e2e-20261008.json) | 新指令各一次 ACK，sender 稳定，UNKNOWN 不重发 |
-| [本轮 runtime 阶段](evidence/agent-wechat-runtime-stage-20261008.json) | 代码检查通过，重启后实机步骤仍待完成 |
+| [本轮 runtime 阶段](evidence/agent-wechat-runtime-stage-20261008.json) | 代码及限定实机验收通过，包含程序重启、暂停恢复和观察 |
+| [独立入口稳定观察](evidence/agent-wechat-lab-soak-20261008.json) | 实际 1804.7 秒，52 次采样，计数稳定 |
+| [正式首条收发](evidence/agent-wechat-runtime-first-e2e-20261008.json) | 一次 POST、一条精确确认 ACK |
+| [正式重启收发](evidence/agent-wechat-runtime-restart-e2e-20261009.json) | 程序重启后新指令回复一次，身份稳定 |
+| [持久暂停](evidence/agent-wechat-runtime-pause-restart-20261009.json) | 暂停跨程序重启保留，管理台可用 |
+| [暂停指令与恢复](evidence/agent-wechat-runtime-paused-command-20261009.json) | 暂停指令不处理，显式恢复建立基线 |
+| [恢复后收发](evidence/agent-wechat-runtime-resume-e2e-20261009.json) | 新指令回复一次 |
+| [正式稳定观察](evidence/agent-wechat-runtime-soak-20261009.json) | 22 次正常采样、约 12 分钟，用户提前结束并接受，完整三十分钟未完成 |
 | [磁盘清理](evidence/disk-cleanup-20261008.json) | 仅清理缓存/未使用的淘汰扩展，保留微信数据与镜像 |
 
 ## 历史设计与研究

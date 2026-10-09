@@ -13,5 +13,7 @@
     "tool_execution_rows": 0
   },
   "independent_database": true,
-  "lab_database_preserved": true
+  "lab_database_preserved": true,
+  "snapshot_context": "captured during first live command dispatch; not the empty initial baseline",
+  "initial_empty_database_verified": true
 }

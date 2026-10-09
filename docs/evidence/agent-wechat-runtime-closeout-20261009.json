@@ -1,0 +1,40 @@
+{
+  "recorded_at_utc": "2026-10-09T06:28:40.689575+00:00",
+  "service_stopped": true,
+  "sticky_pause_reason": "ManualPause",
+  "runtime_database": {
+    "inbox": {
+      "completed": 3
+    },
+    "outbox": {
+      "acknowledged": 3
+    },
+    "unknown_attempts": [],
+    "runtime_paused": true,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "original_lab_database": {
+    "inbox": {
+      "completed": 9
+    },
+    "outbox": {
+      "acknowledged": 7,
+      "unknown": 2
+    },
+    "unknown_attempts": [
+      1,
+      1
+    ],
+    "runtime_paused": false,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "volumes_and_account_data_retained": true,
+  "service_state": {
+    "Result": "exit-code",
+    "ExecMainStatus": "143",
+    "ActiveState": "failed",
+    "SubState": "failed"
+  }
+}

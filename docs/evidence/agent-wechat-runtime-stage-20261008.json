@@ -1,11 +1,10 @@
 {
-  "recorded_at_utc": "2026-10-08T07:30:57.087560+00:00",
+  "recorded_at_utc": "2026-10-09T06:29:07.588955+00:00",
   "code_commit": "215bcdb3c33d5b8d9ec9d6e4c62c44bbc5f402b2",
   "effective_work_budget_seconds": 21600,
-  "elapsed_work_upper_bound_seconds": 2663,
   "budget_exhausted": false,
-  "awaiting": "formal_runtime_restart_new_canary",
-  "live_runtime_enabled": true,
+  "awaiting": null,
+  "live_runtime_enabled": false,
   "code_checks": {
     "pytest_passed": 475,
     "ruff_passed": true,
@@ -39,11 +38,47 @@
     1
   ],
   "stopped_lab_service": "lemonbot-agent-wechat-controlled-20261008.service",
-  "result": "code_passed_live_pending",
+  "result": "formal_runtime_passed_user_adjusted_observation",
   "free_gib": 20.71,
   "active_lab_service": null,
   "independent_channel_fully_passed": true,
-  "active_runtime_service": "lemonbot-agent-wechat-runtime-20261008.service",
+  "active_runtime_service": null,
   "formal_runtime_first_e2e_passed": true,
-  "formal_program_restart_no_replay": true
+  "formal_program_restart_no_replay": true,
+  "formal_runtime_restart_e2e_passed": true,
+  "formal_pause_survives_program_restart": true,
+  "formal_admin_available_while_paused": true,
+  "formal_paused_command_no_processing_passed": true,
+  "formal_explicit_resume_verified": true,
+  "budget_record_note": "user waits and idle overnight excluded; prior elapsed upper-bound field removed because it was stale",
+  "formal_runtime_pause_resume_passed": true,
+  "formal_runtime_soak_passed": false,
+  "formal_runtime_shortened_observation_user_accepted": true,
+  "formal_runtime_soak_elapsed_seconds": 744.2489354600002,
+  "formal_runtime_observation_snapshot": {
+    "inbox": {
+      "completed": 3
+    },
+    "outbox": {
+      "acknowledged": 3
+    },
+    "unknown_attempts": [],
+    "runtime_paused": false,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "closeout_snapshot": {
+    "inbox": {
+      "completed": 3
+    },
+    "outbox": {
+      "acknowledged": 3
+    },
+    "unknown_attempts": [],
+    "runtime_paused": true,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "formal_runtime_full_thirty_minute_window_completed": false,
+  "formal_runtime_observation_samples": 22
 }

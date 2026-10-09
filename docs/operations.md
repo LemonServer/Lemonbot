@@ -1,10 +1,7 @@
 # Linux 操作与历史 Observe 参考
 
-> 当前验收进度（2026-10-08 15:31）：独立通道完整验收已通过（实际 1804.7 秒稳定观察）；正式 runtime 首条实机收发通过，一次 POST、一条精确确认 ACK、模型/工具为零。仅重启正式程序后无旧消息重放；重启后新指令、管理台暂停恢复及正式入口三十分钟观察待验收。仓库默认配置继续关闭。
-
-当前 agent-wechat 实验按 [固定环境与恢复手册](environment-baseline.md)及
-[Linux 计划](../PLAN_linux.md)执行。新标记单条、连续与 self 通过，重启新指令通过，独立入口前台/观察通过；
-默认关闭的正式入口见 [runtime 手册](wechat-agent-runtime.md)；
+> 更新：2026-10-09。正式 runtime 接入验收通过：testing 单群合成指令收发、程序重启、持久暂停及显式恢复均通过，正式入口完成约 12 分钟稳定采样，用户决定提前结束并接受结果（未完成原定三十分钟窗口）。仓库默认配置继续关闭，模型和工具关闭，仍需人工登录并保持 testing 前台。
+当前正式入口验收通过，默认关闭。按 [固定环境](environment-baseline.md)、[Linux 计划](../PLAN_linux.md)及 [runtime 手册](wechat-agent-runtime.md)恢复，必须显式核验通道。
 本页以下原生 AT-SPI / Observe 命令属于历史参考，不是容器实验的启动说明。
 
 原生路线的实现和实机结论见 [`linux-wechat-current-status.md`](linux-wechat-current-status.md)。

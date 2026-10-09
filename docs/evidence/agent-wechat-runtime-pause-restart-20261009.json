@@ -1,0 +1,19 @@
+{
+  "recorded_at_utc": "2026-10-09T06:12:15.580134+00:00",
+  "phase": "paused_after_program_restart",
+  "pause_reason": "ManualPause",
+  "admin_available": true,
+  "snapshot": {
+    "inbox": {
+      "completed": 2
+    },
+    "outbox": {
+      "acknowledged": 2
+    },
+    "unknown_attempts": [],
+    "runtime_paused": true,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  },
+  "passed": true
+}

@@ -65,7 +65,7 @@ uv run --locked python -m lemonbot.research.agent_wechat_stability \
   --unit lemonbot-agent-wechat-runtime-20261008.service \
   --database "$HOME/.local/share/Lemonbot-agent-wechat-20261008/lab.db" \
   --token-file "$HOME/.local/state/lemonbot/agent-wechat-reproduction/api-token" \
-  --output-name runtime-soak-20261008.json
+  --output-name runtime-soak-20261009.json
 ```
 
 结果写入私有绑定目录，终端只输出耗时、样本数和固定状态码。CLI 最短观察为 1800 秒，
@@ -74,3 +74,10 @@ uv run --locked python -m lemonbot.research.agent_wechat_stability \
 本次切到通讯录/其他会话时，用户确认微信仍登录，但上游 /api/status/auth 返回 logged_out，账号
 标识仍存在；切回 testing 后恢复 logged_in。适配器保持严格认证检查，以 NotLoggedIn
 暂停；没有把这种状态变化当作账号注销，也不放宽身份或前台门禁。
+
+## 本轮验收与停止状态（2026-10-09）
+
+正式入口收发、程序重启、持久暂停与显式恢复通过。稳定观察完成 22 次正常采样（744.25 秒）；用户要求提前结束并接受，完整三十分钟窗口未完成。
+验收后通过管理台暂停并停止 transient 实验服务，固定微信容器及原数据卷保留。
+下次按正常 CLI 启动时，ManualPause 仍保留；先将 testing 保持前台，再由管理台显式核验恢复。
+仓库示例配置默认关闭；没有启用开机启动或常驻产品服务。

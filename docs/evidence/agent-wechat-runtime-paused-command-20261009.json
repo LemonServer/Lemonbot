@@ -1,0 +1,41 @@
+{
+  "recorded_at_utc": "2026-10-09T06:13:14.154385+00:00",
+  "run_id": "AGW_RUNTIME_PAUSED_20261009_72643EA6",
+  "mode": "live_testing",
+  "guard_passed": true,
+  "command_count": 1,
+  "command_is_self": [
+    false
+  ],
+  "sender_refs": [
+    "sender_d9f9e861e7bc7aee3f348e409280769659ebf3f8f2c396d5c979a368fe32b543"
+  ],
+  "ack_count": 0,
+  "ack_is_self": [],
+  "inbound_states": [],
+  "outbox_states": [],
+  "attempts": [],
+  "receipts_present": true,
+  "inbound_linked": true,
+  "sender_matches_persisted": true,
+  "old_unknown_attempts": [],
+  "diagnostics": [],
+  "peer_confirmed": false,
+  "model_io_started_count": 0,
+  "tool_execution_rows": 0,
+  "paused_command_no_processing_passed": true,
+  "explicit_resume_status_code": 200,
+  "sticky_pause_removed": true,
+  "post_resume_snapshot": {
+    "inbox": {
+      "completed": 2
+    },
+    "outbox": {
+      "acknowledged": 2
+    },
+    "unknown_attempts": [],
+    "runtime_paused": false,
+    "model_io_started_count": 0,
+    "tool_execution_rows": 0
+  }
+}
