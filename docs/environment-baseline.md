@@ -40,9 +40,15 @@ ghcr.io/thisnick/agent-wechat@sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda85
 | 数据卷 | `lemonbot-agent-wechat-repro-data` → `/data` |
 | 用户卷 | `lemonbot-agent-wechat-repro-home` → `/home/wechat` |
 | API/VNC | `127.0.0.1:6174`；不映射公网 |
+| 界面时区 | `Asia/Shanghai`（UTC+8）；API 保留带时区的 UTC 时间戳 |
 | 特权 | 非 privileged，仅额外 `SYS_PTRACE`；上游需要 `seccomp=unconfined` |
 | 重启策略 | `no`；本机恢复须显式启动，宿主重启恢复尚未实测 |
 | VNC 输入 | x11vnc `viewonly=0`；浏览器 Connect 仅建立查看连接 |
+
+2026-10-09 已将现有容器 `/etc/localtime` 与 `/etc/timezone` 设置为上海时区，未重启微信。
+现有微信进程未设置 TZ 覆盖值；容器本地时间核验为 +0800。新诊断消息的界面时间已显示 20:10，
+对应 API 的 12:10 UTC，确认新消息显示生效。部分旧时间标签仍保持原值，未强制重启刷新。
+固定版启动脚本会在创建时设置 TZ，并核验现有容器的时区文件，避免重建后回到 UTC。
 
 宿主不挂载微信目录、Docker socket 或个人目录。账号登录仍可能同步其他会话；容器不提供
 群级数据隔离。实验只从绑定的 testing 消息接口处理合成命令，不输出无关聊天。

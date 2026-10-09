@@ -109,6 +109,7 @@ def restore() -> None:
         command([
             'docker', 'run', '--detach', '--name', repro.CONTAINER, '--pull=never',
             '--restart=no', '--stop-timeout=15', '--label', 'io.lemonbot.agent-wechat-repro=1',
+            '--env', 'TZ=Asia/Shanghai',
             '--cap-add=SYS_PTRACE', '--security-opt=seccomp=unconfined',
             '--publish', '127.0.0.1:6174:6174',
             '--mount', f'type=volume,src={repro.DATA_VOLUME},dst=/data',
@@ -119,6 +120,13 @@ def restore() -> None:
     if not current:
         raise RuntimeError('ContainerMissingAfterStart')
     repro.validate_container(current, lock)
+    command([
+        'docker', 'exec', repro.CONTAINER, 'python3', '-c',
+        "from pathlib import Path; z=Path('/usr/share/zoneinfo/Asia/Shanghai'); "
+        "assert z.is_file(); p=Path('/etc/localtime'); "
+        "p.unlink(missing_ok=True); p.symlink_to(z); "
+        "Path('/etc/timezone').write_text('Asia/Shanghai\\n')",
+    ])
     report(container_started=True, fixed_image=True, original_volumes=True,
            started_at=current.get('State', {}).get('StartedAt'))
     deadline = time.monotonic() + 90
