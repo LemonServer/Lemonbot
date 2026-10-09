@@ -121,5 +121,53 @@
     ],
     "optimized_end_to_end_verified": false,
     "targeted_tests_passed": 34
+  },
+  "shortword_acceptance": {
+    "recorded_date": "2026-10-09",
+    "user_report": "success",
+    "group_reply_contains_lime": true,
+    "private_reply_contains_paper": true,
+    "receipts_each": "acknowledged",
+    "send_attempts_each": 1,
+    "inbound_to_receipt_seconds": {
+      "group": 58.86,
+      "private": 65.72
+    },
+    "dispatch_to_receipt_seconds": {
+      "group": 26.48,
+      "private": 29.67
+    },
+    "restart_preserved_manual_pause": true,
+    "restart_queue_depth": 0,
+    "old_unknown_outbox": 1,
+    "restart_context_followup_pending": true
+  },
+  "final_acceptance": {
+    "recorded_date": "2026-10-09",
+    "result": "ready_for_bound_group_and_private_text",
+    "user_report": "success",
+    "restart_group_reply": "synthetic_lime_keyword_only",
+    "restart_private_reply": "synthetic_paper_keyword_only",
+    "followup_prompts_contain_answer": false,
+    "receipt_state_each": "acknowledged",
+    "send_attempts_each": 1,
+    "active_outbox": 0,
+    "old_unknown_outbox": 1,
+    "old_unknown_retried": false,
+    "channel_paused": false,
+    "target_pause_reasons": [],
+    "inbound_to_receipt_seconds": {
+      "group": 63.75,
+      "private": 59.88
+    },
+    "host_reboot_recovery_verified": false,
+    "validation": {
+      "tests_passed": 531,
+      "ruff": "passed",
+      "mypy_source_files": 114,
+      "lock_check": "passed_offline",
+      "validated_code_commit": "954d00c",
+      "known_test_warnings": 1
+    }
   }
 }

@@ -1,6 +1,7 @@
 # 固定环境与恢复手册
 
-> 更新：2026-10-09。正式 runtime 接入验收通过：testing 单群合成指令收发、程序重启、持久暂停及显式恢复均通过，正式入口完成约 12 分钟稳定采样，用户决定提前结束并接受结果（未完成原定三十分钟窗口）。仓库默认配置继续关闭，模型和工具关闭，仍需人工登录并保持 testing 前台。
+> 更新：2026-10-09。testing 真 @ 与一个白名单私聊的模型回复、上下文隔离及程序重启延续实机通过，服务保持运行；仓库默认关闭。日常入口见 [conversation 手册](wechat-agent-conversation.md)，下文旧 canary 启动路径仍保留。宿主重启自动恢复未验收。
+
 基线：`historical-fixed-20261008`，2026-10-08 本机读取确认。
 机器可读清单见 [environment-baseline.json](../research/agent-wechat/environment-baseline.json)，
 制品锁见 [artifact-lock.json](../research/agent-wechat/artifact-lock.json)。
@@ -17,7 +18,8 @@
 | 容器系统 | Ubuntu 22.04.5 LTS，AMD64 |
 | 容器微信 | `wechat=4.1.13.23` |
 | 容器图形能力 | x11vnc 0.9.16-8；Xvfb 21.1.4 系列；libatspi 2.44.0-3 |
-| 适配器 | 轮询睡眠 2 秒；每页 100、最多 10 页；GET 等待 10 秒、发送等待 25 秒；UNKNOWN 不重发 |
+| 日常 conversation | inotify 变更通知＋60 秒补偿；每页 100、最多 10 页；消息及提及同快照；UNKNOWN 不重发 |
+| 历史 canary | 轮询睡眠 2 秒；GET 等待 10 秒、发送等待 25 秒；UNKNOWN 不重发 |
 
 宿主原生微信研究记录中的 **4.1.1.8** 与容器微信 **4.1.13.23** 属于不同环境。
 历史固定版指固定镜像 digest，并不表示容器微信是 4.1.1.8。
