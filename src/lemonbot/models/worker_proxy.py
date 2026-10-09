@@ -18,6 +18,7 @@ from lemonbot.domain.models import (
     Unsupported,
 )
 from lemonbot.ipc import Envelope, IPCError, read_frame, write_frame
+from lemonbot.models.account import AccountBalance
 from lemonbot.models.budget import BudgetManager
 from lemonbot.models.config import DeterministicRouter
 from lemonbot.models.gateway import (
@@ -27,6 +28,8 @@ from lemonbot.models.gateway import (
 )
 from lemonbot.models.schema import ToolSchemaRegistry
 from lemonbot.models.worker_protocol import (
+    MODEL_BALANCE,
+    MODEL_BALANCE_RESULT,
     MODEL_ERROR,
     MODEL_GENERATE,
     MODEL_INIT,
@@ -36,6 +39,7 @@ from lemonbot.models.worker_protocol import (
     MODEL_VERIFY_RESULT,
     WORKER_SHUTDOWN,
     WORKER_STOPPED,
+    ModelBalanceResult,
     ModelGenerateRequest,
     ModelGenerateResult,
     ModelVerifyResult,
@@ -421,6 +425,17 @@ class IsolatedModelBackend:
                 self._settle_budget(reservation.reservation_id, response)
             )
             return response
+
+    async def account_balance(self) -> AccountBalance:
+        async with self._request_lock:
+            try:
+                envelope = await self._rpc(MODEL_BALANCE, {}, expected=MODEL_BALANCE_RESULT)
+                return validate_payload(ModelBalanceResult, envelope.payload).balance
+            except _RemoteFailure as exc:
+                self._raise_remote(exc.error)
+            except ValueError:
+                await self._terminate()
+                raise ModelWorkerUnavailable("worker balance response was invalid") from None
 
     async def verify_models(self) -> tuple[str, ...]:
         async with self._request_lock:

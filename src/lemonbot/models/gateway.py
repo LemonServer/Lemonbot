@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from lemonbot.domain.models import (
     MessageRole,
@@ -19,6 +21,7 @@ from lemonbot.domain.models import (
     Unsupported,
 )
 
+from .account import AccountBalance
 from .budget import BudgetManager
 from .config import DeterministicRouter, ProviderConfig
 from .schema import ToolCallValidationError, ToolSchemaRegistry
@@ -144,6 +147,35 @@ class OpenAICompatibleBackend:
             total += len(encoded) + 64
         return total
 
+    async def account_balance(self) -> AccountBalance:
+        """Query the official account endpoint without spending model tokens."""
+        if (
+            self._config.provider != "deepseek"
+            or self._config.base_url != "https://api.deepseek.com"
+        ):
+            raise ModelProtocolError("balance query requires the official DeepSeek endpoint")
+        if self._config.secret_name is None:
+            raise ModelProtocolError("balance query requires a credential")
+        key = await require_secret(self._secret_store, self._config.secret_name)
+        try:
+            response = await self._client.get(
+                "https://api.deepseek.com/user/balance",
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=10,
+            )
+        except httpx.TransportError:
+            raise ModelTransportError("account balance query failed") from None
+        if response.is_error:
+            raise ModelTransportError(f"account balance query returned HTTP {response.status_code}")
+        try:
+            payload = response.json()
+            if not isinstance(payload, dict) or type(payload.get("is_available")) is not bool:
+                raise ValueError
+            payload["fetched_at"] = datetime.now(UTC)
+            return AccountBalance.model_validate(payload)
+        except (ValueError, ValidationError):
+            raise ModelProtocolError("account balance response was invalid") from None
+
     async def verify_models(self) -> tuple[str, ...]:
         """Authenticate and confirm both deterministically routed model IDs.
 
@@ -260,6 +292,8 @@ class OpenAICompatibleBackend:
             payload["response_format"] = {"type": "json_object"}
         if thinking:
             payload["thinking"] = {"type": "enabled"}
+        elif self._config.provider == "deepseek":
+            payload["thinking"] = {"type": "disabled"}
         return payload
 
     @staticmethod

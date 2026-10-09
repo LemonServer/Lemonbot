@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from lemonbot.domain.models import ModelRequest, ModelResponse, Unsupported
 from lemonbot.ipc import Envelope, IPCError, read_frame_sync, write_frame_sync
+from lemonbot.models.account import AccountBalance
 from lemonbot.models.budget import BudgetLimits, BudgetManager, ModelPrice
 from lemonbot.models.gateway import (
     ModelProtocolError,
@@ -22,6 +23,8 @@ from lemonbot.models.gateway import (
 from lemonbot.models.schema import ToolCallValidationError, ToolSchemaError
 from lemonbot.models.secrets import MappingSecretStore, SecretNotFoundError, SecretStore
 from lemonbot.models.worker_protocol import (
+    MODEL_BALANCE,
+    MODEL_BALANCE_RESULT,
     MODEL_ERROR,
     MODEL_GENERATE,
     MODEL_INIT,
@@ -32,6 +35,7 @@ from lemonbot.models.worker_protocol import (
     WORKER_SHUTDOWN,
     WORKER_STOPPED,
     EmptyWorkerRequest,
+    ModelBalanceResult,
     ModelGenerateRequest,
     ModelGenerateResult,
     ModelVerifyResult,
@@ -50,6 +54,8 @@ from lemonbot.security.secrets import (
 
 
 class _WorkerBackend(Protocol):
+    async def account_balance(self) -> AccountBalance: ...
+
     async def generate(self, request: ModelRequest) -> ModelResponse: ...
 
     async def verify_models(self) -> tuple[str, ...]: ...
@@ -249,6 +255,32 @@ class ModelWorkerService:
                 return 0
             if envelope.message_type == MODEL_GENERATE:
                 await self._generate(envelope)
+                continue
+            if envelope.message_type == MODEL_BALANCE:
+                assert self._backend is not None
+                try:
+                    validate_payload(EmptyWorkerRequest, envelope.payload)
+                    balance = await self._backend.account_balance()
+                except (ValidationError, ValueError):
+                    await self._error(envelope, code="invalid_request", provider_call_started=False)
+                except (SecretNotFoundError, SecretStoreError):
+                    await self._error(
+                        envelope, code="credential_unavailable", provider_call_started=False
+                    )
+                except ModelTransportError:
+                    await self._error(
+                        envelope, code="provider_transport", provider_call_started=True
+                    )
+                except ModelProtocolError:
+                    await self._error(
+                        envelope, code="provider_protocol", provider_call_started=True
+                    )
+                except Exception:
+                    await self._error(envelope, code="internal", provider_call_started=True)
+                else:
+                    await self._reply(
+                        envelope, MODEL_BALANCE_RESULT, ModelBalanceResult(balance=balance)
+                    )
                 continue
             if envelope.message_type == MODEL_VERIFY:
                 assert self._backend is not None

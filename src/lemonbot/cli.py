@@ -1653,3 +1653,39 @@ def secret_delete(
         typer.echo("Linux Secret Service 不可用或仍处于锁定状态。", err=True)
         raise typer.Exit(1) from None
     typer.echo("已删除。" if deleted else "该凭据不存在。")
+
+@app.command("model-balance")
+def model_balance(profile: Literal["lab", "prod"] = typer.Option("lab", "--profile")) -> None:
+    """Query DeepSeek account balance through the isolated credential worker."""
+    from decimal import Decimal
+
+    from lemonbot.models.budget import BudgetLimits, BudgetManager
+    from lemonbot.models.config import ProviderConfig
+    from lemonbot.models.worker_protocol import ModelWorkerConfig
+    from lemonbot.models.worker_proxy import IsolatedModelBackend
+
+    if profile not in {"lab", "prod"}:
+        raise typer.Exit(2)
+
+    async def query() -> None:
+        backend = await IsolatedModelBackend.create(
+            config=ModelWorkerConfig(
+                profile=profile,
+                provider=ProviderConfig.deepseek(),
+                verify_models_on_startup=False,
+            ),
+            budget=BudgetManager(limits=BudgetLimits(Decimal("5"), Decimal("100")), prices={}),
+        )
+        try:
+            result = await backend.account_balance()
+            typer.echo(result.model_dump_json())
+        finally:
+            await backend.aclose()
+
+    try:
+        asyncio.run(query())
+    except Exception:
+        typer.echo(
+            "DeepSeek balance query unavailable; local spending limits are unchanged.", err=True
+        )
+        raise typer.Exit(1) from None

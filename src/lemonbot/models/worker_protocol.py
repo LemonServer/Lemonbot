@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lemonbot.domain.models import ModelRequest, ModelResponse
+from lemonbot.models.account import AccountBalance
 from lemonbot.models.config import DEEPSEEK_BASE_URL, ProviderConfig
 
 MODEL_INIT = "model.init"
@@ -19,6 +20,8 @@ MODEL_GENERATE = "model.generate"
 MODEL_RESULT = "model.result"
 MODEL_VERIFY = "model.verify"
 MODEL_VERIFY_RESULT = "model.verify_result"
+MODEL_BALANCE = "model.balance"
+MODEL_BALANCE_RESULT = "model.balance_result"
 MODEL_ERROR = "model.error"
 WORKER_SHUTDOWN = "worker.shutdown"
 WORKER_STOPPED = "worker.stopped"
@@ -85,6 +88,10 @@ class ModelGenerateResult(WorkerPayload):
 
 class ModelVerifyResult(WorkerPayload):
     model_ids: tuple[ModelId, ...] = Field(max_length=10_000)
+
+
+class ModelBalanceResult(WorkerPayload):
+    balance: AccountBalance
 
 
 WorkerErrorCode = Literal[
