@@ -930,6 +930,8 @@ class CoreRepository:
         *,
         limit: int = 20,
         through_external_id: str | None = None,
+        context_scope: str | None = None,
+        confirmed_only: bool = False,
     ) -> list[ConversationMessage]:
         if limit < 1 or limit > 500:
             raise ValueError("limit must be between 1 and 500")
@@ -950,6 +952,24 @@ class CoreRepository:
             query = select(MessageRow).where(
                 MessageRow.channel == channel, MessageRow.chat_id == chat_id
             )
+            if context_scope is not None:
+                query = query.where(
+                    func.json_extract(MessageRow.metadata_json, "$.context_scope") == context_scope
+                )
+            if confirmed_only:
+                query = query.where(
+                    or_(
+                        MessageRow.role == MessageRole.USER.value,
+                        exists(
+                            select(OutboxRow.id).where(
+                                OutboxRow.channel == MessageRow.channel,
+                                OutboxRow.chat_id == MessageRow.chat_id,
+                                OutboxRow.message_id == MessageRow.external_id,
+                                OutboxRow.state == OutboxState.ACKNOWLEDGED.value,
+                            )
+                        ),
+                    )
+                )
             if boundary is not None:
                 query = query.where(MessageRow.id <= boundary)
             rows = (
@@ -1035,6 +1055,25 @@ class CoreRepository:
                 }
                 for row in rows
             ]
+
+    async def has_active_outbox(self, channel: str) -> bool:
+        async with self.database.sessions() as session:
+            return bool(
+                await session.scalar(
+                    select(
+                        exists().where(
+                            OutboxRow.channel == channel,
+                            OutboxRow.state.in_(
+                                [
+                                    OutboxState.PENDING.value,
+                                    OutboxState.RESERVED.value,
+                                    OutboxState.DISPATCHING.value,
+                                ]
+                            ),
+                        )
+                    )
+                )
+            )
 
     async def runtime_counts(self) -> dict[str, int]:
         async with self.database.sessions() as session:

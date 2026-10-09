@@ -7,8 +7,9 @@ import os
 import secrets
 import subprocess
 import sys
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from contextlib import ExitStack
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -30,6 +31,7 @@ from lemonbot.connectors import (
 )
 from lemonbot.connectors.atspi_worker_proxy import AtspiWorkerSource
 from lemonbot.connectors.wechat_agent import CHANNEL, AgentWechatConnector, AgentWechatHTTP
+from lemonbot.connectors.wechat_agent_conversation import ConversationMultiplexer, load_targets
 from lemonbot.connectors.wechat_agent_runtime import RuntimeAgentWechatConnector
 from lemonbot.connectors.wechat_agent_state import (
     load_binding,
@@ -111,6 +113,7 @@ class RepositoryControl(ControlBackend):
         emergency_file: Path | None = None,
         attachment_store: AttachmentStore | None = None,
         agent_connector: RuntimeAgentWechatConnector | None = None,
+        model_account_status: Callable[[], Awaitable[dict[str, Any]]] | None = None,
     ) -> None:
         self._repository = repository
         self._profile = profile
@@ -125,6 +128,7 @@ class RepositoryControl(ControlBackend):
         self._emergency_file = emergency_file
         self._attachment_store = attachment_store
         self._agent_connector = agent_connector
+        self._model_account_status = model_account_status
 
     async def status(self) -> StatusView:
         counts = await self._repository.runtime_counts()
@@ -134,6 +138,14 @@ class RepositoryControl(ControlBackend):
         )
         channel = CHANNEL if self._agent_connector is not None else "wechat_personal_lab"
         return StatusView(
+            conversation_pauses=(
+                dict(getattr(self._agent_connector.transport, "target_pauses", {}))
+                if self._agent_connector is not None
+                else {}
+            ),
+            model_account=(
+                await self._model_account_status() if self._model_account_status else None
+            ),
             profile=self._profile,
             connector=self._connector_name,
             global_paused=await self._repository.is_paused(),
@@ -366,6 +378,8 @@ class LemonbotRuntime:
         self._mcp_clients: list[MCPStdioClient] = []
         self._worker_supervisor = WorkerSupervisor()
         self._budget: PersistentBudgetManager | None = None
+        self._account_balance: dict[str, Any] | None = None
+        self._account_balance_error: str | None = None
         self._emergency = asyncio.Event()
         self._tools: dict[str, Tool] = {}
         self._tool_scopes: frozenset[str] = frozenset()
@@ -382,8 +396,9 @@ class LemonbotRuntime:
         await self.memory.initialize()
         await self.attachments.initialize()
         observe_only = self.settings.runtime.connector == "wechat_atspi"
-        canary_only = self.settings.runtime.connector == "wechat_agent"
-        passive_services = observe_only or canary_only
+        agent_selected = self.settings.runtime.connector == "wechat_agent"
+        canary_only = agent_selected and self.settings.wechat_agent.mode == "canary"
+        passive_services = observe_only or agent_selected
         if not passive_services:
             await self.proactive_store.initialize()
         # RuntimeLock guarantees this is the only live core for the profile.
@@ -422,6 +437,12 @@ class LemonbotRuntime:
             ),
             approval_service=self.approval_service,
             side_effect_lock=self._side_effect_lock,
+            event_eligible=(
+                self.connector.transport.can_process
+                if isinstance(self.connector, RuntimeAgentWechatConnector)
+                and isinstance(self.connector.transport, ConversationMultiplexer)
+                else None
+            ),
             config=PipelineConfig(
                 profile=self.settings.profile,
                 welcome_text=None,
@@ -434,7 +455,14 @@ class LemonbotRuntime:
                 max_navigations=self.settings.limits.max_navigations,
                 max_downloads=self.settings.limits.max_downloads,
                 max_reply_chars=(
-                    self.settings.limits.max_reply_chunks * self.settings.limits.max_chunk_chars
+                    min(
+                        2000,
+                        self.settings.limits.max_reply_chunks
+                        * self.settings.limits.max_chunk_chars,
+                    )
+                    if agent_selected and not canary_only
+                    else self.settings.limits.max_reply_chunks
+                    * self.settings.limits.max_chunk_chars
                 ),
                 chunk_chars=self.settings.limits.max_chunk_chars,
                 model_max_tokens=self.settings.models.max_output_tokens,
@@ -464,6 +492,10 @@ class LemonbotRuntime:
     def _policy_config(self) -> PolicyConfig:
         limits = self.settings.limits
         return PolicyConfig(
+            quiet_enabled=not (
+                self.settings.runtime.connector == "wechat_agent"
+                and self.settings.wechat_agent.mode == "conversation"
+            ),
             timezone=self.settings.timezone,
             quiet_start=limits.quiet_start,
             quiet_end=limits.quiet_end,
@@ -482,7 +514,7 @@ class LemonbotRuntime:
     async def _seed_allowlist(self) -> None:
         chats: tuple[str, ...]
         if isinstance(self.connector, RuntimeAgentWechatConnector):
-            channel, chats = CHANNEL, (self.connector.chat_ref,)
+            channel, chats = CHANNEL, self.connector.chat_refs
         elif self.settings.runtime.connector == "wechat_atspi":
             channel, chats = (
                 "wechat_personal_lab",
@@ -518,6 +550,19 @@ class LemonbotRuntime:
                 run_id="AGW_RUNTIME_" + secrets.token_hex(8).upper(),
                 diagnostic=lambda value: logger.info("agent_send %s", value),
             )
+            if self.settings.wechat_agent.mode == "conversation":
+                targets = load_targets(
+                    state / "conversation-binding.json", transport.binding.account_ref, key
+                )
+                transport = ConversationMultiplexer(
+                    transport.http,
+                    targets,
+                    key,
+                    token,
+                    state,
+                    run_id=transport.run_id,
+                    diagnostic=lambda value: logger.info("agent_send %s", value),
+                )
             connector = RuntimeAgentWechatConnector(transport, self.repository, state)
             await connector.initialize()
             return connector
@@ -842,6 +887,7 @@ class LemonbotRuntime:
             agent_connector=(
                 self.connector if isinstance(self.connector, RuntimeAgentWechatConnector) else None
             ),
+            model_account_status=self._model_account_status,
         )
         app = create_admin_app(
             control,
@@ -875,6 +921,10 @@ class LemonbotRuntime:
             asyncio.create_task(self._process_loop(), name="inbox-processor"),
             asyncio.create_task(server.serve(), name="local-admin"),
         }
+        if self.settings.models.provider == "deepseek" and isinstance(
+            self.model, IsolatedModelBackend
+        ):
+            tasks.add(asyncio.create_task(self._model_balance_loop(), name="provider-balance"))
         if self.settings.runtime.connector != "wechat_atspi":
             tasks.add(asyncio.create_task(self._dispatch_loop(), name="outbox-dispatcher"))
             if self.proactive_runner is not None:
@@ -893,7 +943,23 @@ class LemonbotRuntime:
         assert self.pipeline is not None
         while True:
             channel = CHANNEL if isinstance(self.connector, RuntimeAgentWechatConnector) else None
-            result = await self.pipeline.process_once(channel)
+            if (
+                isinstance(self.connector, RuntimeAgentWechatConnector)
+                and self.settings.wechat_agent.mode == "conversation"
+            ):
+                if not self.connector.ready or await self.repository.has_active_outbox(CHANNEL):
+                    await asyncio.sleep(0.2)
+                    continue
+                async with self.connector.processing_operation():
+                    result = await self.pipeline.process_once(channel)
+            else:
+                result = await self.pipeline.process_once(channel)
+            if (
+                isinstance(self.connector, RuntimeAgentWechatConnector)
+                and self.settings.wechat_agent.mode == "conversation"
+                and result.status is PipelineStatus.DEAD
+            ):
+                await self.connector.pause("ModelReplyFailed")
             await asyncio.sleep(0.2 if result.status is PipelineStatus.IDLE else 0)
 
     async def _consume_loop(self) -> None:
@@ -926,6 +992,30 @@ class LemonbotRuntime:
             ):
                 await self.connector.pause("UnconfirmedSend")
             await asyncio.sleep(1 if result.status is PipelineStatus.IDLE else 0)
+
+    async def _model_account_status(self) -> dict[str, Any]:
+        spending = await self._budget.snapshot() if self._budget else None
+        return {
+            "balance": self._account_balance,
+            "balance_error": self._account_balance_error,
+            "local_usage_estimate_cny": (
+                {k: str(v) for k, v in asdict(spending).items()} if spending else None
+            ),
+            "daily_limit_cny": str(self.settings.models.budget.daily_limit_cny),
+            "monthly_limit_cny": str(self.settings.models.budget.monthly_limit_cny),
+            "account_balance_is_shared": True,
+        }
+
+    async def _model_balance_loop(self) -> None:
+        assert isinstance(self.model, IsolatedModelBackend)
+        while True:
+            try:
+                balance = await self.model.account_balance()
+                self._account_balance = balance.model_dump(mode="json")
+                self._account_balance_error = None
+            except Exception:
+                self._account_balance_error = "BalanceUnavailable"
+            await asyncio.sleep(300)
 
     async def _proactive_loop(self) -> None:
         assert self.proactive_runner is not None

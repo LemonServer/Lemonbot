@@ -123,7 +123,9 @@ async def unique_testing(http: AgentWechatHTTP) -> str:
     return matches.pop()
 
 
-def title_candidates(payload: Any) -> list[tuple[tuple[int, ...], tuple[str, ...]]]:
+def title_candidates(
+    payload: Any, title_pattern: re.Pattern[str] = TITLE
+) -> list[tuple[tuple[int, ...], tuple[str, ...]]]:
     """Enroll only a title above/right of the fixed client's semantic Chats list."""
     if not isinstance(payload, dict) or not isinstance(payload.get("tree"), dict):
         raise LabPaused("InvalidUITree")
@@ -215,7 +217,7 @@ def title_candidates(payload: Any) -> list[tuple[tuple[int, ...], tuple[str, ...
             and not blocked.intersection(roles[:-1])
             and frame_for(path) == frame_path
             and isinstance(node.get("name"), str)
-            and TITLE.fullmatch(node["name"])
+            and title_pattern.fullmatch(node["name"])
             and isinstance(bounds, dict)
             and valid_bounds(bounds)
             and list_right < bounds["x"]
@@ -235,8 +237,8 @@ def title_candidates(payload: Any) -> list[tuple[tuple[int, ...], tuple[str, ...
         outer, inner = by_path[parent], by_path[child]
         a, b = outer["bounds"], inner["bounds"]
         return bool(
-            TITLE.fullmatch(outer["name"])
-            and TITLE.fullmatch(inner["name"])
+            title_pattern.fullmatch(outer["name"])
+            and title_pattern.fullmatch(inner["name"])
             and a["x"] <= b["x"]
             and a["y"] <= b["y"]
             and b["x"] + b["width"] <= a["x"] + a["width"]
@@ -457,6 +459,18 @@ class AgentWechatConnector(Connector):
         async with self.delivery_lock:
             return await self._deliver(message)
 
+    def valid_reply(self, message: OutboundMessage) -> bool:
+        return bool(ACK.fullmatch(message.text))
+
+    async def before_send_guard(self) -> None:
+        await self.guard()
+
+    async def readback_guard(self) -> None:
+        await self.guard()
+
+    def existing_reply_blocks_send(self) -> bool:
+        return True
+
     async def _deliver(self, message: OutboundMessage) -> DeliveryReceipt:
         identifier = str(message.message_id)
         if identifier in self.attempts:
@@ -466,17 +480,19 @@ class AgentWechatConnector(Connector):
         if (
             message.channel != CHANNEL
             or message.chat_id != self.binding.chat_ref
-            or not ACK.fullmatch(message.text)
+            or not self.valid_reply(message)
         ):
             return DeliveryReceipt(
                 message_id=message.message_id,
                 status=DeliveryStatus.FAILED,
                 detail="InvalidLabReply",
             )
-        await self.guard()  # failure here is known to precede POST
+        await self.before_send_guard()  # failure here is known to precede POST
         before = await self.page()
         self.send_diagnostic("before_send", message, before)
-        if any(r.get("content") == message.text for r in before):
+        if self.existing_reply_blocks_send() and any(
+            r.get("content") == message.text for r in before
+        ):
             self.pause("AckAlreadyPresent")
         previous = {r["localId"] for r in before}
         unknown = DeliveryReceipt(
@@ -495,7 +511,7 @@ class AgentWechatConnector(Connector):
                 self.pause("SendNotConfirmedNoRetry")
             deadline = asyncio.get_running_loop().time() + self.readback_seconds
             while True:
-                await self.guard()
+                await self.readback_guard()
                 page = await self.page()
                 self.send_diagnostic("readback", message, page)
                 matches = [

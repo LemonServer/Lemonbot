@@ -307,6 +307,8 @@ class DeterministicPolicy:
         return value.astimezone(UTC)
 
     def _is_quiet(self, local_now: datetime) -> bool:
+        if not self.config.quiet_enabled:
+            return False
         current = local_now.timetz().replace(tzinfo=None)
         start = self.config.quiet_start
         end = self.config.quiet_end

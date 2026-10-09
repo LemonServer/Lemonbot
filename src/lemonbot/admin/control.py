@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
@@ -36,6 +36,8 @@ class StatusView(BaseModel):
     attachment_capacity_reason: str | None = None
     attachment_free_bytes: int | None = None
     started_at: datetime
+    model_account: dict[str, Any] | None = None
+    conversation_pauses: dict[str, str] = {}
 
 
 class ControlBackend(Protocol):

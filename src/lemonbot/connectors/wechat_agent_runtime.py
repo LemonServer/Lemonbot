@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from lemonbot.connectors.base import Connector
@@ -35,6 +36,8 @@ class RuntimeAgentWechatConnector(Connector):
         self.repository = repository
         self.pause_file = state_dir / "paused.json"
         self.operation_lock = asyncio.Lock()
+        self.processing_idle = asyncio.Event()
+        self.processing_idle.set()
         self.closed = False
         self.ready = False
         self.pause_reason: str | None = None
@@ -42,6 +45,10 @@ class RuntimeAgentWechatConnector(Connector):
     @property
     def chat_ref(self) -> str:
         return self.transport.binding.chat_ref
+
+    @property
+    def chat_refs(self) -> tuple[str, ...]:
+        return getattr(self.transport, "chat_refs", (self.chat_ref,))
 
     async def initialize(self) -> None:
         if self.pause_file.exists():
@@ -88,7 +95,12 @@ class RuntimeAgentWechatConnector(Connector):
 
     async def resume(self) -> None:
         async with self.operation_lock:
+            if not self.processing_idle.is_set():
+                raise RuntimeError("wechat_agent is busy; resume later")
             self.transport.paused = None
+            prepare = getattr(self.transport, "prepare_resume", None)
+            if prepare is not None:
+                prepare()
             try:
                 await self.transport.baseline()
             except LabPaused as error:
@@ -107,36 +119,64 @@ class RuntimeAgentWechatConnector(Connector):
                 )
             )
 
+    @asynccontextmanager
+    async def processing_operation(self) -> AsyncIterator[None]:
+        # Mask notification servicing during generation without holding the UI
+        # mutex across policy commits (the admin uses the policy lock too).
+        async with self.operation_lock:
+            self.processing_idle.clear()
+        try:
+            yield
+        finally:
+            self.processing_idle.set()
+
     async def events(self) -> AsyncIterator[InboundEvent]:
         while not self.closed:
+            await self.processing_idle.wait()
             rows: list[InboundEvent] = []
             async with self.operation_lock:
-                if self.ready and not await self.repository.is_paused(CHANNEL):
+                if (
+                    self.ready
+                    and self.processing_idle.is_set()
+                    and not await self.repository.is_paused(CHANNEL)
+                ):
                     try:
                         rows = await self.transport.poll()
                     except LabPaused as error:
                         await self._pause(str(error))
             for event in rows:
                 yield event
-            await asyncio.sleep(self.transport.poll_seconds)
+            wait = getattr(self.transport, "wait_for_changes", None)
+            if not self.processing_idle.is_set():
+                await self.processing_idle.wait()
+            elif self.ready and wait is not None:
+                await wait()
+            else:
+                await asyncio.sleep(self.transport.poll_seconds)
 
     async def deliver(self, message: OutboundMessage) -> DeliveryReceipt:
-        async with self.operation_lock:
-            if not self.ready or await self.repository.is_paused(CHANNEL):
-                raise LabPaused("ExplicitResumeRequired")
-            try:
-                receipt = await self.transport.deliver(message)
-            except LabPaused as error:
-                await self._pause(str(error))
-                raise
-            if receipt.status is DeliveryStatus.UNKNOWN:
-                await self._pause(self.transport.paused or "UnconfirmedSend")
-            return receipt
+        while True:
+            await self.processing_idle.wait()
+            async with self.operation_lock:
+                if not self.processing_idle.is_set():
+                    continue
+                if not self.ready or await self.repository.is_paused(CHANNEL):
+                    raise LabPaused("ExplicitResumeRequired")
+                try:
+                    receipt = await self.transport.deliver(message)
+                except LabPaused as error:
+                    await self._pause(str(error))
+                    raise
+                if receipt.status is DeliveryStatus.UNKNOWN:
+                    await self._pause(self.transport.paused or "UnconfirmedSend")
+                return receipt
 
     async def health(self) -> ConnectorHealth:
         if not self.ready:
             return ConnectorHealth(healthy=False, detail=self.pause_reason)
         async with self.operation_lock:
+            if not self.processing_idle.is_set():
+                return ConnectorHealth(healthy=True, detail="ProcessingBusy")
             result = await self.transport.health()
             if not result.healthy:
                 await self._pause(self.transport.paused or "GuardFailed")
@@ -144,4 +184,5 @@ class RuntimeAgentWechatConnector(Connector):
 
     async def close(self) -> None:
         self.closed = True
+        self.processing_idle.set()
         await self.transport.close()

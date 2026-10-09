@@ -3,7 +3,18 @@ from __future__ import annotations
 import logging
 import sys
 
-from lemonbot.security.redaction import RedactingFilter, SecretRedactor
+from lemonbot.security.redaction import RedactingFilter, SecretRedactor, SuppressHTTPWireLogs
+
+
+def test_http_wire_logs_including_late_children_cannot_expose_private_paths() -> None:
+    guard = SuppressHTTPWireLogs()
+    for name in ("httpx", "httpcore", "httpcore.connection.created_later"):
+        record = logging.LogRecord(
+            name, logging.DEBUG, __file__, 1, "private path/header", (), None
+        )
+        assert not guard.filter(record)
+    diagnostic = logging.LogRecord("lemonbot", logging.ERROR, __file__, 1, "Read:Timeout", (), None)
+    assert guard.filter(diagnostic)
 
 
 def test_redacts_known_and_structured_credentials() -> None:

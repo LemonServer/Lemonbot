@@ -2,6 +2,9 @@
 
 更新：2026-10-09。**正式 runtime 接入验收通过**，限人工登录、前台 testing 单群合成指令，模型及工具关闭。
 
+新 conversation 模式正在验收：testing 真 @＋用户已确认的单一私聊，事件通知驱动收取、DeepSeek Flash、
+持久上下文与余额对账。首批未通过，修复后显式恢复等待新消息，不把旧 canary 结论扩展到新模式。
+
 ## 当前文档
 
 | 文档 | 用途 |
@@ -12,6 +15,8 @@
 | [复现报告](agent-wechat-reproduction.md) | agent-wechat 调研、实验步骤与按日期记录的结果 |
 | [通道状态](linux-wechat-current-status.md) | 当前摘要与原生路线的历史事实 |
 | [runtime 手册](wechat-agent-runtime.md) | 默认关闭的新入口、独立数据库、暂停恢复与许可状态 |
+| [群与私聊运行手册](wechat-agent-conversation.md) | 新模式、通知与忙碌门禁、首批故障及待验收项 |
+| [DeepSeek 价格与余额](deepseek-pricing.md) | 官方单价、保守预算及账户余额查询 |
 | [安全边界](security.md) | 正式 runtime、原生探针和独立实验的不同作用域 |
 | [操作与 Observe 参考](operations.md) | 当前入口及原生研究/未来 Observe 的历史操作 |
 

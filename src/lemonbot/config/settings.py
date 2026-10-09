@@ -120,6 +120,7 @@ class MCPSettings(StrictModel):
 
 class WechatAgentSettings(StrictModel):
     enabled: bool = False
+    mode: Literal["canary", "conversation"] = "canary"
     token_file: str = ""
     state_dir: str = ""
 
@@ -266,7 +267,7 @@ class AppSettings(StrictModel):
         if self.runtime.connector == "wechat_agent":
             if self.profile != "lab" or not self.wechat_agent.enabled:
                 raise ValueError("wechat_agent requires lab profile and explicit enabled=true")
-            if self.models.provider != "disabled" or any(
+            if any(
                 (
                     self.vision.enabled,
                     self.browser.enabled,
@@ -276,6 +277,17 @@ class AppSettings(StrictModel):
                 )
             ):
                 raise ValueError("wechat_agent requires models and tools disabled")
+            if self.wechat_agent.mode == "canary" and self.models.provider != "disabled":
+                raise ValueError("wechat_agent canary requires models disabled")
+            if self.wechat_agent.mode == "conversation" and (
+                self.models.provider != "deepseek"
+                or self.models.flash_model != "deepseek-flash"
+                or self.models.pro_model != "deepseek-flash"
+                or not self.models.budget.enabled
+                or self.models.max_input_tokens > 8192
+                or self.models.max_output_tokens > 512
+            ):
+                raise ValueError("wechat_agent conversation requires budgeted bounded Flash text")
             if not self.runtime.data_root:
                 raise ValueError("wechat_agent requires an independent runtime data_root")
         if self.runtime.connector == "wechat_atspi" and self.profile != "lab":

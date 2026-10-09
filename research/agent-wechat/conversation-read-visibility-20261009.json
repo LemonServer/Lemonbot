@@ -1,0 +1,26 @@
+{
+  "recorded_at_utc": "2026-10-09T08:33:00Z",
+  "result": "live_blocked",
+  "user_reports_new_message_visible_in_novnc": true,
+  "channel_paused": true,
+  "pause_reason": "ManualPause",
+  "group_api_rows": 42,
+  "group_sql_rows": 42,
+  "group_latest_timestamp_utc": "2026-10-09T07:46:19Z",
+  "notification_ready": true,
+  "observed_notification_sequence": 204,
+  "wechat_process_opens_bound_database": true,
+  "database_journal_mode": "wal",
+  "wal_current_prefix_frames": 6,
+  "wal_current_commit_markers": 1,
+  "inbox_completed": 1,
+  "outbox_unknown": 1,
+  "unknown_automatically_retried": false,
+  "synthetic_wal_comparison": {
+    "immutable_rows": 0,
+    "readonly_rows": 1
+  },
+  "root_cause_confirmed": false,
+  "blocking_capability": "new_message_visibility_in_bound_database",
+  "next_step": "Verify UI conversation binding and WCDB/WAL read view; no login restart or user resend"
+}

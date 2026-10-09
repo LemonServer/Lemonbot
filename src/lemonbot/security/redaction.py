@@ -64,8 +64,19 @@ class RedactingFilter(logging.Filter):
         return True
 
 
+class SuppressHTTPWireLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Child loggers may be created after configuration; filtering the
+        # output handler covers those too. Our adapters report sanitized errors.
+        return not any(
+            record.name == name or record.name.startswith(name + ".")
+            for name in ("httpx", "httpcore")
+        )
+
+
 def configure_logging(level: str, known_secrets: Iterable[str] = ()) -> None:
     handler = logging.StreamHandler()
+    handler.addFilter(SuppressHTTPWireLogs())
     handler.addFilter(RedactingFilter(SecretRedactor(known_secrets)))
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s", "%Y-%m-%dT%H:%M:%S%z")

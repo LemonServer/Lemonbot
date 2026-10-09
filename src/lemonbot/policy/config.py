@@ -33,6 +33,7 @@ WECHAT_LAB_LIMITS = RateLimitProfile(
 
 
 class PolicyConfig(BaseModel):
+    quiet_enabled: bool = True
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     timezone: str = "Asia/Shanghai"

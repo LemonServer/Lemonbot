@@ -365,3 +365,37 @@ async def test_runtime_preserves_pause_code_written_by_independent_lab(
         assert mock.posts == 0
     finally:
         await runtime.close()
+
+
+async def test_busy_masks_new_reads_and_keeps_pause_sticky(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mock = SimulatedWechat()
+    runtime = await setup_runtime(tmp_path, monkeypatch, mock)
+    assert isinstance(runtime.connector, RuntimeAgentWechatConnector)
+    connector = runtime.connector
+    connector.transport.poll_seconds = 0.01
+    stream = connector.events()
+    pending = None
+    try:
+        async with connector.processing_operation():
+            mock.append(COMMAND)
+            pending = asyncio.create_task(anext(stream))
+            await asyncio.sleep(0.05)
+            assert not pending.done()
+            assert connector.transport.anchors == set()
+            # Busy cannot accidentally become enabled through a resume.
+            with pytest.raises(RuntimeError, match="busy"):
+                await connector.resume()
+        assert (await asyncio.wait_for(pending, 1)).text == COMMAND
+        await connector.pause()
+        async with connector.processing_operation():
+            mock.append("LB26_E2E_" + "E" * 24)
+        assert not connector.ready
+        assert connector.pause_reason == "ManualPause"
+    finally:
+        if pending is not None:
+            pending.cancel()
+            await asyncio.gather(pending, return_exceptions=True)
+        await stream.aclose()
+        await runtime.close()

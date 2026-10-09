@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal
@@ -147,6 +147,7 @@ class EventPipeline:
         memory_derivation: MemoryDerivationService | None = None,
         approval_service: ApprovalService | None = None,
         side_effect_lock: asyncio.Lock | None = None,
+        event_eligible: Callable[[InboundEvent], bool] | None = None,
     ) -> None:
         self.repository = repository
         self.policy = policy
@@ -157,6 +158,7 @@ class EventPipeline:
         self.memory_derivation = memory_derivation
         self.approval_service = approval_service
         self.side_effect_lock = side_effect_lock or asyncio.Lock()
+        self.event_eligible = event_eligible
 
     async def ingest(self, event: InboundEvent) -> PipelineResult:
         inserted = await self.repository.record_inbound(event)
@@ -181,12 +183,21 @@ class EventPipeline:
             await self.repository.fail_inbox(item.id, str(exc), retryable=False)
             return PipelineResult(status=PipelineStatus.DEAD, item_id=item.id, detail=str(exc))
         except Exception as exc:
-            next_state = await self.repository.fail_inbox(item.id, str(exc), retryable=True)
+            next_state = await self.repository.fail_inbox(
+                item.id,
+                type(exc).__name__,
+                retryable=item.event.metadata.get("wechat_mode") != "conversation",
+            )
             status = PipelineStatus.RETRY if next_state.value == "pending" else PipelineStatus.DEAD
             return PipelineResult(status=status, item_id=item.id, detail=type(exc).__name__)
 
     async def _process_claimed(self, item: InboxItem) -> PipelineResult:
         event = item.event
+        if self.event_eligible is not None and not self.event_eligible(event):
+            await self.repository.complete_inbox(item.id)
+            return PipelineResult(
+                status=PipelineStatus.SKIPPED, item_id=item.id, detail="target_paused"
+            )
         if self.config.output_mode == "observe":
             await self.repository.complete_inbox(item.id)
             await self.repository.append_audit(
@@ -280,11 +291,21 @@ class EventPipeline:
                 )
             reply = self._bounded_reply(self.config.welcome_text)
         else:
+            if event.metadata.get("wechat_mode") == "conversation" and not re.fullmatch(
+                r"context_[a-f0-9]{64}", str(event.metadata.get("context_scope", ""))
+            ):
+                raise PermanentPipelineError("invalid conversation context binding")
             recent = await self.repository.recent_messages(
                 event.channel,
                 event.chat_id,
                 limit=self.config.recent_messages,
                 through_external_id=event.event_id,
+                context_scope=(
+                    event.metadata.get("context_scope")
+                    if event.metadata.get("wechat_mode") == "conversation"
+                    else None
+                ),
+                confirmed_only=event.metadata.get("wechat_mode") == "conversation",
             )
             prepared = await self._prepare_context(item, recent)
             model_run = await self._run_model_and_tools(item, list(prepared.messages))
@@ -361,6 +382,11 @@ class EventPipeline:
                 metadata={
                     "proactive": False,
                     **({"welcome": True} if is_welcome else {}),
+                    **(
+                        {"context_scope": event.metadata["context_scope"]}
+                        if event.metadata.get("wechat_mode") == "conversation"
+                        else {}
+                    ),
                     "chunk_chars": self.config.chunk_chars,
                     "max_chunks": 2,
                 },

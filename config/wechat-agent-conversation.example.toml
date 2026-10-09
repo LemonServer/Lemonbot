@@ -1,0 +1,47 @@
+schema_version = 2
+profile = "lab"
+timezone = "Asia/Shanghai"
+
+[runtime]
+connector = "fake" # Enable wechat_agent only after enrollment and live acceptance.
+data_root = "~/.local/share/Lemonbot-wechat-conversation"
+log_level = "INFO"
+
+[admin]
+host = "127.0.0.1"
+port = 8767
+
+[wechat_agent]
+enabled = false
+mode = "conversation"
+token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"
+state_dir = "~/.local/state/lemonbot/agent-wechat-lab"
+
+[models]
+provider = "disabled" # Change to deepseek together with connector/enabled above.
+base_url = "https://api.deepseek.com"
+api_key_secret_name = "deepseek_api_key"
+flash_model = "deepseek-flash"
+pro_model = "deepseek-flash"
+max_input_tokens = 8192
+max_output_tokens = 512
+request_timeout_seconds = 45
+
+[models.budget]
+enabled = true
+daily_limit_cny = "5"
+monthly_limit_cny = "100"
+# Conservative peak cache-miss estimates; see docs/deepseek-pricing.md.
+flash_input_cny_per_million = "2"
+flash_output_cny_per_million = "8"
+pro_input_cny_per_million = "2"
+pro_output_cny_per_million = "8"
+
+[vision]
+enabled = false
+
+[browser]
+enabled = false
+
+[mcp]
+enabled = false
