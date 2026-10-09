@@ -52,6 +52,13 @@ def main() -> None:
         "sudo",
         "docker",
         "cp",
+        str(repo / "scripts/agent_wechat_wal_snapshot.py"),
+        CONTAINER + ":/data/agent_wechat_wal_snapshot.py",
+    )
+    run(
+        "sudo",
+        "docker",
+        "cp",
         str(repo / "scripts/agent_wechat_metadata.py"),
         CONTAINER + ":/data/lemonbot-metadata.py",
     )

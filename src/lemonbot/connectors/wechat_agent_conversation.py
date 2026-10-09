@@ -207,7 +207,17 @@ class ConversationTransport(AgentWechatConnector):
         await self.readback_guard()
 
     async def page(self, offset: int = 0) -> list[dict[str, Any]]:
-        rows = await super().page(offset)
+        try:
+            response = await self.metadata.get(
+                "/messages/" + quote(self.binding.chat_id, safe=""), params={"offset": offset}
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if payload.get("accountVerified") is not True:
+                raise ValueError
+            rows = self.validate_page(payload["rows"])
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            self.pause("MessageSnapshotUnavailable")
         if self.target.is_group:
             try:
                 response = await self.metadata.get(

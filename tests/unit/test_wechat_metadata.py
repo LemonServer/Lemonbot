@@ -143,3 +143,64 @@ def test_source_lookup_is_cached_but_account_guard_is_not(monkeypatch: pytest.Mo
     account = "different_account"
     with pytest.raises(ValueError, match="AccountChanged"):
         reader.mentions("group@chatroom", 0, [7])
+
+
+def test_snapshot_messages_preserve_sender_and_strip_only_confirmed_group_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reader = bridge.SourceReader(
+        "synthetic", {"account": "self_machine", "chat_ids": ["group@chatroom", "peer"]}
+    )
+    reader.canonical_identity = "self"
+    monkeypatch.setattr(
+        reader, "api", lambda _path: {"status": "logged_in", "loggedInUser": "self_machine"}
+    )
+    monkeypatch.setattr(
+        reader, "source_table", lambda _chat, _account: (Path("db"), "key", "Msg_x")
+    )
+    monkeypatch.setattr(
+        reader,
+        "query",
+        lambda *_args: [
+            {
+                "local_id": 12,
+                "server_id": 100,
+                "local_type": 0x100000001,
+                "create_time": 1700000000,
+                "sender": "peer",
+                "content": b"peer:\nnew synthetic text".hex(),
+                "compressed": 0,
+            }
+        ],
+    )
+    group = reader.messages("group@chatroom", 0)
+    assert group["accountVerified"] is True
+    assert group["rows"][0]["content"] == "new synthetic text"
+    assert group["rows"][0]["sender"] == "peer"
+    assert group["rows"][0]["isSelf"] is False
+    assert group["rows"][0]["type"] == 1
+    assert reader.messages("peer", 0)["rows"][0]["content"].startswith("peer:\n")
+    with pytest.raises(ValueError, match="TargetNotBound"):
+        reader.messages("unrelated", 0)
+
+
+def test_snapshot_messages_discard_results_if_account_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reader = bridge.SourceReader(
+        "synthetic", {"account": "self_machine", "chat_ids": ["group@chatroom"]}
+    )
+    reader.canonical_identity = "self"
+    responses = iter(
+        [
+            {"status": "logged_in", "loggedInUser": "self_machine"},
+            {"status": "logged_in", "loggedInUser": "different"},
+        ]
+    )
+    monkeypatch.setattr(reader, "api", lambda _path: next(responses))
+    monkeypatch.setattr(
+        reader, "source_table", lambda _chat, _account: (Path("db"), "key", "Msg_x")
+    )
+    monkeypatch.setattr(reader, "query", lambda *_args: [])
+    with pytest.raises(ValueError, match="AccountChanged"):
+        reader.messages("group@chatroom", 0)

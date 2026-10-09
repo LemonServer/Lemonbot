@@ -94,6 +94,15 @@ class TwoChats(SimulatedWechat):
         return super().handle(request)
 
     async def metadata(self, request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/messages/"):
+            identifier = request.url.path.removeprefix("/messages/")
+            offset = request.url.params.get("offset", "0")
+            rows = self.handle(
+                httpx.Request(
+                    "GET", f"http://127.0.0.1:6174/api/messages/{identifier}?limit=100&offset={offset}"
+                )
+            ).json()
+            return httpx.Response(200, json={"accountVerified": True, "rows": rows})
         if request.url.path == "/changes":
             epoch = "f" * 32
             after = int(request.url.params.get("after", "0"))

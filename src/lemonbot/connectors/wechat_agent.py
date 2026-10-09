@@ -366,6 +366,9 @@ class AgentWechatConnector(Connector):
     async def page(self, offset: int = 0) -> list[dict[str, Any]]:
         path = f"/api/messages/{quote(self.binding.chat_id, safe='')}"
         rows = await self.http.request("GET", f"{path}?limit={PAGE_SIZE}&offset={offset}")
+        return self.validate_page(rows)
+
+    def validate_page(self, rows: Any) -> list[dict[str, Any]]:
         if not isinstance(rows, list) or len(rows) > PAGE_SIZE:
             self.pause("InvalidMessageList")
         for row in rows:

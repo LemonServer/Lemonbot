@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Narrow read-only mention bridge for the pinned local WeChat container.
+"""Scoped snapshot/message/mention bridge for the pinned WeChat container.
 
-Keys never leave the container. Only bound message IDs and mention booleans
+Keys never leave the container. Only bound chat messages and mention booleans
 are returned. Host forwarding exposes this bridge exclusively on loopback.
 """
 
@@ -12,6 +12,7 @@ import ctypes
 import ctypes.util
 import hashlib
 import hmac
+import importlib.util
 import json
 import os
 import select
@@ -23,10 +24,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+_snapshot_spec = importlib.util.spec_from_file_location(
+    "wechat_wal_snapshot", Path(__file__).with_name("agent_wechat_wal_snapshot.py")
+)
+assert _snapshot_spec and _snapshot_spec.loader
+_snapshots = importlib.util.module_from_spec(_snapshot_spec)
+_snapshot_spec.loader.exec_module(_snapshots)
 
 MAX_SOURCE = 65536
 
@@ -99,6 +108,22 @@ class SourceReader:
 
     @staticmethod
     def query(path: Path, key: str, sql: str, *, service: bool = False) -> list[dict[str, Any]]:
+        if not service:
+            for attempt in range(3):
+                try:
+                    with _snapshots.snapshot(path) as captured:
+                        return SourceReader._query(captured, key, sql, immutable=True)
+                except ValueError as error:
+                    if str(error) != "SnapshotSourceChanged" or attempt == 2:
+                        raise
+                    time.sleep(0.03)
+            raise AssertionError("unreachable")
+        return SourceReader._query(path, key, sql, service=True)
+
+    @staticmethod
+    def _query(
+        path: Path, key: str, sql: str, *, service: bool = False, immutable: bool = False
+    ) -> list[dict[str, Any]]:
         if service:
             prefix = "PRAGMA key='" + key.replace("'", "''") + "';\n"
         else:
@@ -106,7 +131,11 @@ class SourceReader:
                 raise ValueError("InvalidKey")
             prefix = "PRAGMA key=\"x'" + key + "'\"; PRAGMA cipher_compatibility=4;\n"
         result = subprocess.run(  # noqa: S603 -- fixed executable and private internal inputs
-            ["/usr/local/bin/sqlcipher", "-readonly", str(path)],
+            [
+                "/usr/local/bin/sqlcipher",
+                "-readonly",
+                "file:" + str(path) + "?immutable=1" if immutable else str(path),
+            ],
             input=prefix + "PRAGMA query_only=ON;\n.mode json\n" + sql + ";\n",
             text=True,
             capture_output=True,
@@ -165,6 +194,65 @@ class SourceReader:
         path, key = matches[0]
         self.tables[chat_id] = (path, key, table)
         return path, key, table
+
+    def messages(self, chat_id: str, offset: int) -> dict[str, Any]:
+        if chat_id not in self.config["chat_ids"] or not 0 <= offset <= 900:
+            raise ValueError("TargetNotBound")
+        auth = self.api("/api/status/auth")
+        account = auth.get("loggedInUser")
+        if auth.get("status") != "logged_in" or account != self.config["account"]:
+            raise ValueError("AccountChanged")
+        if self.canonical_identity is None:
+            group = next(c for c in self.config["chat_ids"] if c.endswith("@chatroom"))
+            self.canonical_identity = canonical_self(
+                self.api("/api/messages/" + urllib.parse.quote(group, safe="") + "?limit=100"),
+                account,
+            )
+        path, key, table = self.source_table(chat_id, account)
+        rows = self.query(
+            path,
+            key,
+            "SELECT m.local_id,m.server_id,m.local_type,m.create_time,"  # noqa: S608 -- fixed MD5 table name and bounded integer offset
+            "hex(m.message_content) AS content,m.WCDB_CT_message_content AS compressed,"
+            'n.user_name AS sender FROM "' + table + '" m LEFT JOIN Name2Id n '
+            "ON m.real_sender_id=n.rowid ORDER BY m.create_time DESC,m.local_id DESC "
+            "LIMIT 100 OFFSET " + str(offset),
+        )
+        result = []
+        for row in rows:
+            sender = row["sender"]
+            message_type = row["local_type"] & 0x7FFFFFFF
+            text = (
+                decode_source(row["content"] or "", row["compressed"] or 0)
+                if message_type == 1
+                else ""
+            )
+            if (
+                isinstance(sender, str)
+                and chat_id.endswith("@chatroom")
+                and text.startswith(sender + ":\n")
+            ):
+                text = text[len(sender) + 2 :]
+            result.append(
+                {
+                    "localId": row["local_id"],
+                    "serverId": row["server_id"],
+                    "chatId": chat_id,
+                    "sender": sender,
+                    "type": message_type,
+                    "content": text,
+                    "timestamp": datetime.fromtimestamp(
+                        row["create_time"], timezone.utc  # noqa: UP017 -- container Python 3.10
+                    ).isoformat(),
+                    "isSelf": sender == self.canonical_identity
+                    if isinstance(sender, str)
+                    else None,
+                }
+            )
+        after = self.api("/api/status/auth")
+        if after.get("loggedInUser") != account or after.get("status") != "logged_in":
+            raise ValueError("AccountChanged")
+        return {"rows": result, "accountVerified": True}
 
     def mentions(self, chat_id: str, offset: int, ids: list[int] | None = None) -> dict[str, Any]:
         if chat_id not in self.config["chat_ids"] or not 0 <= offset <= 900:
@@ -352,11 +440,16 @@ def serve(
             try:
                 if parsed.path == "/health":
                     body = {"ready": True}
-                elif parsed.path.startswith("/mentions/") or parsed.path == "/changes":
+                elif (
+                    parsed.path.startswith(("/mentions/", "/messages/"))
+                    or parsed.path == "/changes"
+                ):
                     args = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
                     allowed = (
                         {"after", "epoch", "timeout"}
                         if parsed.path == "/changes"
+                        else {"offset"}
+                        if parsed.path.startswith("/messages/")
                         else {"offset", "ids"}
                     )
                     if set(args) - allowed or any(len(v) != 1 for v in args.values()):
@@ -375,6 +468,12 @@ def serve(
                             args.get("epoch", [None])[0],
                             int(args.get("after", ["0"])[0]),
                             float(args.get("timeout", ["20"])[0]),
+                        )
+                    elif parsed.path.startswith("/messages/"):
+                        assert reader is not None
+                        body = reader.messages(
+                            urllib.parse.unquote(parsed.path[len("/messages/") :]),
+                            int(args.get("offset", ["0"])[0]),
                         )
                     else:
                         assert reader is not None
