@@ -1,0 +1,8 @@
+{
+  "evidence": "live_synthetic_trials_only",
+  "samples": [],
+  "confirmed_samples": 0,
+  "median_total_seconds": null,
+  "unknown_outbox": 1,
+  "medians_by_phase": {}
+}

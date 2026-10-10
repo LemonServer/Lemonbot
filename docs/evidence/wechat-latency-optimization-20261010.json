@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-10",
+  "baseline_code": "42d64f8",
+  "deployed_code": "fbf5afc",
+  "status": "code_deployed_live_trials_pending",
+  "baseline_samples": 12,
+  "baseline_medians_seconds": {
+    "receive": 16.48,
+    "persist_to_outbox": 16.26,
+    "outbox_queue": 0.66,
+    "dispatch_confirmation": 28.5,
+    "total": 62.67,
+    "model_budget_interval": 1.02
+  },
+  "same_machine_resources": {
+    "vcpus": 2,
+    "ram_gib_approx": 4
+  },
+  "targets_seconds": {
+    "code": 35,
+    "hardware": 25
+  },
+  "hardware_comparison": "pending",
+  "checks": {
+    "tests_passed": 540,
+    "ruff": "passed",
+    "mypy_source_files": 116,
+    "lock": "passed",
+    "affected_tests_after_notification_timer": 19
+  },
+  "live_readonly_baseline_cycles": [
+    {
+      "total_seconds": 3.549,
+      "snapshot_query_seconds": 0.044847
+    },
+    {
+      "total_seconds": 2.739,
+      "snapshot_query_seconds": 0.040945
+    }
+  ],
+  "message_trials_are_distinct_from_readonly_cycles": true,
+  "old_unknown_preserved": 1,
+  "image_changed": false,
+  "wechat_restarted": false,
+  "data_volumes_changed": false
+}

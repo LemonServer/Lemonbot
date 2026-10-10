@@ -18,7 +18,7 @@
 | 容器系统 | Ubuntu 22.04.5 LTS，AMD64 |
 | 容器微信 | `wechat=4.1.13.23` |
 | 容器图形能力 | x11vnc 0.9.16-8；Xvfb 21.1.4 系列；libatspi 2.44.0-3 |
-| 日常 conversation | inotify 变更通知＋60 秒补偿；每页 100、最多 10 页；消息及提及同快照；UNKNOWN 不重发 |
+| 日常 conversation | inotify 变更通知＋60 秒补偿；认证 POST /read-cycle；每会话最多 1,000 条，锚点最多 100 条；两会话共用同库快照；UNKNOWN 不重发 |
 | 历史 canary | 轮询睡眠 2 秒；GET 等待 10 秒、发送等待 25 秒；UNKNOWN 不重发 |
 
 宿主原生微信研究记录中的 **4.1.1.8** 与容器微信 **4.1.13.23** 属于不同环境。
@@ -131,3 +131,10 @@ uv run --locked python -m lemonbot.research.agent_wechat_lab run \
 下载目录、回收站、微信文件、Docker 镜像/容器/卷及实验状态均保留。
 Docker 的 reclaimable 标签不作为删除许可。本轮无 prune 或磁盘分区变更。
 详见 [清理证据](evidence/disk-cleanup-20261008.json)。
+
+## 延迟优化部署（2026-10-10）
+
+代码基线 `fbf5afc`，变更明细与验收状态见 [延迟优化报告](wechat-latency-optimization.md)。
+微信未重启，固定镜像、微信版本与原卷未改变；仅替换自有元数据桥并重启桥和空闲 runtime。
+部署前持久暂停，活动入站和 outbox 均为零；重启仍保留 ManualPause，显式恢复后队列为空。
+旧 UNKNOWN 一条保留不重发。当前仍为 2 vCPU、约 4 GiB 内存；扩容对照尚未进行。
