@@ -1,0 +1,140 @@
+{
+  "window_timezone": "Asia/Shanghai",
+  "window_start": "2026-10-10 12:26:10",
+  "window_end": "2026-10-10 12:27:05",
+  "clock": "monotonic_stage_durations",
+  "stages": {
+    "notification.to_read": {
+      "count": 4,
+      "median_seconds": 5.954,
+      "samples_seconds": [
+        0.005,
+        11.901,
+        0.006,
+        12.571
+      ]
+    },
+    "receive.snapshot_cycle": {
+      "count": 4,
+      "median_seconds": 0.873,
+      "samples_seconds": [
+        0.598,
+        0.88,
+        0.882,
+        0.865
+      ]
+    },
+    "processing.lock_wait": {
+      "count": 2,
+      "median_seconds": 0.383,
+      "samples_seconds": [
+        0.205,
+        0.56
+      ]
+    },
+    "inbound.persist": {
+      "count": 2,
+      "median_seconds": 0.007,
+      "samples_seconds": [
+        0.009,
+        0.005
+      ]
+    },
+    "inbound.claim": {
+      "count": 2,
+      "median_seconds": 0.005,
+      "samples_seconds": [
+        0.008,
+        0.003
+      ]
+    },
+    "policy.preflight": {
+      "count": 2,
+      "median_seconds": 0.009,
+      "samples_seconds": [
+        0.013,
+        0.006
+      ]
+    },
+    "model.context": {
+      "count": 2,
+      "median_seconds": 0.002,
+      "samples_seconds": [
+        0.001,
+        0.002
+      ]
+    },
+    "model.request": {
+      "count": 2,
+      "median_seconds": 0.697,
+      "samples_seconds": [
+        0.704,
+        0.69
+      ]
+    },
+    "wechat.auth": {
+      "count": 10,
+      "median_seconds": 0.435,
+      "samples_seconds": [
+        0.267,
+        0.451,
+        0.39,
+        0.424,
+        0.414,
+        0.45,
+        0.446,
+        0.378,
+        0.491,
+        0.475
+      ]
+    },
+    "wechat.lookup": {
+      "count": 14,
+      "median_seconds": 0.003,
+      "samples_seconds": [
+        0.002,
+        0.003,
+        0.003,
+        0.003,
+        0.003,
+        0.004,
+        0.002,
+        0.005,
+        0.003,
+        0.003,
+        0.003,
+        0.002,
+        0.006,
+        0.003
+      ]
+    },
+    "wechat.a11y": {
+      "count": 6,
+      "median_seconds": 0.363,
+      "samples_seconds": [
+        0.194,
+        0.349,
+        0.449,
+        0.42,
+        0.3,
+        0.378
+      ]
+    },
+    "wechat.navigate": {
+      "count": 2,
+      "median_seconds": 2.234,
+      "samples_seconds": [
+        2.454,
+        2.013
+      ]
+    },
+    "wechat.send": {
+      "count": 2,
+      "median_seconds": 2.695,
+      "samples_seconds": [
+        2.499,
+        2.89
+      ]
+    }
+  }
+}

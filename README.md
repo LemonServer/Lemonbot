@@ -5,7 +5,7 @@
 回复与持久上下文实机通过。程序重启后群回答“青柠”、私聊回答“纸船”，各一次发送尝试、
 一条精确回执，无旧消息重放。服务保持运行，仓库默认仍关闭。
 工具、主动消息与长期记忆提取关闭；每日 5 元、每月 100 元预算及原发送限流保留。
-整体回复目前约一分钟；宿主重启自动恢复未验收，容器重启后需恢复自有通知桥。
+2026-10-10 优化及扩容后两条实测约 13 秒（小样本）；宿主重启仍需人工登录及恢复服务。
 旧 UNKNOWN 一条保留不重发，固定镜像、微信版本与原卷不变，PR #171 继续冻结。
 
 操作与验收见 [conversation 手册](docs/wechat-agent-conversation.md)。
@@ -41,7 +41,8 @@ uv run --locked ruff check .
 uv run --locked mypy src
 ```
 
-2026-10-08 全仓 475 项测试通过，Ruff、mypy（112 个源文件）和锁文件检查通过。
+2026-10-10 全仓 540 项测试通过，Ruff、mypy（116 个源文件）和锁文件检查通过。
 存在一条依赖层 Starlette/httpx 弃用警告。正式配置保持 `runtime.connector = "fake"`、
 `wechat_atspi.enabled = false`、`models.provider = "disabled"` 和 `vision.enabled = false`。
-正式连接器默认关闭；本阶段不修改数据库 schema，不启用模型、工具、自动导航、多群或媒体。
+正式连接器仓库默认关闭；本机私有 lab 配置启用双会话导航与 DeepSeek 文本回复。
+数据库 schema 未修改，工具、多群和媒体关闭。性能结果见 [延迟优化报告](docs/wechat-latency-optimization.md)。

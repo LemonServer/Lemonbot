@@ -52,12 +52,39 @@
       "model_and_commit_seconds": 1.316,
       "dispatch_seconds": 27.401,
       "total_seconds": 37.948
+    },
+    {
+      "sample": 5,
+      "phase": "hardware",
+      "conversation_kind": "group",
+      "state": "acknowledged",
+      "attempts": 1,
+      "received_at_utc": "2026-10-10 04:26:18.000000",
+      "receive_seconds": 1.865,
+      "before_model_seconds": 0.045,
+      "model_and_commit_seconds": 0.713,
+      "dispatch_seconds": 9.82,
+      "total_seconds": 13.037
+    },
+    {
+      "sample": 6,
+      "phase": "hardware",
+      "conversation_kind": "private",
+      "state": "acknowledged",
+      "attempts": 1,
+      "received_at_utc": "2026-10-10 04:26:37.000000",
+      "receive_seconds": 1.838,
+      "before_model_seconds": 0.024,
+      "model_and_commit_seconds": 0.701,
+      "dispatch_seconds": 10.28,
+      "total_seconds": 13.367
     }
   ],
-  "confirmed_samples": 4,
-  "median_total_seconds": 37.1405,
+  "confirmed_samples": 6,
+  "median_total_seconds": 35.1575,
   "unknown_outbox": 1,
   "medians_by_phase": {
-    "code": 37.1405
+    "code": 37.1405,
+    "hardware": 13.202000000000002
   }
 }

@@ -2,7 +2,7 @@
   "date": "2026-10-10",
   "baseline_code": "42d64f8",
   "deployed_code": "fbf5afc",
-  "status": "same_machine_correctness_passed_performance_target_missed_hardware_pending",
+  "status": "six_live_trials_confirmed_hardware_target_met_service_running",
   "baseline_samples": 12,
   "baseline_medians_seconds": {
     "receive": 16.48,
@@ -20,7 +20,7 @@
     "code": 35,
     "hardware": 25
   },
-  "hardware_comparison": "manual_login_completed_runtime_resumed_trials_pending",
+  "hardware_comparison": "complete_small_sample",
   "checks": {
     "tests_passed": 540,
     "ruff": "passed",
@@ -101,5 +101,26 @@
       "baseline_returned_events": 0,
       "runtime_remained_unpaused": true
     }
+  },
+  "hardware": {
+    "confirmed_samples": 2,
+    "each_attempts": 1,
+    "user_confirmed_received": true,
+    "median_total_seconds": 13.202,
+    "median_receive_seconds": 1.8515000000000001,
+    "median_before_model_seconds": 0.0345,
+    "median_dispatch_seconds": 10.05,
+    "target_met": true,
+    "reduction_vs_same_machine_percent": 64.45,
+    "reduction_vs_historical_percent": 78.93,
+    "includes_reboot_and_load_change": true
+  },
+  "final_runtime_state": {
+    "paused": false,
+    "target_pause_reasons": [],
+    "queue_depth": 0,
+    "unknown_outbox": 1,
+    "new_unknown": 0,
+    "service_left_running": true
   }
 }
