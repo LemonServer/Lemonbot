@@ -1,8 +1,63 @@
 {
   "evidence": "live_synthetic_trials_only",
-  "samples": [],
-  "confirmed_samples": 0,
-  "median_total_seconds": null,
+  "samples": [
+    {
+      "sample": 1,
+      "phase": "code",
+      "conversation_kind": "group",
+      "state": "acknowledged",
+      "attempts": 1,
+      "received_at_utc": "2026-10-10 03:31:44.000000",
+      "receive_seconds": 3.424,
+      "before_model_seconds": 0.088,
+      "model_and_commit_seconds": 1.047,
+      "dispatch_seconds": 28.416,
+      "total_seconds": 33.982
+    },
+    {
+      "sample": 2,
+      "phase": "code",
+      "conversation_kind": "private",
+      "state": "acknowledged",
+      "attempts": 1,
+      "received_at_utc": "2026-10-10 03:32:16.000000",
+      "receive_seconds": 5.376,
+      "before_model_seconds": 0.065,
+      "model_and_commit_seconds": 0.998,
+      "dispatch_seconds": 30.859,
+      "total_seconds": 38.056
+    },
+    {
+      "sample": 3,
+      "phase": "code",
+      "conversation_kind": "group",
+      "state": "acknowledged",
+      "attempts": 1,
+      "received_at_utc": "2026-10-10 03:32:50.000000",
+      "receive_seconds": 6.753,
+      "before_model_seconds": 0.057,
+      "model_and_commit_seconds": 1.386,
+      "dispatch_seconds": 27.044,
+      "total_seconds": 36.333
+    },
+    {
+      "sample": 4,
+      "phase": "code",
+      "conversation_kind": "private",
+      "state": "acknowledged",
+      "attempts": 1,
+      "received_at_utc": "2026-10-10 03:33:21.000000",
+      "receive_seconds": 8.377,
+      "before_model_seconds": 0.279,
+      "model_and_commit_seconds": 1.316,
+      "dispatch_seconds": 27.401,
+      "total_seconds": 37.948
+    }
+  ],
+  "confirmed_samples": 4,
+  "median_total_seconds": 37.1405,
   "unknown_outbox": 1,
-  "medians_by_phase": {}
+  "medians_by_phase": {
+    "code": 37.1405
+  }
 }

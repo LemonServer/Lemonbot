@@ -2,7 +2,7 @@
   "date": "2026-10-10",
   "baseline_code": "42d64f8",
   "deployed_code": "fbf5afc",
-  "status": "code_deployed_live_trials_pending",
+  "status": "same_machine_correctness_passed_performance_target_missed_hardware_pending",
   "baseline_samples": 12,
   "baseline_medians_seconds": {
     "receive": 16.48,
@@ -42,5 +42,26 @@
   "old_unknown_preserved": 1,
   "image_changed": false,
   "wechat_restarted": false,
-  "data_volumes_changed": false
+  "data_volumes_changed": false,
+  "same_machine": {
+    "confirmed_samples": 4,
+    "each_attempts": 1,
+    "user_confirmed_each_received_once": true,
+    "median_total_seconds": 37.1405,
+    "median_receive_seconds": 6.064500000000001,
+    "median_before_model_seconds": 0.0765,
+    "median_dispatch_seconds": 27.9085,
+    "target_met": false,
+    "baseline_reduction_percent": 40.74,
+    "monotonic_model_request_median_seconds": 1.085,
+    "monotonic_send_post_median_seconds": 6.083,
+    "monotonic_navigation_median_seconds": 5.202
+  },
+  "shutdown_preparation": {
+    "persistent_pause": "ManualPause",
+    "active_inbox": 0,
+    "active_outbox": 0,
+    "unknown_outbox": 1,
+    "runtime_stopped": true
+  }
 }
