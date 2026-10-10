@@ -20,7 +20,7 @@
     "code": 35,
     "hardware": 25
   },
-  "hardware_comparison": "resources_verified_runtime_resumed_trials_pending",
+  "hardware_comparison": "manual_login_completed_runtime_resumed_trials_pending",
   "checks": {
     "tests_passed": 540,
     "ruff": "passed",
@@ -71,7 +71,7 @@
   },
   "reboot_recovery": {
     "fixed_container_started": true,
-    "login_restored_without_scan": true,
+    "login_restored_without_scan": false,
     "metadata_bridge_restored": true,
     "transient_user_units_recreated": true,
     "persistent_pause_preserved": true,
@@ -83,6 +83,23 @@
     "audio_fault_root_cause": "not_proven",
     "product_code_changed": false,
     "image_changed": false,
-    "volumes_changed": false
+    "volumes_changed": false,
+    "initial_auth_probe_did_not_prove_visible_login": true,
+    "user_reported_logged_out_after_recovery": true,
+    "user_manual_login_completed": true,
+    "subsequent_pause_reason": "MessageSnapshotUnavailable",
+    "after_manual_login_explicit_resume_success": true,
+    "queue_depth_after_manual_login": 0,
+    "after_manual_login_read_cycle": {
+      "cycle_seconds": 1.226,
+      "account_verified": true,
+      "targets": 2,
+      "target_errors": [
+        null,
+        null
+      ],
+      "baseline_returned_events": 0,
+      "runtime_remained_unpaused": true
+    }
   }
 }
