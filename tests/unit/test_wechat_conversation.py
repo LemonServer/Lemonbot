@@ -300,6 +300,55 @@ async def test_send_navigates_and_accepts_new_same_text_without_body_dedup(tmp_p
         await transport.close()
 
 
+async def test_quote_reply_uses_current_sender_and_current_group_mention(tmp_path: Path) -> None:
+    mock = TwoChats()
+    transport = await setup(mock, tmp_path)
+    try:
+        group, peer = mock.targets()
+        private = mock.add(mock.peer, "引用")
+        private.update(type=49, quoteReply=True, quotedText="earlier text")
+        event = transport.children[peer.binding.chat_ref].event(private)
+        assert event is not None and event.text.startswith("引用\n\n[Quoted text")
+        assert event.text.endswith("earlier text")
+        private["isSelf"] = True
+        assert transport.children[peer.binding.chat_ref].event(private) is None
+        private.update(isSelf=False, quoteReply=False)
+        assert transport.children[peer.binding.chat_ref].event(private) is None
+        row = mock.add(mock.group, "reply without real mention")
+        row.update(type=49, quoteReply=True, quotedText="@self old quote")
+        child = transport.children[group.binding.chat_ref]
+        assert child.event(row) is None
+        row["_mentionedSelf"] = True
+        assert child.event(row) is not None
+    finally:
+        await transport.close()
+
+
+async def test_self_quote_with_same_text_is_not_a_plain_text_send_receipt(tmp_path: Path) -> None:
+    mock = TwoChats()
+    original = mock.handle
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        response = original(request)
+        if request.url.path == "/api/messages/send":
+            mock.rows[0].update(type=49, quoteReply=True)
+        return response
+
+    mock.handle = handle
+    transport = await setup(mock, tmp_path)
+    try:
+        target = mock.targets()[0]
+        message = OutboundMessage(
+            channel=CHANNEL, chat_id=target.binding.chat_ref, text="same text"
+        )
+        receipt = await transport.deliver(message)
+        assert receipt.status is DeliveryStatus.UNKNOWN
+        assert (await transport.deliver(message)).status is DeliveryStatus.UNKNOWN
+        assert mock.posts == 1
+    finally:
+        await transport.close()
+
+
 @pytest.mark.parametrize(
     "fault", ["navigation_failure", "duplicate_title", "duplicate_reply", "send_timeout"]
 )

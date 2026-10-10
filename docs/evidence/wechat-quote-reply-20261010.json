@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-10",
+  "scope": "operator-specified allowlisted private conversation, identifiers and contents omitted",
+  "before": {
+    "globally_paused": false,
+    "target_pause_reasons": [],
+    "recent_plain_text_replies_acknowledged": 3,
+    "latest_message_base_type": 49,
+    "latest_app_subtype": 57,
+    "quote_type": 1,
+    "bridge_content_chars": 0
+  },
+  "cause": "bridge and conversation event conversion supported only base type 1",
+  "deployed_readback": {
+    "quote_reply": true,
+    "current_text_nonempty": true,
+    "quoted_text_nonempty": true,
+    "is_self": false
+  },
+  "after": {
+    "paused": false,
+    "target_pause_reasons": [],
+    "queue_depth": 0,
+    "unknown_outbox": 1
+  },
+  "automated_tests_passed": 577,
+  "real_new_quote_reply_end_to_end": "not yet verified",
+  "history": "filtered historical messages are not replayed"
+}

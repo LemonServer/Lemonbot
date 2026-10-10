@@ -13,6 +13,58 @@ bridge = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bridge)
 
 
+def test_quoted_reply_preserves_current_text_and_quote_without_trusting_quoted_identity() -> None:
+    xml = (
+        "<msg><appmsg><type>57</type><title>引用</title><refermsg><type>1</type>"
+        "<content>earlier text</content><chatusr>fake-self</chatusr>"
+        "<atuserlist>self</atuserlist></refermsg></appmsg></msg>"
+    )
+    reader = bridge.SourceReader("synthetic", {"account": "self_machine", "chat_ids": ["peer"]})
+    reader.canonical_identity = "self"
+    row = reader.message_row(
+        {
+            "sender": "peer",
+            "local_type": 244813135921,
+            "content": xml.encode().hex(),
+            "compressed": 0,
+            "source": "",
+            "source_compressed": 0,
+            "local_id": 9,
+            "server_id": 99,
+            "create_time": 1700000000,
+        },
+        "peer",
+    )
+    assert row["type"] == 49
+    assert row["content"] == "引用"
+    assert row["quotedText"] == "earlier text"
+    assert row["quoteReply"] is True
+    assert row["isSelf"] is False
+    assert row["mentionedSelf"] is False
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        "not xml",
+        "x" * 65537,
+        '<!DOCTYPE msg [<!ENTITY x "secret">]><msg/>',
+        "<msg><appmsg><type>5</type><title>link</title><refermsg/></appmsg></msg>",
+        "<msg><appmsg><type>57</type><title>reply</title><title>ambiguous</title><refermsg/></appmsg></msg>",
+    ],
+)
+def test_unsupported_or_invalid_app_message_is_not_treated_as_text(xml: str) -> None:
+    assert bridge.quoted_reply(xml) is None
+
+
+def test_quoted_media_does_not_export_its_payload() -> None:
+    assert bridge.quoted_reply(
+        "<msg><appmsg><type>57</type><title>reply</title>"
+        "<refermsg><type>3</type><content>private media payload</content>"
+        "</refermsg></appmsg></msg>"
+    ) == ("reply", None)
+
+
 def test_account_directory_alias_resolves_from_unique_self_sender() -> None:
     rows = [{"isSelf": True, "sender": "wxid_example"}, {"isSelf": False, "sender": "other"}]
     assert bridge.canonical_self(rows, "wxid_example_machine") == "wxid_example"
@@ -168,7 +220,7 @@ def test_snapshot_messages_preserve_sender_and_strip_only_confirmed_group_prefix
                 "local_type": 0x100000001,
                 "create_time": 1700000000,
                 "sender": "peer",
-                "content": 'peer:\n修复验收：请记住群聊短词“青柠”，用一句话确认。'.encode().hex(),
+                "content": "peer:\n修复验收：请记住群聊短词“青柠”，用一句话确认。".encode().hex(),
                 "compressed": 0,
                 "source": b"<msgsource><atuserlist>self</atuserlist></msgsource>".hex(),
                 "source_compressed": 0,
@@ -177,7 +229,7 @@ def test_snapshot_messages_preserve_sender_and_strip_only_confirmed_group_prefix
     )
     group = reader.messages("group@chatroom", 0)
     assert group["accountVerified"] is True
-    assert group["rows"][0]["content"] == '修复验收：请记住群聊短词“青柠”，用一句话确认。'
+    assert group["rows"][0]["content"] == "修复验收：请记住群聊短词“青柠”，用一句话确认。"
     assert group["rows"][0]["sender"] == "peer"
     assert group["rows"][0]["isSelf"] is False
     assert group["rows"][0]["type"] == 1

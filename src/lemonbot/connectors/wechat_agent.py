@@ -533,7 +533,9 @@ class AgentWechatConnector(Connector):
                 matches = [
                     r
                     for r in page
-                    if r["localId"] not in previous and r.get("content") == message.text
+                    if r["localId"] not in previous
+                    and r.get("type") == 1
+                    and r.get("content") == message.text
                 ]
                 if len(matches) > 1:
                     self.pause("AmbiguousReadback")

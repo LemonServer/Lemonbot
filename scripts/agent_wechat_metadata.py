@@ -41,6 +41,41 @@ _snapshot_spec.loader.exec_module(_snapshots)
 MAX_SOURCE = 65536
 
 
+def quoted_reply(content: str) -> tuple[str, str | None] | None:
+    """Read only a type-57 reply body and its optional quoted plain text.
+
+    Names, identities and mention-like fields inside the quote are not trusted.
+    Other app messages (files, links, payment, etc.) remain unsupported.
+    """
+    if len(content) > MAX_SOURCE or "<!DOCTYPE" in content.upper() or "<!ENTITY" in content.upper():
+        return None
+    try:
+        root = ET.fromstring(content)  # noqa: S314 -- bounded XML; DTD/entities rejected
+    except ET.ParseError:
+        return None
+    apps = root.findall("./appmsg")
+    if root.tag != "msg" or len(apps) != 1:
+        return None
+    app = apps[0]
+    titles, types, quotes = app.findall("title"), app.findall("type"), app.findall("refermsg")
+    if len(types) != 1 or types[0].text != "57" or len(titles) != 1 or len(quotes) != 1:
+        return None
+    title = titles[0].text or ""
+    if not title.strip() or len(titles[0]):
+        return None
+    quote = quotes[0]
+    texts, quote_types = quote.findall("content"), quote.findall("type")
+    quoted = None
+    if (
+        len(quote_types) == 1
+        and quote_types[0].text == "1"
+        and len(texts) == 1
+        and not len(texts[0])
+    ):
+        quoted = texts[0].text or None
+    return title, quoted
+
+
 def canonical_self(rows: list[dict[str, Any]], account: str) -> str:
     """Resolve the canonical ID from self metadata, not nickname/prefix guessing."""
     identities = {r.get("sender") for r in rows if r.get("isSelf") is True}
@@ -300,6 +335,18 @@ class SourceReader:
         text = (
             decode_source(row["content"] or "", row["compressed"] or 0) if message_type == 1 else ""
         )
+        reply = None
+        if message_type == 49:
+            content = decode_source(row["content"] or "", row["compressed"] or 0)
+            if (
+                isinstance(sender, str)
+                and chat_id.endswith("@chatroom")
+                and content.startswith(sender + ":\n")
+            ):
+                content = content[len(sender) + 2 :]
+            reply = quoted_reply(content)
+            if reply is not None:
+                text = reply[0]
         if (
             isinstance(sender, str)
             and chat_id.endswith("@chatroom")
@@ -313,6 +360,8 @@ class SourceReader:
             "sender": sender,
             "type": message_type,
             "content": text,
+            "quoteReply": reply is not None,
+            "quotedText": reply[1] if reply is not None else None,
             "mentionedSelf": mentioned_self(
                 decode_source(row["source"] or "", row["source_compressed"] or 0),
                 self.canonical_identity,

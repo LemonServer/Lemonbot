@@ -242,7 +242,8 @@ class ConversationTransport(AgentWechatConnector):
 
     def event(self, row: dict[str, Any]) -> InboundEvent | None:
         text = row.get("content")
-        if row.get("type") != 1 or not isinstance(text, str) or not text.strip():
+        is_quote = row.get("type") == 49 and row.get("quoteReply") is True
+        if (row.get("type") != 1 and not is_quote) or not isinstance(text, str) or not text.strip():
             return None
         if type(row.get("isSelf")) is not bool:
             self.pause("DirectionMissing")
@@ -255,6 +256,11 @@ class ConversationTransport(AgentWechatConnector):
             return None
         if not self.target.is_group and sender != self.binding.chat_id:
             self.pause("PrivateSenderMismatch")
+        quoted = row.get("quotedText") if is_quote else None
+        if quoted is not None:
+            if not isinstance(quoted, str):
+                self.pause("InvalidQuotedText")
+            text += "\n\n[Quoted text provided by the sender]\n" + quoted
         if len(text) > 100_000:
             self.pause("TextTooLarge")
         try:
