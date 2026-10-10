@@ -15,6 +15,9 @@
 
 2026-10-10 新增引用文本回复支持：微信 local_type 低位 49、appmsg/type 57
 解析当前 title；refermsg/type 1 的原文作为明确标记的引用材料提供给模型。
+模型输入明确提示 `This is a quote reply to an earlier message.`，
+随后分列 `Current message` 与 `Quoted message (context only)`；无法读取引用或引用非文本时
+标记内容不可用，不猜测原文。此提示与对话一起持久化，后续上下文也保留引用关系。
 引用中的身份、昵称与 @ 不作为当前发送者或触发依据；引用图片等非文本时只处理当前文字。
 文件、链接等其他 appmsg 类型仍不作为文本输入。发送确认只接受唯一新 self 普通文本消息，
 不能由同文引用充当回执。修复前过滤的历史引用不补抓或自动重放。

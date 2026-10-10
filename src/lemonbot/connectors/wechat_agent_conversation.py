@@ -257,10 +257,15 @@ class ConversationTransport(AgentWechatConnector):
         if not self.target.is_group and sender != self.binding.chat_id:
             self.pause("PrivateSenderMismatch")
         quoted = row.get("quotedText") if is_quote else None
-        if quoted is not None:
-            if not isinstance(quoted, str):
+        if is_quote:
+            if quoted is not None and not isinstance(quoted, str):
                 self.pause("InvalidQuotedText")
-            text += "\n\n[Quoted text provided by the sender]\n" + quoted
+            text = (
+                "This is a quote reply to an earlier message.\nCurrent message:\n"
+                + text
+                + "\n\nQuoted message (context only):\n"
+                + (quoted if quoted is not None else "[Quoted content unavailable or non-text]")
+            )
         if len(text) > 100_000:
             self.pause("TextTooLarge")
         try:

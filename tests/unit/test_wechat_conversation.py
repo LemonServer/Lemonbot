@@ -308,8 +308,17 @@ async def test_quote_reply_uses_current_sender_and_current_group_mention(tmp_pat
         private = mock.add(mock.peer, "引用")
         private.update(type=49, quoteReply=True, quotedText="earlier text")
         event = transport.children[peer.binding.chat_ref].event(private)
-        assert event is not None and event.text.startswith("引用\n\n[Quoted text")
+        assert event is not None
+        assert event.text == (
+            "This is a quote reply to an earlier message.\nCurrent message:\n引用"
+            "\n\nQuoted message (context only):\nearlier text"
+        )
         assert event.text.endswith("earlier text")
+        private["quotedText"] = None
+        unavailable = transport.children[peer.binding.chat_ref].event(private)
+        assert unavailable is not None
+        assert "quote reply" in unavailable.text
+        assert unavailable.text.endswith("[Quoted content unavailable or non-text]")
         private["isSelf"] = True
         assert transport.children[peer.binding.chat_ref].event(private) is None
         private.update(isSelf=False, quoteReply=False)
