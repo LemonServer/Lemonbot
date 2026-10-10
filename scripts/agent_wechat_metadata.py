@@ -24,6 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -213,53 +214,158 @@ class SourceReader:
             path,
             key,
             "SELECT m.local_id,m.server_id,m.local_type,m.create_time,"  # noqa: S608 -- fixed MD5 table name and bounded integer offset
-            "hex(m.message_content) AS content,m.WCDB_CT_message_content AS compressed,"
+            "hex(m.message_content) AS content,"
+            "m.WCDB_CT_message_content AS compressed,"
             "hex(m.source) AS source,m.WCDB_CT_source AS source_compressed,"
             'n.user_name AS sender FROM "' + table + '" m LEFT JOIN Name2Id n '
-            "ON m.real_sender_id=n.rowid ORDER BY m.create_time DESC,m.local_id DESC "
+            "ON m.real_sender_id=n.rowid "
+            "ORDER BY m.create_time DESC,m.local_id DESC "
             "LIMIT 100 OFFSET " + str(offset),
         )
-        result = []
-        for row in rows:
-            sender = row["sender"]
-            message_type = row["local_type"] & 0x7FFFFFFF
-            text = (
-                decode_source(row["content"] or "", row["compressed"] or 0)
-                if message_type == 1
-                else ""
-            )
-            if (
-                isinstance(sender, str)
-                and chat_id.endswith("@chatroom")
-                and text.startswith(sender + ":\n")
-            ):
-                text = text[len(sender) + 2 :]
-            result.append(
-                {
-                    "localId": row["local_id"],
-                    "serverId": row["server_id"],
-                    "chatId": chat_id,
-                    "sender": sender,
-                    "type": message_type,
-                    "content": text,
-                    "mentionedSelf": mentioned_self(
-                        decode_source(row["source"] or "", row["source_compressed"] or 0),
-                        self.canonical_identity,
-                    )
-                    if chat_id.endswith("@chatroom")
-                    else False,
-                    "timestamp": datetime.fromtimestamp(
-                        row["create_time"], timezone.utc  # noqa: UP017 -- container Python 3.10
-                    ).isoformat(),
-                    "isSelf": sender == self.canonical_identity
-                    if isinstance(sender, str)
-                    else None,
-                }
-            )
+        result = [self.message_row(row, chat_id) for row in rows]
         after = self.api("/api/status/auth")
         if after.get("loggedInUser") != account or after.get("status") != "logged_in":
             raise ValueError("AccountChanged")
         return {"rows": result, "accountVerified": True}
+
+    def message_row(self, row: dict[str, Any], chat_id: str) -> dict[str, Any]:
+        sender = row["sender"]
+        message_type = row["local_type"] & 0x7FFFFFFF
+        text = (
+            decode_source(row["content"] or "", row["compressed"] or 0) if message_type == 1 else ""
+        )
+        if (
+            isinstance(sender, str)
+            and chat_id.endswith("@chatroom")
+            and text.startswith(sender + ":\n")
+        ):
+            text = text[len(sender) + 2 :]
+        return {
+            "localId": row["local_id"],
+            "serverId": row["server_id"],
+            "chatId": chat_id,
+            "sender": sender,
+            "type": message_type,
+            "content": text,
+            "mentionedSelf": mentioned_self(
+                decode_source(row["source"] or "", row["source_compressed"] or 0),
+                self.canonical_identity,
+            )
+            if chat_id.endswith("@chatroom")
+            else False,
+            "timestamp": datetime.fromtimestamp(
+                row["create_time"],
+                timezone.utc,  # noqa: UP017 -- container Python 3.10
+            ).isoformat(),
+            "isSelf": sender == self.canonical_identity if isinstance(sender, str) else None,
+        }
+
+    def read_cycle(self, anchors: dict[str, list[int] | None]) -> dict[str, Any]:
+        if not isinstance(anchors, dict) or not anchors or len(anchors) > 2:
+            raise ValueError("InvalidCycle")
+        for chat, ids in anchors.items():
+            if chat not in self.config["chat_ids"]:
+                raise ValueError("TargetNotBound")
+            if ids is not None and (
+                not isinstance(ids, list)
+                or len(ids) > 100
+                or len(set(ids)) != len(ids)
+                or any(type(i) is not int or i <= 0 for i in ids)
+            ):
+                raise ValueError("InvalidAnchors")
+        started = time.monotonic()
+        auth = self.api("/api/status/auth")
+        account = auth.get("loggedInUser")
+        if auth.get("status") != "logged_in" or account != self.config["account"]:
+            raise ValueError("AccountChanged")
+        if self.canonical_identity is None:
+            group = next(c for c in self.config["chat_ids"] if c.endswith("@chatroom"))
+            self.canonical_identity = canonical_self(
+                self.api("/api/messages/" + urllib.parse.quote(group, safe="") + "?limit=100"),
+                account,
+            )
+        chats = list(anchors)
+        sources = [self.source_table(chat, account) for chat in chats]
+        grouped: dict[tuple[Path, str], list[tuple[int, str]]] = {}
+        for index, (path, key, table) in enumerate(sources):
+            grouped.setdefault((path, key), []).append((index, table))
+        results: list[list[dict[str, Any]]] = [[] for _ in chats]
+        snapshot_started = time.monotonic()
+        for attempt in range(3):
+            try:
+                with ExitStack() as stack:
+                    captured = {
+                        source: stack.enter_context(_snapshots.snapshot(source[0]))
+                        for source in grouped
+                    }
+                    for source, tables in grouped.items():
+                        statements = []
+                        for index, table in tables:
+                            statements.append(
+                                "SELECT * FROM (SELECT "  # noqa: S608 -- MD5 table names and bounded index only
+                                + str(index)
+                                + " AS chat_index,"
+                                "m.local_id,m.server_id,m.local_type,m.create_time,"
+                                "hex(m.message_content) AS content,"
+                                "m.WCDB_CT_message_content AS compressed,"
+                                "hex(m.source) AS source,m.WCDB_CT_source AS source_compressed,"
+                                'n.user_name AS sender FROM "' + table + '" m LEFT JOIN Name2Id n '
+                                "ON m.real_sender_id=n.rowid "
+                                "ORDER BY m.create_time DESC,m.local_id DESC "
+                                "LIMIT 1000)"
+                            )
+                        rows = self._query(
+                            captured[source],
+                            source[1],
+                            " UNION ALL ".join(statements)
+                            + " ORDER BY chat_index,create_time DESC,local_id DESC",
+                            immutable=True,
+                        )
+                        for row in rows:
+                            results[row["chat_index"]].append(row)
+                break
+            except ValueError as error:
+                if str(error) != "SnapshotSourceChanged" or attempt == 2:
+                    raise
+                results = [[] for _ in chats]
+                time.sleep(0.03)
+        snapshot_seconds = time.monotonic() - snapshot_started
+        targets = []
+        for chat, rows in zip(chats, results, strict=True):
+            ids = anchors[chat]
+            latest = [r["local_id"] for r in rows[:100]]
+            if ids is None:
+                selected, error = [], None
+            else:
+                overlap = [i for i, row in enumerate(rows) if row["local_id"] in ids]
+                error = "AnchorLost" if not overlap and (ids or len(rows) >= 100) else None
+                selected = rows[: max(overlap) + 1] if overlap else rows
+            targets.append(
+                {
+                    "chatId": chat,
+                    "anchors": latest,
+                    "error": error,
+                    "rows": []
+                    if error
+                    else [
+                        self.message_row(row, chat)
+                        for row in selected
+                        if row["local_id"] not in (ids or [])
+                    ],
+                }
+            )
+        after = self.api("/api/status/auth")
+        if after.get("status") != "logged_in" or after.get("loggedInUser") != account:
+            raise ValueError("AccountChanged")
+        return {
+            "accountVerified": True,
+            "account": account,
+            "targets": targets,
+            "timings": {
+                "snapshot_seconds": round(snapshot_seconds, 6),
+                "cycle_seconds": round(time.monotonic() - started, 6),
+            },
+        }
 
     def mentions(self, chat_id: str, offset: int, ids: list[int] | None = None) -> dict[str, Any]:
         if chat_id not in self.config["chat_ids"] or not 0 <= offset <= 900:
@@ -435,6 +541,50 @@ def serve(
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, _format: str, *args: Any) -> None:
             pass
+
+        def do_POST(self) -> None:
+            if allowed_peer and self.client_address[0] != allowed_peer:
+                self.send_error(403)
+                return
+            if not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
+                self.send_error(401)
+                return
+            if self.path != "/read-cycle":
+                self.send_error(404)
+                return
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 16384:
+                    raise ValueError("InvalidCycle")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict) or set(payload) != {"anchors"}:
+                    raise ValueError("InvalidCycle")
+                if upstream:
+                    request = urllib.request.Request(
+                        "http://" + upstream + ":6175/read-cycle",
+                        data=json.dumps(payload).encode(),
+                        headers={
+                            "Authorization": "Bearer " + token,
+                            "Content-Type": "application/json",
+                        },
+                        method="POST",
+                    )
+                    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                    with opener.open(request, timeout=25) as response:
+                        body = json.load(response)
+                else:
+                    assert reader is not None
+                    body = reader.read_cycle(payload["anchors"])
+                data = json.dumps(body).encode()
+                self.send_response(200)
+            except Exception:
+                data = b'{"error":"MetadataBridgeUnavailable"}'
+                self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
         def do_GET(self) -> None:
             if allowed_peer and self.client_address[0] != allowed_peer:

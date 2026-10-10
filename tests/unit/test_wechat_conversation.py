@@ -97,6 +97,45 @@ class TwoChats(SimulatedWechat):
         assert not request.url.path.startswith("/mentions/"), (
             "mentions must share the text snapshot"
         )
+        if request.url.path == "/read-cycle":
+            anchors = json.loads(request.content)["anchors"]
+            targets = []
+            for chat, ids in anchors.items():
+                self.reads += 1
+                rows = sorted(self.messages[chat], key=lambda r: r["localId"], reverse=True)[:1000]
+                latest = [r["localId"] for r in rows[:100]]
+                overlap = [i for i, r in enumerate(rows) if r["localId"] in (ids or [])]
+                error = (
+                    "AnchorLost"
+                    if ids is not None and not overlap and (ids or len(rows) >= 100)
+                    else None
+                )
+                selected = [] if ids is None else rows[: max(overlap) + 1] if overlap else rows
+                targets.append(
+                    {
+                        "chatId": chat,
+                        "anchors": latest,
+                        "error": error,
+                        "rows": []
+                        if error
+                        else [
+                            {**r, "mentionedSelf": r.get("_mentionedSelf", False)}
+                            for r in selected
+                            if r["localId"] not in (ids or [])
+                        ],
+                    }
+                )
+            if self.inject_on_read:
+                self.inject_on_read = False
+                self.add(self.group, "arrival during read", mention=True)
+            return httpx.Response(
+                200,
+                json={
+                    "accountVerified": True,
+                    "account": self.account,
+                    "targets": targets,
+                },
+            )
         if request.url.path.startswith("/messages/"):
             identifier = request.url.path.removeprefix("/messages/")
             offset = request.url.params.get("offset", "0")

@@ -32,6 +32,7 @@ from lemonbot.domain.models import (
     InboundEvent,
     OutboundMessage,
 )
+from lemonbot.latency import measure
 
 
 @dataclass(frozen=True)
@@ -410,23 +411,100 @@ class ConversationMultiplexer(AgentWechatConnector):
         self.target_pauses[chat_ref] = reason
         private_write(self.target_pause_file, json.dumps(self.target_pauses).encode())
 
+    async def _cycle(self, refs: list[str], *, baseline: bool = False) -> list[InboundEvent]:
+        if not refs:
+            return []
+        try:
+            with measure("receive.snapshot_cycle"):
+                response = await self.metadata.post(
+                    "/read-cycle",
+                    json={
+                        "anchors": {
+                            self.children[ref].binding.chat_id: None
+                            if baseline
+                            else sorted(self.children[ref].anchors or set())
+                            for ref in refs
+                        }
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+            if payload.get("accountVerified") is not True:
+                raise ValueError
+            if reference(self.key, "account", payload["account"]) != self.binding.account_ref:
+                self.pause("AccountChanged")
+            targets = payload["targets"]
+            expected = {self.children[ref].binding.chat_id: ref for ref in refs}
+            if not isinstance(targets, list) or len(targets) != len(expected):
+                raise ValueError
+            if {t["chatId"] for t in targets} != set(expected):
+                raise ValueError
+            staged = []
+            events = []
+            by_chat = {t["chatId"]: t for t in targets}
+            for ref in refs:
+                child = self.children[ref]
+                result = by_chat[child.binding.chat_id]
+                if result.get("error") == "AnchorLost":
+                    self.target_failure(ref, LabPaused("AnchorLost"))
+                    continue
+                if result.get("error") is not None:
+                    raise ValueError
+                anchors, rows = result["anchors"], result["rows"]
+                if (
+                    not isinstance(anchors, list)
+                    or len(anchors) > 100
+                    or any(type(i) is not int or i <= 0 for i in anchors)
+                    or len(set(anchors)) != len(anchors)
+                    or not isinstance(rows, list)
+                    or len(rows) > 1000
+                ):
+                    raise ValueError
+                for offset in range(0, len(rows), 100):
+                    child.validate_page(rows[offset : offset + 100])
+                if len({r["localId"] for r in rows}) != len(rows):
+                    raise ValueError
+                if baseline and rows:
+                    raise ValueError
+                for row in reversed(rows):
+                    if child.target.is_group:
+                        if type(row.get("mentionedSelf")) is not bool:
+                            raise ValueError
+                        row = {**row, "_mentionedSelf": row["mentionedSelf"]}
+                    try:
+                        event = child.event(row)
+                    except LabPaused as error:
+                        self.target_failure(ref, error)
+                        break
+                    if event is not None:
+                        events.append(event)
+                else:
+                    staged.append((child, set(anchors)))
+            for child, anchors in staged:
+                child.anchors = anchors
+            return events
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            self.pause("MessageSnapshotUnavailable")
+
     async def baseline(self) -> None:
         if self._notification_task is None or self._notification_task.done():
             self._notification_error = None
             self._notification_task = asyncio.create_task(self._listen())
-        # Notifications arriving during baseline are retained for the next read.
         if self.resume_requested:
             for child in self.children.values():
                 child.paused = None
             self.target_pauses.clear()
         try:
+            refs = []
             for ref, child in self.children.items():
                 if ref in self.target_pauses:
                     continue
                 try:
-                    await child.baseline()
+                    await child.guard()
+                    refs.append(ref)
                 except LabPaused as error:
                     self.target_failure(ref, error)
+            await self._cycle(refs, baseline=True)
             if self.resume_requested and self.target_pauses:
                 raise LabPaused("TargetResumeVerificationFailed")
             if len(self.target_pauses) == len(self.children):
@@ -444,20 +522,12 @@ class ConversationMultiplexer(AgentWechatConnector):
         now = asyncio.get_running_loop().time()
         if not self._notifications.is_set() and now < self._next_reconciliation:
             return []
-        # Clear before reading: changes during a read must wake the next pass.
         self._notifications.clear()
         self._next_reconciliation = now + 60
         refs = list(self.children)
         refs = refs[self.rotation :] + refs[: self.rotation]
         self.rotation = (self.rotation + 1) % len(refs)
-        events = []
-        for ref in refs:
-            if ref in self.target_pauses:
-                continue
-            try:
-                events.extend(await self.children[ref].poll())
-            except LabPaused as error:
-                self.target_failure(ref, error)
+        events = await self._cycle([ref for ref in refs if ref not in self.target_pauses])
         if len(self.target_pauses) == len(self.children):
             self.pause("AllTargetsPaused")
         return events
