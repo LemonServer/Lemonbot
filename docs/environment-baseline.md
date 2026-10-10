@@ -138,3 +138,12 @@ Docker 的 reclaimable 标签不作为删除许可。本轮无 prune 或磁盘�
 微信未重启，固定镜像、微信版本与原卷未改变；仅替换自有元数据桥并重启桥和空闲 runtime。
 部署前持久暂停，活动入站和 outbox 均为零；重启仍保留 ManualPause，显式恢复后队列为空。
 旧 UNKNOWN 一条保留不重发。当前仍为 2 vCPU、约 4 GiB 内存；扩容对照尚未进行。
+
+## 扩容资源核验（2026-10-10）
+
+宿主重启后确认 4 vCPU、约 7.7 GiB 系统内存，启动时 swap 使用为零。
+固定容器、原卷、绑定、模型与产品代码保持不变，账号恢复不需扫码；
+人工重建临时 user services 后显式恢复。
+`systemd-run --user --collect` 创建的单位不会跨宿主重启保存；
+当前桥 helper 对不存在单位执行 stop 会失败，不能把它当作无人值守恢复入口。
+本次手动恢复步骤与待测结果见 [延迟优化报告](wechat-latency-optimization.md)。

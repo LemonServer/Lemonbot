@@ -164,5 +164,14 @@
     "formal_runtime_soak_elapsed_seconds": 744.2489354600002
   },
   "sensitive_state_in_repository": false,
-  "lemonbot_code_commit": "215bcdb3c33d5b8d9ec9d6e4c62c44bbc5f402b2"
+  "lemonbot_code_commit": "215bcdb3c33d5b8d9ec9d6e4c62c44bbc5f402b2",
+  "resource_observation_20261010": {
+    "vcpus": 4,
+    "memory_gib": 7.7,
+    "swap_used_gib_at_boot": 0.0,
+    "historical_record_above_preserved": true,
+    "fixed_image_and_original_volumes_preserved": true,
+    "host_reboot_manual_recovery_verified": true,
+    "host_reboot_automatic_recovery_verified": false
+  }
 }

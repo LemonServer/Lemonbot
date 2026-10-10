@@ -20,7 +20,7 @@
     "code": 35,
     "hardware": 25
   },
-  "hardware_comparison": "pending",
+  "hardware_comparison": "resources_verified_runtime_resumed_trials_pending",
   "checks": {
     "tests_passed": 540,
     "ruff": "passed",
@@ -63,5 +63,26 @@
     "active_outbox": 0,
     "unknown_outbox": 1,
     "runtime_stopped": true
+  },
+  "hardware_resources": {
+    "vcpus": 4,
+    "memory_gib": 7.7,
+    "swap_used_gib_at_start": 0.0
+  },
+  "reboot_recovery": {
+    "fixed_container_started": true,
+    "login_restored_without_scan": true,
+    "metadata_bridge_restored": true,
+    "transient_user_units_recreated": true,
+    "persistent_pause_preserved": true,
+    "explicit_resume_success": true,
+    "queue_depth": 0,
+    "unknown_outbox": 1,
+    "initial_container_exit_stage": "audio_prerequisite",
+    "stale_audio_cleanup_attempt": "refused_active_daemon_no_files_changed",
+    "audio_fault_root_cause": "not_proven",
+    "product_code_changed": false,
+    "image_changed": false,
+    "volumes_changed": false
   }
 }
