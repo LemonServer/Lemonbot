@@ -35,6 +35,9 @@ def main() -> None:
         type=Path,
         default=Path.home() / ".local/state/lemonbot/agent-wechat-lab/conversation-runtime.toml",
     )
+    parser.add_argument(
+        "--stop", action="store_true", help="Pause, drain and stop without restarting."
+    )
     args = parser.parse_args()
     settings = load_settings(args.config)
     paths = RuntimePaths.from_settings(settings)
@@ -51,6 +54,8 @@ def main() -> None:
         )
     deadline = time.monotonic() + 90
     while True:
+        if not paths.database.exists():
+            break
         with sqlite3.connect(paths.database.as_uri() + "?mode=ro", uri=True) as db:
             active = db.execute("SELECT count(*) FROM inbox WHERE state='processing'").fetchone()[0]
             active += db.execute(
@@ -62,6 +67,10 @@ def main() -> None:
         if time.monotonic() >= deadline:
             raise RuntimeError("InFlightTasksRestartCancelled")
         time.sleep(1)
+    if args.stop:
+        command("systemctl", "--user", "stop", UNIT)
+        print("Bot stopped after draining; persistent pause and all data preserved.")
+        return
     loaded = command("systemctl", "--user", "show", UNIT, "--property=LoadState", "--value").strip()
     if loaded == "not-found":
         repo = Path(__file__).resolve().parents[1]

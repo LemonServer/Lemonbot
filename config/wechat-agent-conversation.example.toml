@@ -19,7 +19,7 @@ token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"
 state_dir = "~/.local/state/lemonbot/agent-wechat-lab"
 # Optional name-based startup synchronization (exact WeChat chat display names).
 # Copy config/wechat-whitelist.example.toml to a private local file first.
-whitelist_file = "" # e.g. /home/lemon/Lemonbot/config/wechat-whitelist.local.toml
+whitelist_file = "" # e.g. ~/.local/state/lemonbot/agent-wechat-lab/whitelist.toml
 
 [models]
 provider = "disabled" # Change to deepseek together with connector/enabled above.
@@ -49,3 +49,12 @@ enabled = false
 
 [mcp]
 enabled = false
+
+# Optional reply limit override (repository defaults: 3 / 10 / 30, global 50).
+# 0 disables only the ten-minute or hourly window; daily limits remain positive.
+# Counts use rolling 24 hours and include UNKNOWN and active sending intents.
+# [limits.wechat_reply]
+# per_10_minutes = 0
+# per_hour = 0
+# per_day = 100
+# global_per_day = 100

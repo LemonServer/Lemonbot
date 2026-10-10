@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+# Historical research commands may pin a floating image. For 1.0 installation use
+# wechat_setup.py (fixed digest); only open-vnc is referenced by the current handbook.
 import argparse
 import base64
 import fcntl

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Restore the pinned historical experiment, preserving all existing volumes.
+"""Historical local-only recovery helper; NOT the 1.0 first-install entry.
+
+Use wechat_setup.py for portable deployment. Restore the original experiment, preserving volumes.
 
 Run with sudo. This helper neither logs account data nor sends WeChat messages.
 """
