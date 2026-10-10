@@ -31,9 +31,15 @@ from lemonbot.connectors import (
     FakeConnector,
 )
 from lemonbot.connectors.atspi_worker_proxy import AtspiWorkerSource
-from lemonbot.connectors.wechat_agent import CHANNEL, AgentWechatConnector, AgentWechatHTTP
+from lemonbot.connectors.wechat_agent import (
+    CHANNEL,
+    AgentWechatConnector,
+    AgentWechatHTTP,
+    LabPaused,
+)
 from lemonbot.connectors.wechat_agent_conversation import ConversationMultiplexer, load_targets
 from lemonbot.connectors.wechat_agent_runtime import RuntimeAgentWechatConnector
+from lemonbot.connectors.wechat_agent_startup import report_conversations, report_sync_failure
 from lemonbot.connectors.wechat_agent_state import (
     load_binding,
     prepare_state,
@@ -570,14 +576,26 @@ class LemonbotRuntime:
                         follow_redirects=False,
                         timeout=30,
                     ) as metadata:
-                        targets = await sync_whitelist(
-                            transport.http,
-                            transport.binding,
-                            key,
-                            state,
-                            read_whitelist(Path(whitelist).expanduser()),
-                            metadata,
-                        )
+                        requested = read_whitelist(Path(whitelist).expanduser())
+                        try:
+                            targets = await sync_whitelist(
+                                transport.http,
+                                transport.binding,
+                                key,
+                                state,
+                                requested,
+                                metadata,
+                            )
+                        except Exception as error:
+                            await report_sync_failure(
+                                transport.http,
+                                [(n, True) for n in requested.groups]
+                                + [(n, False) for n in requested.contacts],
+                                str(error)
+                                if isinstance(error, LabPaused)
+                                else "WhitelistSyncFailed",
+                            )
+                            raise
                     logger.info("wechat whitelist synchronized targets=%d", len(targets))
                 else:
                     targets = load_targets(
@@ -594,6 +612,10 @@ class LemonbotRuntime:
                 )
             connector = RuntimeAgentWechatConnector(transport, self.repository, state)
             await connector.initialize()
+            if isinstance(transport, ConversationMultiplexer):
+                await report_conversations(
+                    transport, ready=connector.ready, pause_reason=connector.pause_reason
+                )
             return connector
         if selected != "wechat_atspi":
             raise RuntimeError("unsupported connector")

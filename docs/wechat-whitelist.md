@@ -24,6 +24,21 @@ contacts = ["张三", "李四"]
 
 本机服务的常用操作（在项目根目录执行）：
 
+推荐用以下入口重启并在命令行查看本次白名单检查：
+
+```bash
+uv run --locked python scripts/wechat_bot_restart.py
+uv run --locked python scripts/wechat_conversation_control.py resume
+```
+
+重启入口自动暂停并等待在途任务结束；最多等待 90 秒，超时不强行重启。
+只重启机器人，不重启微信，不自动解除持久暂停。启动失败时先修正报错，再重启。
+每个会话显示 name、kind、resolved（名称/类型匹配）、readable（绑定与消息可读）、
+enabled（允许运行）及 reason；summary 汇总数量、all_readable 与 all_available。
+readable 为 null 表示尚未检查；已匹配的会话也可能因其他白名单项错误而阻止启动。
+启动时暂停会显示可读但未启用，这是需要显式 resume，不是消息读取故障。
+可用仅表示当次登录、绑定与读取检查通过，不代表对每个新增会话做过真实发送验收。
+
 ```bash
 uv run --locked python scripts/wechat_conversation_control.py pause
 uv run --locked python scripts/wechat_conversation_control.py status
@@ -38,10 +53,13 @@ uv run --locked python scripts/wechat_conversation_control.py resume
 绑定及读取基线；旧 UNKNOWN 不重发，停机期间消息不补抓，原对话上下文不迁移或删除。
 若仍有在途任务，不强行重启；先让当前任务结束或检查管理台状态。
 
-启动日志只显示同步数量和固定错误码，不记录配置中的姓名、原始会话 ID 或凭据：
+按用户要求，启动报告会在本机命令行及 user journal 显示白名单名称和固定状态码，
+不显示原始账号/会话 ID、聊天正文或凭据；不要把含联系人名称的日志提交到仓库。
+直接使用 systemctl 重启时，子服务的标准输出进入 journal，可这样查看：
 
 ```bash
 journalctl --user -u lemonbot-wechat-conversation.service -n 80 --no-pager
+journalctl --user -u lemonbot-wechat-conversation.service -g '^wechat_startup ' -o cat --no-pager -n 40
 ```
 
 | 错误码 | 处理 |
