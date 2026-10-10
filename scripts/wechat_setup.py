@@ -16,7 +16,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -207,8 +207,12 @@ def environment(args: argparse.Namespace) -> None:
             if free < 8 * 1024**3:
                 raise ValueError("Need8GiBFreeBeforePull")
             if args.proxy:
-                # Docker pull uses daemon networking: refuse to pretend CLI HTTP_PROXY controls it.
-                raise ValueError("ConfigureDaemonProxyExplicitlyThenRerunWithoutProxy")
+                parts = urlsplit(args.proxy)
+                if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username:
+                    raise ValueError("InvalidProxyURL")
+                configured = docker(args, "info", "--format", "{{.HTTPSProxy}}").strip()
+                if configured != args.proxy:
+                    raise ValueError("ConfigureDaemonProxyExplicitlyFirst")
             pull_image(args, root)
         if disk_free(args, root) < 3 * 1024**3:
             raise ValueError("LessThan3GiBFreeAfterPull")
@@ -554,7 +558,8 @@ def main() -> None:
         help="Run Docker commands via sudo; never run this script as root.",
     )
     parser.add_argument(
-        "--proxy", help="Explicit daemon proxy reminder; no global Docker configuration is changed."
+        "--proxy",
+        help="Require this existing daemon proxy for uncached pulls; never change global config.",
     )
     args = parser.parse_args()
     args.state_dir = args.state_dir.expanduser().absolute()

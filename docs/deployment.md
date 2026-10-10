@@ -2,6 +2,8 @@
 
 Supported: Ubuntu 24.04 **desktop**, AMD64, Python 3.12; recommended 4 vCPU / 8 GiB RAM.
 Use the desktop user's terminal, unlocked GNOME Keyring and a D-Bus session.
+The [release environment manifest](../research/agent-wechat/release-environment-1.0.json)
+records the frozen client/image and recovery boundaries.
 A headless/server install is not covered. Fresh-machine/account end-to-end deployment
 has not been real-account tested; setup automation is tested with synthetic APIs.
 
@@ -52,7 +54,8 @@ permissions are `SYS_PTRACE`, `seccomp=unconfined`, never `--privileged`.
 
 Proxy: Docker pull runs in the daemon, so exporting a proxy only for the script is
 insufficient. Configure your daemon's proxy explicitly if needed, then rerun setup.
-`--proxy` refuses an uncached pull until you do this; it never changes global Docker
+`--proxy http://127.0.0.1:YOUR_PORT` verifies that the daemon already uses that proxy
+before an uncached pull; it never changes global Docker
 configuration or assumes port 7897. Preserve 3 GiB after downloading.
 
 ## 3. Initial identity and whitelist

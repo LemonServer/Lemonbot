@@ -1,0 +1,20 @@
+{
+  "release": "1.0.0",
+  "supported_host": "Ubuntu 24.04 desktop",
+  "architecture": "x86_64",
+  "python": "3.12",
+  "recommended_vcpu": 4,
+  "recommended_memory_gib": 8,
+  "image": "ghcr.io/thisnick/agent-wechat@sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43",
+  "wechat": "4.1.13.23",
+  "upstream_image_source_revision_verified": false,
+  "api_bind": "127.0.0.1:6174",
+  "metadata_bind": "127.0.0.1:6175",
+  "admin_bind": "127.0.0.1:8767",
+  "manual_login": true,
+  "manual_host_recovery": true,
+  "boot_start_enabled": false,
+  "own_license": "MIT",
+  "upstream_license_confirmed": false,
+  "fresh_machine_account_live_acceptance": "not_tested"
+}

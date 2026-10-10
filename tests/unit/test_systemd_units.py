@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def test_wechat_user_unit_uses_only_user_manager_compatible_sandboxing() -> None:
-    unit = Path("deploy/systemd/lemonbot-wechat-accessible.service").read_text(
+def test_archived_wechat_user_unit_uses_only_user_manager_compatible_sandboxing() -> None:
+    unit = Path("deploy/systemd/history/lemonbot-wechat-accessible.service").read_text(
         encoding="utf-8"
     )
 

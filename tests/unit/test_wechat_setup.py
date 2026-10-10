@@ -230,3 +230,62 @@ def test_generated_units_pass_real_systemd_syntax_check(
     )
     assert result.returncode == 0, result.stderr
     assert "bad unit" not in result.stderr.lower()
+
+
+@pytest.mark.parametrize("proxy_matches", [True, False])
+def test_first_environment_pins_image_and_checks_explicit_daemon_proxy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    proxy_matches: bool,
+) -> None:
+    options = args(tmp_path)
+    options.proxy = "http://127.0.0.1:12345"
+    monkeypatch.setattr(setup, "inspect", lambda _args: {})
+    monkeypatch.setattr(setup, "disk_free", lambda *_args: 9 * 1024**3)
+    calls = []
+    pulls = []
+    monkeypatch.setattr(setup, "pull_image", lambda *_args: pulls.append(setup.IMAGE))
+
+    def docker(_args: argparse.Namespace, *argv: str, **_kwargs: object) -> str:
+        calls.append(argv)
+        if argv[0] == "info":
+            if argv[-1] == "{{.HTTPSProxy}}":
+                return options.proxy if proxy_matches else ""
+            return str(tmp_path)
+        if argv[:2] == ("volume", "inspect") or argv[:2] == ("image", "inspect"):
+            return ""
+        if "x11vnc -Q" in argv[-1]:
+            return "ans=viewonly:0"
+        return ""
+
+    monkeypatch.setattr(setup, "docker", docker)
+    if not proxy_matches:
+        with pytest.raises(ValueError, match="ConfigureDaemonProxyExplicitlyFirst"):
+            setup.environment(options)
+        assert not pulls
+        assert not any(c[0] == "run" for c in calls)
+    else:
+        setup.environment(options)
+        assert pulls == [setup.IMAGE]
+        created = next(c for c in calls if c[0] == "run")
+        assert created[-1] == setup.IMAGE
+        assert "127.0.0.1:6174:6174" in created
+        assert "--privileged" not in created
+        assert any("dst=/data/auth-token,readonly" in c for c in created)
+        assert not any("latest" in c for c in created)
+
+
+def test_low_disk_aborts_before_environment_mutation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options = args(tmp_path)
+    calls = []
+    monkeypatch.setattr(
+        setup, "docker", lambda *_args, **_kwargs: calls.append(_args) or str(tmp_path)
+    )
+    monkeypatch.setattr(setup, "disk_free", lambda *_args: 2 * 1024**3)
+    with pytest.raises(ValueError, match="LessThan3GiBFree"):
+        setup.environment(options)
+    assert len(calls) == 1
+    assert calls[0][1] == "info"
