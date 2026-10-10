@@ -1,0 +1,13 @@
+{
+  "release": "1.0.0",
+  "persistent_user_services": true,
+  "original_container_volumes_database_preserved": true,
+  "manual_resume_success": true,
+  "global_paused": false,
+  "target_pause_count": 0,
+  "whitelist_total": 4,
+  "whitelist_readable": 4,
+  "extra_business_test_messages_sent": 0,
+  "unknown_automatically_retried": false,
+  "new_machine_account_live_test": false
+}

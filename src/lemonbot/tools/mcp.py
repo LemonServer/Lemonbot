@@ -17,6 +17,7 @@ from jsonschema import (  # type: ignore[import-untyped]
 )
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from lemonbot import __version__
 from lemonbot.domain import DataClass, ToolContext, ToolManifest, ToolResult
 from lemonbot.supervisor import WorkerProcess, WorkerSupervisor
 
@@ -293,7 +294,7 @@ class MCPStdioClient:
                     {
                         "protocolVersion": self._server.protocol_version,
                         "capabilities": {},
-                        "clientInfo": {"name": "lemonbot", "version": "0.1.0"},
+                        "clientInfo": {"name": "lemonbot", "version": __version__},
                     },
                     timeout_seconds=self._server.startup_timeout_seconds,
                 )

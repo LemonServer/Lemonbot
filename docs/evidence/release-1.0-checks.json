@@ -1,1 +1,43 @@
-{"release":"1.0.0","status":"verification_pending","fresh_machine_live":"not_tested"}
+{
+  "release": "1.0.0",
+  "checked_at": "2026-10-10",
+  "scope": "source_docs_and_existing_local_deployment",
+  "pytest": {
+    "passed": 602,
+    "failed": 0,
+    "warnings": 1,
+    "warning": "Starlette test-client deprecation"
+  },
+  "deployment_tests": {
+    "passed": 16,
+    "synthetic": true
+  },
+  "clean_checkout": {
+    "locked_dependency_install": true,
+    "version": "1.0.0",
+    "offline_http_persistence_restart_unknown_demo": true,
+    "model_calls": 0,
+    "setup_and_archived_service_tests_passed": 17,
+    "uses_existing_private_state": false
+  },
+  "ruff": "passed",
+  "mypy": {
+    "status": "passed",
+    "source_files": 118
+  },
+  "uv_lock": "passed",
+  "markdown_local_links": "passed",
+  "systemd_generated_units": "passed",
+  "credential_scan": {
+    "tool": "Gitleaks",
+    "version": "8.30.1",
+    "verified_download_checksum": true,
+    "scope": "public_exported_tree",
+    "leaks": 0
+  },
+  "local_service_migration": "passed_four_targets_readable_and_explicit_resume",
+  "extra_live_test_messages": 0,
+  "fresh_machine_account_live_acceptance": "not_tested",
+  "upstream_license_confirmed": false,
+  "remote_publication": "not_assessed_by_test_suite"
+}

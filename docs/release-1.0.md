@@ -28,7 +28,10 @@ read their date and phase rather than treating them as current failures.
 
 The final machine-readable release checks are recorded in
 [evidence/release-1.0-checks.json](evidence/release-1.0-checks.json).
-They cover repository tests, lint/types, lockfile, docs links/versions, synthetic setup
+The [local service migration](evidence/release-1.0-local-service.json) records only
+counts and state; four targets readable, restored after safe drain, no extra test messages.
+
+Checks cover repository tests, lint/types, lockfile, docs links/versions, synthetic setup
 and isolated checkout demonstration. They do not convert simulated checks into live E2E.
 
 Source and docs only: no upstream image/client redistribution, private configuration,

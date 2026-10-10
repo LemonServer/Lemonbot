@@ -20,6 +20,7 @@
 | [Security](security.md) | Secrets, permissions and channel boundaries |
 | [Third-party notices](../THIRD_PARTY_NOTICES.md) | MIT scope and unresolved upstream licensing |
 | [Changelog](../CHANGELOG.md) | Release changes |
+| [Releasing](releasing.md) | Exact-tag publishing and verification |
 
 [Historical research](history/README.md) is separate from current operations.
 [Evidence](release-1.0.md) contains sanitized results, never credentials or account data.

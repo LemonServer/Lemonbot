@@ -4,9 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lemonbot"
-version = "0.1.0"
+version = "1.0.0"
 description = "A capability-bounded autonomous chat agent for Linux WeChat"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "aiosqlite>=0.21,<1",
