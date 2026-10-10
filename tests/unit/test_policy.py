@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from lemonbot.domain import PolicyDecision, ProposedAction
+from lemonbot.domain import OutboundMessage, PolicyDecision, ProposedAction
 from lemonbot.policy import DeterministicPolicy
 from lemonbot.policy.config import PolicyConfig, RateLimitProfile
 from lemonbot.storage import CoreRepository, Database
@@ -24,6 +24,49 @@ async def make_policy(*, now: datetime | None = None):
         clock=(lambda: now) if now is not None else None,
     )
     return database, repository, policy
+
+
+async def test_disabled_short_windows_keep_daily_and_global_caps() -> None:
+    database, repository, _ = await make_policy()
+    limits = RateLimitProfile(
+        reply_per_10_minutes=0,
+        reply_per_hour=0,
+        reply_per_day=100,
+        global_per_day=100,
+        proactive_cooldown_hours=12,
+        proactive_per_day=2,
+        proactive_global_per_day=10,
+    )
+    policy = DeterministicPolicy(
+        repository, config=PolicyConfig(quiet_enabled=False, wechat_lab=limits)
+    )
+    try:
+        for chat in ("chat-a", "chat-b"):
+            await repository.set_allowlisted("wechat_agent_lab", chat)
+
+        def action(chat):
+            return ProposedAction(
+                kind="reply",
+                channel="wechat_agent_lab",
+                chat_id=chat,
+                bound_channel="wechat_agent_lab",
+                bound_chat_id=chat,
+                reason_event_id="event",
+            )
+
+        for _ in range(4):
+            await repository.create_outbox(
+                OutboundMessage(channel="wechat_agent_lab", chat_id="chat-a", text="reply")
+            )
+        assert (await policy.evaluate(action("chat-a"))).decision is PolicyDecision.AUTO
+        for _ in range(96):
+            await repository.create_outbox(
+                OutboundMessage(channel="wechat_agent_lab", chat_id="chat-a", text="reply")
+            )
+        assert (await policy.evaluate(action("chat-a"))).rule_id == "rate_reply_day"
+        assert (await policy.evaluate(action("chat-b"))).decision is PolicyDecision.DENY
+    finally:
+        await database.close()
 
 
 @pytest.mark.parametrize(

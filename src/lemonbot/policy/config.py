@@ -10,8 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class RateLimitProfile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    reply_per_10_minutes: int = Field(ge=1)
-    reply_per_hour: int = Field(ge=1)
+    reply_per_10_minutes: int = Field(ge=0, description="0 disables this window")
+    reply_per_hour: int = Field(ge=0, description="0 disables this window")
     reply_per_day: int = Field(ge=1)
     global_per_day: int = Field(ge=1)
     proactive_cooldown_hours: int = Field(ge=1)

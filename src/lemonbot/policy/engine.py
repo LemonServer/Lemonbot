@@ -192,6 +192,8 @@ class DeterministicPolicy:
             (timedelta(days=1), limits.reply_per_day, "reply_day"),
         )
         for duration, maximum, rule in windows:
+            if maximum == 0:
+                continue
             count = await self.repository.count_outbound_since(
                 now - duration,
                 channel=action.channel,

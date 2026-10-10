@@ -215,8 +215,8 @@ class WechatAtspiSettings(StrictModel):
 
 
 class ReplyLimit(StrictModel):
-    per_10_minutes: int = Field(ge=1)
-    per_hour: int = Field(ge=1)
+    per_10_minutes: int = Field(ge=0, description="0 disables this window")
+    per_hour: int = Field(ge=0, description="0 disables this window")
     per_day: int = Field(ge=1)
     global_per_day: int = Field(ge=1)
 
