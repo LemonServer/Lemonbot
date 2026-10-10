@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -32,7 +33,7 @@ from lemonbot.domain.models import (
     InboundEvent,
     OutboundMessage,
 )
-from lemonbot.latency import measure
+from lemonbot.latency import measure, record
 
 
 @dataclass(frozen=True)
@@ -179,6 +180,10 @@ class ConversationTransport(AgentWechatConnector):
         candidates = title_candidates(await self.http.request("GET", "/api/debug/a11y"), self.title)
         if candidates != [(self.binding.header_path, self.binding.header_roles)]:
             self.pause("ConversationNotForeground")
+        await self._unique_title()
+        await self.guard()
+
+    async def _unique_title(self) -> None:
         # A matching heading alone cannot disambiguate a duplicate chat name.
         matches: list[dict[str, Any]] = []
         for offset in range(0, 1000, 100):
@@ -195,10 +200,16 @@ class ConversationTransport(AgentWechatConnector):
             or (matches[0].get("id") or matches[0].get("username")) != self.binding.chat_id
         ):
             self.pause("ConversationTitleAmbiguous")
-        await self.guard()
 
     async def before_send_guard(self) -> None:
         await self.guard()
+        candidates = title_candidates(await self.http.request("GET", "/api/debug/a11y"), self.title)
+        if candidates == [(self.binding.header_path, self.binding.header_roles)]:
+            await self._unique_title()
+            await self.guard()
+            return
+        if len(candidates) > 1:
+            self.pause("ConversationTitleAmbiguous")
         result = await self.http.request(
             "POST",
             "/api/chats/" + quote(self.binding.chat_id, safe="") + "/open?clearUnreads=false",
@@ -343,6 +354,7 @@ class ConversationMultiplexer(AgentWechatConnector):
         self._notification_task: asyncio.Task[None] | None = None
         self._notification_error: str | None = None
         self._next_reconciliation = 0.0
+        self._notified_at: float | None = None
 
     async def _listen(self) -> None:
         """Wait for DB changes, coalescing bursts without reading chat contents."""
@@ -369,6 +381,8 @@ class ConversationMultiplexer(AgentWechatConnector):
                 ):
                     raise ValueError
                 if body["changed"] or new_epoch != epoch or new_sequence != sequence:
+                    if not self._notifications.is_set():
+                        self._notified_at = time.monotonic()
                     self._notifications.set()
                 epoch, sequence, failures = new_epoch, new_sequence, 0
             except (httpx.HTTPError, ValueError, KeyError, TypeError):
@@ -523,6 +537,9 @@ class ConversationMultiplexer(AgentWechatConnector):
         if not self._notifications.is_set() and now < self._next_reconciliation:
             return []
         self._notifications.clear()
+        if self._notified_at is not None:
+            record("notification.to_read", self._notified_at)
+            self._notified_at = None
         self._next_reconciliation = now + 60
         refs = list(self.children)
         refs = refs[self.rotation :] + refs[: self.rotation]

@@ -141,3 +141,50 @@ def test_cycle_has_bounded_pagination(reader):
     assert group["error"] == "AnchorLost"  # beyond the newest 1000 rows
     group = obj.read_cycle({"group@chatroom": [101]})["targets"][0]
     assert group["error"] is None and len(group["rows"]) == 999
+
+
+def test_cycle_http_requires_token_and_bounded_body(reader, monkeypatch):
+    import io
+    from types import SimpleNamespace
+
+    obj, calls, _path = reader
+    captured = {}
+
+    def server(_address, handler):
+        captured["handler"] = handler
+        return SimpleNamespace(serve_forever=lambda: None)
+
+    monkeypatch.setattr(bridge, "ThreadingHTTPServer", server)
+    monkeypatch.setattr(bridge, "notification_directories", lambda _reader: [])
+    monkeypatch.setattr(
+        bridge, "ChangeNotifications", lambda _dirs: SimpleNamespace(close=lambda: None)
+    )
+    bridge.serve("synthetic", obj, None)
+    handler = captured["handler"]
+
+    def request(token, body, length=None):
+        import json
+
+        raw = json.dumps(body).encode()
+        instance = object.__new__(handler)
+        instance.client_address = ("127.0.0.1", 0)
+        instance.path = "/read-cycle"
+        instance.headers = {
+            "Authorization": "Bearer " + token,
+            "Content-Length": str(length if length is not None else len(raw)),
+        }
+        instance.rfile, instance.wfile = io.BytesIO(raw), io.BytesIO()
+        statuses = []
+        instance.send_error = lambda status: statuses.append(status)
+        instance.send_response = lambda status: statuses.append(status)
+        instance.send_header = lambda *_args: None
+        instance.end_headers = lambda: None
+        instance.do_POST()
+        return statuses, instance.wfile.getvalue()
+
+    assert request("wrong", {"anchors": {"peer": None}})[0] == [401]
+    assert calls["auth"] == 0
+    assert request("synthetic", {}, length=16385)[0] == [503]
+    assert calls["auth"] == 0
+    assert request("synthetic", {"anchors": {"peer": None}})[0] == [200]
+    assert calls["auth"] == 2

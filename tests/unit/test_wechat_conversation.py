@@ -406,3 +406,33 @@ async def test_pending_work_prevents_notification_reads_until_delivery(tmp_path:
         await stream.aclose()
         await wrapper.close()
         await db.close()
+
+
+async def test_already_foreground_skips_open_but_still_checks_ambiguity(tmp_path: Path) -> None:
+    mock = TwoChats()
+    transport = await setup(mock, tmp_path)
+    try:
+        group = next(t for t in mock.targets() if t.is_group)
+        mock.title = group.name
+        message = OutboundMessage(channel=CHANNEL, chat_id=group.binding.chat_ref, text="reply")
+        assert (await transport.deliver(message)).status is DeliveryStatus.ACKNOWLEDGED
+        assert mock.opens == 0 and mock.posts == 1
+        mock.duplicate_title = True
+        second = OutboundMessage(channel=CHANNEL, chat_id=group.binding.chat_ref, text="next")
+        assert (await transport.deliver(second)).status is DeliveryStatus.FAILED
+        assert mock.opens == 0 and mock.posts == 1
+    finally:
+        await transport.close()
+
+
+async def test_needed_navigation_opens_once_and_verifies_target(tmp_path: Path) -> None:
+    mock = TwoChats()
+    transport = await setup(mock, tmp_path)
+    try:
+        private = next(t for t in mock.targets() if not t.is_group)
+        mock.title = "testing"
+        message = OutboundMessage(channel=CHANNEL, chat_id=private.binding.chat_ref, text="reply")
+        assert (await transport.deliver(message)).status is DeliveryStatus.ACKNOWLEDGED
+        assert mock.opens == 1 and mock.posts == 1 and mock.title == private.name
+    finally:
+        await transport.close()
