@@ -1,0 +1,6 @@
+# Exact names shown in the WeChat conversation list. If a contact has a remark,
+# use that displayed remark. Duplicate names fail closed; no fuzzy matching.
+# 1–20 total conversations. Groups reply only to genuine @ of this account.
+version = 1
+groups = ["testing"]
+contacts = ["联系人昵称或备注名"]

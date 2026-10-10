@@ -123,14 +123,17 @@ class WechatAgentSettings(StrictModel):
     mode: Literal["canary", "conversation"] = "canary"
     token_file: str = ""
     state_dir: str = ""
+    whitelist_file: str = ""
 
     @model_validator(mode="after")
     def validate_paths(self) -> WechatAgentSettings:
         if self.enabled and not all((self.token_file, self.state_dir)):
             raise ValueError("enabled wechat_agent requires private token and binding paths")
-        for value in (self.token_file, self.state_dir):
+        for value in (self.token_file, self.state_dir, self.whitelist_file):
             if value and not Path(value).expanduser().is_absolute():
                 raise ValueError("wechat_agent paths must be absolute")
+        if self.whitelist_file and self.mode != "conversation":
+            raise ValueError("wechat whitelist requires conversation mode")
         return self
 
 

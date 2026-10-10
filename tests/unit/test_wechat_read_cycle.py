@@ -162,13 +162,13 @@ def test_cycle_http_requires_token_and_bounded_body(reader, monkeypatch):
     bridge.serve("synthetic", obj, None)
     handler = captured["handler"]
 
-    def request(token, body, length=None):
+    def request(token, body, length=None, path="/read-cycle"):
         import json
 
         raw = json.dumps(body).encode()
         instance = object.__new__(handler)
         instance.client_address = ("127.0.0.1", 0)
-        instance.path = "/read-cycle"
+        instance.path = path
         instance.headers = {
             "Authorization": "Bearer " + token,
             "Content-Length": str(length if length is not None else len(raw)),
@@ -188,3 +188,78 @@ def test_cycle_http_requires_token_and_bounded_body(reader, monkeypatch):
     assert calls["auth"] == 0
     assert request("synthetic", {"anchors": {"peer": None}})[0] == [200]
     assert calls["auth"] == 2
+    assert request("wrong", {"account": "self_machine", "chat_ids": ["peer"]}, path="/bindings")[
+        0
+    ] == [401]
+    assert obj.config["chat_ids"] == ["group@chatroom", "peer"]
+
+
+def test_bridge_binding_sync_is_same_account_and_persists_only_after_validation(reader, tmp_path):
+    import json
+
+    obj, _calls, _path = reader
+    obj.binding_path = tmp_path / "binding.json"
+
+    def api(path):
+        if path == "/api/status/auth":
+            return {"status": "logged_in", "loggedInUser": "self_machine"}
+        return {"id": path.rsplit("/", 1)[-1], "isGroup": False}
+
+    obj.api = api
+    result = obj.configure_targets({"account": "self_machine", "chat_ids": ["peer", "new-peer"]})
+    assert result["accountVerified"] is True
+    assert json.loads(obj.binding_path.read_text())["chat_ids"] == ["peer", "new-peer"]
+    assert obj.binding_path.stat().st_mode & 0o077 == 0
+    restored = bridge.SourceReader("synthetic", json.loads(obj.binding_path.read_text()))
+    assert restored.canonical_identity == "self"
+    old = obj.binding_path.read_bytes()
+    for bad in [
+        {"account": "other_account", "chat_ids": ["peer"]},
+        {"account": "self_machine", "chat_ids": ["peer", "peer"]},
+        {"account": "self_machine", "chat_ids": []},
+        {"account": "self_machine", "chat_ids": [["peer"]]},
+        {"account": "self_machine", "chat_ids": [str(i) for i in range(21)]},
+    ]:
+        with pytest.raises(ValueError):
+            obj.configure_targets(bad)
+        assert obj.binding_path.read_bytes() == old
+    obj.api = lambda _p: {"status": "logged_out"}
+    with pytest.raises(ValueError, match="AccountChanged"):
+        obj.configure_targets({"account": "self_machine", "chat_ids": ["peer"]})
+    assert obj.binding_path.read_bytes() == old
+
+
+def test_cycle_supports_more_than_two_explicitly_bound_targets(reader):
+    obj, calls, _path = reader
+    obj.config["chat_ids"].append("third-peer")
+    result = obj.read_cycle({c: None for c in obj.config["chat_ids"]})
+    assert len(result["targets"]) == 3
+    assert all(t["rows"] == [] for t in result["targets"])
+    assert calls["snapshot"] == 1
+
+
+def test_sync_preserves_verified_self_before_replacing_old_scope(reader, tmp_path):
+    import json
+
+    obj, _calls, _path = reader
+    obj.canonical_identity = None
+    obj.binding_path = tmp_path / "binding.json"
+    requests = []
+
+    def api(path):
+        requests.append(path)
+        if path == "/api/status/auth":
+            return {"status": "logged_in", "loggedInUser": "self_machine"}
+        if path.startswith("/api/messages/"):
+            return [{"isSelf": True, "sender": "self"}]
+        return {"id": path.rsplit("/", 1)[-1], "isGroup": False}
+
+    obj.api = api
+    obj.configure_targets({"account": "self_machine", "chat_ids": ["new-peer"]})
+    assert requests.count("/api/messages/group%40chatroom?limit=100") == 1
+    assert not any(p.startswith("/api/messages/new-peer") for p in requests)
+    stored = json.loads(obj.binding_path.read_text())
+    assert stored["self_identity"] == "self"
+    assert bridge.SourceReader("synthetic", stored).canonical_identity == "self"
+    with pytest.raises(ValueError, match="CanonicalSelfMismatch"):
+        bridge.SourceReader("synthetic", {**stored, "self_identity": "other"})

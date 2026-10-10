@@ -15,6 +15,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx
 import psutil  # type: ignore[import-untyped]
 import uvicorn
 from jsonschema import validate  # type: ignore[import-untyped]
@@ -39,6 +40,7 @@ from lemonbot.connectors.wechat_agent_state import (
     private_read,
     private_write,
 )
+from lemonbot.connectors.wechat_agent_whitelist import read_whitelist, sync_whitelist
 from lemonbot.connectors.wechat_atspi import AtspiCursor
 from lemonbot.domain import (
     ApprovalState,
@@ -551,9 +553,28 @@ class LemonbotRuntime:
                 diagnostic=lambda value: logger.info("agent_send %s", value),
             )
             if self.settings.wechat_agent.mode == "conversation":
-                targets = load_targets(
-                    state / "conversation-binding.json", transport.binding.account_ref, key
-                )
+                whitelist = self.settings.wechat_agent.whitelist_file
+                if whitelist:
+                    async with httpx.AsyncClient(
+                        base_url="http://127.0.0.1:6175",
+                        headers={"Authorization": "Bearer " + token},
+                        trust_env=False,
+                        follow_redirects=False,
+                        timeout=30,
+                    ) as metadata:
+                        targets = await sync_whitelist(
+                            transport.http,
+                            transport.binding,
+                            key,
+                            state,
+                            read_whitelist(Path(whitelist).expanduser()),
+                            metadata,
+                        )
+                    logger.info("wechat whitelist synchronized targets=%d", len(targets))
+                else:
+                    targets = load_targets(
+                        state / "conversation-binding.json", transport.binding.account_ref, key
+                    )
                 transport = ConversationMultiplexer(
                     transport.http,
                     targets,

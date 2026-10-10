@@ -102,7 +102,7 @@ def load_targets(path: Path, account_ref: str, key: bytes) -> tuple[Conversation
         if (
             raw.get("operator_confirmed") is not True
             or raw["account_ref"] != account_ref
-            or len(raw["targets"]) != 2
+            or not 1 <= len(raw["targets"]) <= 20
         ):
             raise ValueError
         targets = []
@@ -136,9 +136,7 @@ def load_targets(path: Path, account_ref: str, key: bytes) -> tuple[Conversation
             if not binding.header_path or not binding.header_roles:
                 raise ValueError
             targets.append(ConversationTarget(binding, name, row["is_group"]))
-        if len({t.binding.chat_id for t in targets}) != 2 or sum(t.is_group for t in targets) != 1:
-            raise ValueError
-        if next(t.name for t in targets if t.is_group) != "testing":
+        if len({t.binding.chat_id for t in targets}) != len(targets):
             raise ValueError
         return tuple(targets)
     except (ValueError, KeyError, TypeError):

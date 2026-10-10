@@ -16,6 +16,9 @@ enabled = false
 mode = "conversation"
 token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"
 state_dir = "~/.local/state/lemonbot/agent-wechat-lab"
+# Optional name-based startup synchronization (exact WeChat chat display names).
+# Copy config/wechat-whitelist.example.toml to a private local file first.
+whitelist_file = "" # e.g. /home/lemon/Lemonbot/config/wechat-whitelist.local.toml
 
 [models]
 provider = "disabled" # Change to deepseek together with connector/enabled above.

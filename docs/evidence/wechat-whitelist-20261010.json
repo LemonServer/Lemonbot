@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-10",
+  "feature": "configured_display_name_startup_whitelist",
+  "configuration_file": "config/wechat-whitelist.local.toml",
+  "config_git_ignored": true,
+  "config_permissions": "0600",
+  "max_targets": 20,
+  "simulated_verification": {
+    "full_repository_tests_passed": 562,
+    "additional_identity_boundary_test_passed": 1,
+    "ruff": "passed",
+    "mypy_source_files": 117,
+    "lock_check": "passed",
+    "cases": [
+      "exact_names",
+      "multiple_contacts",
+      "private_only",
+      "target_add_remove",
+      "database_allowlist_reconciliation",
+      "ambiguous_names",
+      "wrong_kind",
+      "navigation_failure",
+      "bridge_failure",
+      "account_change",
+      "reused_name_id_change",
+      "persistent_pause",
+      "retained_target_pause",
+      "verified_self_identity_persistence"
+    ],
+    "additional_multi_group_test_passed": 1
+  },
+  "live_verification": {
+    "configured_groups": 1,
+    "configured_contacts": 1,
+    "existing_authorized_targets_only": true,
+    "startup_sync_completed": true,
+    "persistent_pause_kept": true,
+    "setup_message_sends": 0,
+    "new_contact_or_group_e2e": "not_tested",
+    "final_runtime_state": {
+      "paused": false,
+      "queue_depth": 0,
+      "unknown_outbox": 1,
+      "service_running": true
+    },
+    "self_identity_private_persistence": true
+  },
+  "credentials_and_identifiers_exported": false
+}

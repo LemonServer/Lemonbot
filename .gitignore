@@ -18,6 +18,7 @@ build/
 .env.*
 !.env.example
 config/lemonbot.toml
+config/wechat-whitelist.local.toml
 data/
 runtime/
 *.db

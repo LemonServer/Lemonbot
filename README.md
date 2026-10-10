@@ -46,3 +46,10 @@ uv run --locked mypy src
 `wechat_atspi.enabled = false`、`models.provider = "disabled"` 和 `vision.enabled = false`。
 正式连接器仓库默认关闭；本机私有 lab 配置启用双会话导航与 DeepSeek 文本回复。
 数据库 schema 未修改，工具、多群和媒体关闭。性能结果见 [延迟优化报告](docs/wechat-latency-optimization.md)。
+
+## 名称白名单（2026-10-10）
+
+填写 [本机白名单配置](config/wechat-whitelist.local.toml) 的 groups 与 contacts，启动时自动解析
+唯一显示名并同步读取范围和运行白名单，移除的会话自动禁用，不需要编辑 JSON 或数据库。
+支持 1–20 个会话，群仅真正 @ 时回复；本机仍沿用现有 testing 与一个测试联系人。
+配置格式、重启操作、歧义与暂停规则见 [白名单管理说明](docs/wechat-whitelist.md)。

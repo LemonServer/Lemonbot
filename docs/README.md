@@ -15,6 +15,7 @@
 | [runtime 手册](wechat-agent-runtime.md) | 默认关闭的新入口、独立数据库、暂停恢复与许可状态 |
 | [群与私聊运行手册](wechat-agent-conversation.md) | 日常双会话模式、通知与忙碌门禁、实机验收及历史故障 |
 | [延迟优化](wechat-latency-optimization.md) | 阶段测量、同机收发与硬件对照，明确待验收项 |
+| [白名单管理](wechat-whitelist.md) | 按群名称、联系人显示名配置，启动自动同步 |
 | [系统提示词](system-prompt.md) | 最终英文提示词、人格方向、记忆与能力边界 |
 | [DeepSeek 价格与余额](deepseek-pricing.md) | 官方单价、保守预算及账户余额查询 |
 | [安全边界](security.md) | 正式 runtime、原生探针和独立实验的不同作用域 |

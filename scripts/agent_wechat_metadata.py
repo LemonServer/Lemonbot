@@ -93,12 +93,76 @@ def decode_source(value: str, compressed: int) -> str:
 
 
 class SourceReader:
-    def __init__(self, token: str, config: dict[str, Any]) -> None:
+    def __init__(
+        self, token: str, config: dict[str, Any], binding_path: Path | None = None
+    ) -> None:
         self.token = token
         self.config = config
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         self.canonical_identity: str | None = None
+        saved_identity = config.get("self_identity")
+        if saved_identity is not None:
+            self.canonical_identity = canonical_self(
+                [{"sender": saved_identity, "isSelf": True}], config["account"]
+            )
         self.tables: dict[str, tuple[Path, str, str]] = {}
+        self.binding_path = binding_path
+        self.lock = threading.RLock()
+
+    def configure_targets(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Authenticated control plane; same-account changes only, no chat content."""
+        if set(payload) != {"account", "chat_ids"}:
+            raise ValueError("InvalidBinding")
+        account, chats = payload["account"], payload["chat_ids"]
+        if (
+            not isinstance(chats, list)
+            or not 1 <= len(chats) <= 20
+            or any(not isinstance(c, str) or not c or len(c) > 512 for c in chats)
+            or len(set(chats)) != len(chats)
+            or account != self.config["account"]
+        ):
+            raise ValueError("InvalidBinding")
+        auth = self.api("/api/status/auth")
+        if auth.get("status") != "logged_in" or auth.get("loggedInUser") != account:
+            raise ValueError("AccountChanged")
+        for chat in chats:
+            row = self.api("/api/chats/" + urllib.parse.quote(chat, safe=""))
+            if (row.get("id") or row.get("username")) != chat or row.get(
+                "isGroup"
+            ) is not chat.endswith("@chatroom"):
+                raise ValueError("InvalidBinding")
+        auth = self.api("/api/status/auth")
+        if auth.get("status") != "logged_in" or auth.get("loggedInUser") != account:
+            raise ValueError("AccountChanged")
+        if self.canonical_identity is None:
+            # Obtain evidence from the previous authorized scope before replacing
+            # it. New conversations need not already contain our own messages.
+            for previous_chat in self.config["chat_ids"]:
+                rows = self.api(
+                    "/api/messages/" + urllib.parse.quote(previous_chat, safe="") + "?limit=100"
+                )
+                if not isinstance(rows, list):
+                    raise ValueError("CanonicalSelfMissing")
+                if any(r.get("isSelf") is True for r in rows):
+                    self.canonical_identity = canonical_self(rows, account)
+                    break
+            if self.canonical_identity is None:
+                raise ValueError("CanonicalSelfMissing")
+        stored = {**payload, "self_identity": self.canonical_identity}
+        if self.binding_path:
+            temp = self.binding_path.with_suffix(".tmp")
+            if temp.is_symlink() or self.binding_path.is_symlink():
+                raise ValueError("UnsafeBindingPath")
+            fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "w") as stream:
+                os.fchmod(stream.fileno(), 0o600)
+                json.dump(stored, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp, self.binding_path)
+        self.config = stored
+        self.tables.clear()
+        return {"accountVerified": True, **stored}
 
     def api(self, path: str) -> Any:
         request = urllib.request.Request(
@@ -261,7 +325,7 @@ class SourceReader:
         }
 
     def read_cycle(self, anchors: dict[str, list[int] | None]) -> dict[str, Any]:
-        if not isinstance(anchors, dict) or not anchors or len(anchors) > 2:
+        if not isinstance(anchors, dict) or not anchors or len(anchors) > 20:
             raise ValueError("InvalidCycle")
         for chat, ids in anchors.items():
             if chat not in self.config["chat_ids"]:
@@ -279,7 +343,10 @@ class SourceReader:
         if auth.get("status") != "logged_in" or account != self.config["account"]:
             raise ValueError("AccountChanged")
         if self.canonical_identity is None:
-            group = next(c for c in self.config["chat_ids"] if c.endswith("@chatroom"))
+            group = next(
+                (c for c in self.config["chat_ids"] if c.endswith("@chatroom")),
+                self.config["chat_ids"][0],
+            )
             self.canonical_identity = canonical_self(
                 self.api("/api/messages/" + urllib.parse.quote(group, safe="") + "?limit=100"),
                 account,
@@ -549,7 +616,7 @@ def serve(
             if not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token):
                 self.send_error(401)
                 return
-            if self.path != "/read-cycle":
+            if self.path not in {"/read-cycle", "/bindings"}:
                 self.send_error(404)
                 return
             try:
@@ -557,11 +624,12 @@ def serve(
                 if not 0 < length <= 16384:
                     raise ValueError("InvalidCycle")
                 payload = json.loads(self.rfile.read(length))
-                if not isinstance(payload, dict) or set(payload) != {"anchors"}:
+                expected = {"anchors"} if self.path == "/read-cycle" else {"account", "chat_ids"}
+                if not isinstance(payload, dict) or set(payload) != expected:
                     raise ValueError("InvalidCycle")
                 if upstream:
                     request = urllib.request.Request(
-                        "http://" + upstream + ":6175/read-cycle",
+                        "http://" + upstream + ":6175" + self.path,
                         data=json.dumps(payload).encode(),
                         headers={
                             "Authorization": "Bearer " + token,
@@ -574,7 +642,12 @@ def serve(
                         body = json.load(response)
                 else:
                     assert reader is not None
-                    body = reader.read_cycle(payload["anchors"])
+                    with reader.lock:
+                        body = (
+                            reader.read_cycle(payload["anchors"])
+                            if self.path == "/read-cycle"
+                            else reader.configure_targets(payload)
+                        )
                 data = json.dumps(body).encode()
                 self.send_response(200)
             except Exception:
@@ -628,21 +701,23 @@ def serve(
                         )
                     elif parsed.path.startswith("/messages/"):
                         assert reader is not None
-                        body = reader.messages(
-                            urllib.parse.unquote(parsed.path[len("/messages/") :]),
-                            int(args.get("offset", ["0"])[0]),
-                        )
+                        with reader.lock:
+                            body = reader.messages(
+                                urllib.parse.unquote(parsed.path[len("/messages/") :]),
+                                int(args.get("offset", ["0"])[0]),
+                            )
                     else:
                         assert reader is not None
-                        body = reader.mentions(
-                            urllib.parse.unquote(parsed.path[len("/mentions/") :]),
-                            int(args.get("offset", ["0"])[0]),
-                            (
-                                [int(i) for i in args["ids"][0].split(",") if i]
-                                if "ids" in args
-                                else None
-                            ),
-                        )
+                        with reader.lock:
+                            body = reader.mentions(
+                                urllib.parse.unquote(parsed.path[len("/mentions/") :]),
+                                int(args.get("offset", ["0"])[0]),
+                                (
+                                    [int(i) for i in args["ids"][0].split(",") if i]
+                                    if "ids" in args
+                                    else None
+                                ),
+                            )
                 else:
                     self.send_error(404)
                     return
@@ -689,7 +764,11 @@ def main() -> None:
     if args.forward_ip and not bind.is_loopback:
         parser.error("HostForwardMustBeLoopback")
     token = args.token_file.read_text().strip()
-    reader = None if args.forward_ip else SourceReader(token, json.loads(args.binding.read_text()))
+    reader = (
+        None
+        if args.forward_ip
+        else SourceReader(token, json.loads(args.binding.read_text()), args.binding)
+    )
     serve(
         token,
         reader,

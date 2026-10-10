@@ -156,3 +156,10 @@ Docker 的 reclaimable 标签不作为删除许可。本轮无 prune 或磁盘�
 六条均一次发送并精确确认；用户确认收到。未暂停、队列为空、旧 UNKNOWN 一条未重发。
 服务保持运行，固定镜像、微信版本、模型、原卷和限流不变。
 详细阶段、恢复问题与小样本限制见 [延迟优化报告](wechat-latency-optimization.md)。
+
+## 白名单启动同步（2026-10-10）
+
+本机私有运行配置引用 Git 忽略的 config/wechat-whitelist.local.toml，启动按显示名
+同步容器桥、私有绑定及数据库白名单；最多二十个目标，本机仍是原有两个会话。
+自有桥增加认证 POST /bindings，同账号核验后持久化，并保存已核验的 self 标识。
+固定镜像、微信版本与原卷未变化。操作与限制见 [白名单管理](wechat-whitelist.md)。

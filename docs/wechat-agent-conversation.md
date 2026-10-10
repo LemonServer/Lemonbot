@@ -261,3 +261,9 @@ journalctl --user -u lemonbot-wechat-conversation.service --since today --grep="
 六条均一次发送并精确确认；用户确认收到。未暂停、队列为空、旧 UNKNOWN 一条未重发。
 服务保持运行，固定镜像、微信版本、模型、原卷和限流不变。
 详细阶段、恢复问题与小样本限制见 [延迟优化报告](wechat-latency-optimization.md)。
+
+## 名称白名单（2026-10-10）
+
+现支持独立 TOML 的 groups / contacts 名称配置，启动时自动同步，最多二十个会话。
+本机配置已从原 testing 和测试联系人迁移；群触发、限流和上下文规则不变。
+具体入口和安全生效步骤见 [白名单管理说明](wechat-whitelist.md)。
