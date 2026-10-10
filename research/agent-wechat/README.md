@@ -1,3 +1,5 @@
+> 1.0 deployment: [current guide](../../docs/deployment.md). The observed artifact locks and scripts below are historical research, not a fresh-install prerequisite.
+
 # agent-wechat 固定实验制品
 
 该目录保存可入库的制品和配置版本，不包含上游源码或账号数据。

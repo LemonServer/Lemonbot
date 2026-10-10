@@ -1,208 +1,36 @@
-# Lemonbot Linux 计划
+# Lemonbot 1.0 roadmap
 
-2026-10-10 按用户要求支持短时回复限额设为 0（关闭），本机取消十分钟/小时限制，
-每会话及全局滚动 24 小时限额改为 100；金额预算不变，历史计数与 UNKNOWN 保留。
-限额配置变更后安全重启并显式恢复，不补处理之前跳过的入站。
+The active release is **1.0.0**: pinned Linux desktop WeChat text runtime.
+Deploy via [first installation](docs/deployment.md), operate via
+[the current handbook](docs/operations.md), develop via [CONTRIBUTING](CONTRIBUTING.md).
 
-2026-10-10 增加每次启动的白名单逐项检查报告：名称/类型匹配、消息可读、
-运行使能与暂停原因分开显示。新增安全重启入口在命令行呈现本次 invocation 报告。
-未通过配置同步时明确指出未匹配项，其余标为未检查，不猜测会话可用。
-名称仅保留在本机 stdout/journal，不记录正文、账号或原始 ID，不进入公开实机证据。
-本机四项白名单实测均匹配且消息可读；新群名空格差异由用户修正后同步成功。
-重启入口报告保留 ManualPause，显式恢复后无全局或会话暂停；未为新增群发送测试消息。
+## Delivered scope
 
-2026-10-10 已按用户要求启用长期记忆：显式 memory_enabled 开关，默认关闭；
-本机配置启用。群＋成员/私聊范围隔离，确认回执之后整理，UNKNOWN 不提取。
-检索使用现有 SQLite FTS，提取复用预算与模型；工具和主动任务仍关闭。
-579 项测试通过；真实新交互提取与跨近期窗口召回尚待观察，操作边界见 conversation 手册。
+- Genuine group @ and allowlisted private text; automatic serialized navigation.
+- Persistent scoped context, program-restart continuity, quotes with explicit labeling.
+- Optional scoped memory extraction after confirmed delivery and SQLite FTS retrieval.
+- Exact-name whitelist synchronization and per-target startup status (up to 20).
+- Persistent pause, precise readback, UNKNOWN no-retry, model budgets and send limits.
+- Fixed image/client, deployment helper and persistent user service installation.
 
-2026-10-10 引用回复被过滤的问题已修复并部署。普通文本之外仅支持
-appmsg/type 57 的当前文字及被引用的纯文本，不扩展媒体、链接或文件。
-引用里的身份与 @ 不授权触发；发送回执仍要求普通文本 self 新消息。
-577 项自动化测试及指定会话真实引用解析通过，服务显式恢复后无会话暂停；
-新引用的完整实机回复待确认，历史被过滤消息不重放。
+Four locally configured conversations have passed matching/readability checks.
+Full restart/context E2E is established for the original group/private pair; quote,
+long-term recall and other targets have narrower evidence. See
+[release verification](docs/release-1.0.md). Do not broaden that conclusion.
 
-2026-10-10 新增白名单会话缺少本地消息表的故障已定位并修复：
-区分 MessageTableMissing 与 MessageTableAmbiguous，仅暂停对应目标；
-显式恢复后原有两个目标可读，新增第三个目标保持暂停。未对新增目标完成收发验收。
-不删除卷、不重启微信、不重发 UNKNOWN；新增会话同步消息后再显式恢复。
+Repository memory default is off; short limits default to 3/10, daily 30/global 50.
+Local optional configuration can enable memory or disable short limits with 0;
+positive rolling-24-hour and money limits remain. Tools/proactive/media remain off.
+Manual login and host-restart recovery are required. PR #171 remains frozen.
 
-## 当前里程碑完成：testing 真 @ 与白名单私聊（2026-10-09）
+## Next milestones
 
-**可直接运行（限定本机已绑定的 testing 群与一个白名单私聊）。**
-群聊仅真正 @ 本机账号时回复，私聊自动回复新文本；两会话自动导航、DeepSeek Flash
-回复与持久上下文实机通过。程序重启后群回答“青柠”、私聊回答“纸船”，各一次发送尝试、
-一条精确回执，无旧消息重放。服务保持运行，仓库默认仍关闭。
-工具与主动消息关闭；长期记忆现已显式启用，计入每日 5 元、每月 100 元预算；原发送限流保留。
-2026-10-10 优化及扩容后两条实测约 13 秒（小样本）；宿主重启仍需人工登录及恢复服务。
-旧 UNKNOWN 一条保留不重发，固定镜像、微信版本与原卷不变，PR #171 继续冻结。
+1. Verify a fresh machine and account using the documented setup, without existing state.
+2. Complete real-account quoted-reply and long-term recall outside the recent window.
+3. Extend acceptance coverage of added whitelist conversations without conflating readability with sends.
+4. Only after these, separately design unattended host recovery or further capabilities.
 
-变更通知唤醒增量读取，忙碌期间合并通知；正文与真实 @ 来源同快照读取。
-上下文按群＋发送者及私聊联系人隔离；仅确认送达的助手回答进入后续上下文。
-实机最终两批短词设置和重启追问通过，用户集中确认，无需追加三十分钟观察。
-日常操作见 [conversation 手册](docs/wechat-agent-conversation.md)。
-
-2026-10-10 延迟优化代码已分阶段提交并部署，540 项自动化测试通过。
-执行顺序：同机四条实机测量 → 用户关机扩至 4 vCPU / 8 GiB → 扩容后两条对照。
-历史 12 条总耗时中位数 62.67 秒，模型实际约 1.02 秒；重点减少读取和调度等待。
-同机四条均一次发送并确认，中位数 37.14 秒，较历史基线低约 41%，未达 35 秒目标。
-已扩至 4 vCPU / 8 GiB（系统可用约 7.7 GiB），固定容器和桥已人工恢复；用户随后确认未登录并完成手动登录。
-扩容后两条分别 13.037、13.367 秒，中位数 13.202 秒，达到 ≤25 秒目标；均一次发送并确认。
-六条指定测试完成，队列为空、无新增 UNKNOWN，服务保持运行，不追加观察或放宽限流。
-产品代码不再修改，以保持硬件对照条件；宿主重启恢复仍需人工重建临时服务。
-测量、回退与结果见 [延迟优化报告](docs/wechat-latency-optimization.md)。
-保持固定镜像、模型、数据卷、上下文与可靠发送校验；旧 UNKNOWN 不重发。
-宿主重启恢复、媒体、工具需另行规划；长期记忆启用状态以上方最新记录为准。
-
-## 名称白名单管理已实现（2026-10-10）
-
-独立 TOML 配置 groups / contacts，启动自动解析唯一显示名、核验账号及前台绑定，
-同步容器桥范围与 runtime 白名单；最多二十个会话，新增/移除不改数据库 schema。
-名称歧义、身份变化或同步失败时停止启动，不回退旧白名单继续回复；持久暂停仍须显式恢复。
-本机迁移现有两个目标，无额外业务发送；多会话行为由模拟和实际 runtime 数据库测试确认。
-操作见 [白名单手册](docs/wechat-whitelist.md)，其他真实群/联系人尚未实机收发验收。
-
-## 历史里程碑：单群 canary runtime 接入
-
-> 更新：2026-10-09。正式 runtime 接入验收通过：testing 单群合成指令收发、程序重启、持久暂停及显式恢复均通过，正式入口完成约 12 分钟稳定采样，用户决定提前结束并接受结果（未完成原定三十分钟窗口）。仓库默认配置继续关闭，模型和工具关闭，仍需人工登录并保持 testing 前台。
-## 本阶段目标与顺序
-
-六小时有效工作内完成 testing 对端指令 → sender 识别 → 持久化 → 固定 ACK → 精确确认 →
-重启后继续且不重复发送。人工登录、testing 前台；不启用模型、工具、多群、媒体或导航。
-等待用户和扫码另计，不重置旧环境诊断预算。
-
-1. **独立通道验收完成。** 单条、连续、self、保留卷重启、切走暂停及恢复均通过，旧 UNKNOWN 不重发，实际 1804.7 秒稳定观察通过。
-2. **正式接入代码完成。** 默认关闭，独立数据库；共享 HTTP、身份摘要和持久锁，复用 pipeline 策略及 outbox，仅 lab 合成指令，不调用模型或工具。
-3. **正式入口实机验收完成。** 首条、程序重启后新指令、暂停跨重启、暂停指令不处理、显式恢复后新指令均通过；正式入口完成约 12 分钟采样，用户提前结束并接受结果，未完成三十分钟窗口，模型/工具为零。未修改限流或迁移旧任务。
-4. **本阶段结论：正式接入通过。** 范围为人工登录与前台 testing 单群文本合成指令。下一里程碑另行设计受限模型回复及记忆，本阶段不启用。
-
-固定源码未提供可确认许可，用户要求继续本机独立 HTTP 实现；不复制或分发上游代码/镜像。
-许可缺失和镜像源码未绑定须如实记录，不能宣称已有作者授权。
-
-配置与恢复见 [runtime 手册](docs/wechat-agent-runtime.md)，实机步骤与证据见
-[复现报告](docs/agent-wechat-reproduction.md)。保留镜像、全部原卷和 UNKNOWN；空间≥3 GiB。
-
-## 固定基线与恢复条件
-
-- 镜像：ghcr.io/thisnick/agent-wechat@sha256:97d5a99f933592c15897a7579b4e2b2cbbb5f4dda856228f8271f91dd7cafb43，OCI index 固定，选择 AMD64。镜像与源码 commit 未被 OCI revision 证明绑定；不宣称验证同一源码构建。
-- 历史研究锁文件及 token 仍在持久 state；使用 `scripts/agent_wechat_repro.py start`，不运行重新解析 latest 的 pin。
-- localhost API、独立原历史卷、SYS_PTRACE、上游 seccomp 设置；不挂宿主微信数据，不授予 privileged。
-- noVNC Connect 只建立 viewer。浏览器输入还需 x11vnc viewonly=0；API/容器内控制不依赖 viewer 已连接。
-- 恢复方法、命令与实机验收表统一见 [复现报告](docs/agent-wechat-reproduction.md)。
-
-## 历史 Observe 设计参考
-
-以下第 1–6 节保留原方案，供未来重新评审使用，不是当前操作步骤。其中原生事件订阅已由有界
-轮询替代，纯结构方向签名方案已被实机证据否定；不得直接照此启用配置或部署 connector。
-
-## 1. 总体目标
-
-- 唯一运行平台改为 Ubuntu 24.04 x86_64、GNOME Wayland，与官方 Linux 微信同驻一台桌面虚拟机。
-- 本阶段交付止于个人微信只读 `observe`：接收并持久化白名单私聊和测试群消息，不调用模型、不生成草稿、不操作微信、不产生出站消息。
-- 完整移除 Windows UIA、pywechat 探针、托盘、Job Object、Credential Manager、计划任务启动器、Windows 依赖和 Windows CI。
-- 移除企业微信 SDK、connector、配置、密钥项、限额和测试；核心只保留 `fake` 与 `wechat_atspi` connector。
-- 不迁移 Windows 数据；Linux 继续使用独立 `lab.db`。配置升级为 `schema_version=2`，旧配置明确拒绝，不静默转换。
-
-## 2. Linux 平台与公开接口
-
-- 主运行环境继续由 `uv` 锁定；为 AT-SPI worker 单独建立基于 `/usr/bin/python3 --system-site-packages` 的最小虚拟环境，只安装锁定的 worker 包和 Pydantic，从 Ubuntu 获取 `gi/AT-SPI`。
-- Linux 密钥只使用 Secret Service。Observe 模式不检查 DeepSeek 密钥；保留 DeepSeek 网关供后续 Draft 阶段使用。
-- 配置接口改为：
-
-```toml
-schema_version = 2
-profile = "lab"
-
-[runtime]
-connector = "wechat_atspi"
-
-[models]
-provider = "disabled"
-
-[wechat_atspi]
-enabled = true
-stage = "observe"
-expected_linux_uid = 1000
-expected_linux_user = "lemon"
-expected_session_type = "wayland"
-expected_executable_path = "/opt/wechat/wechat"
-expected_executable_sha256 = ""
-enrolled_client_version = "4.1.1.8"
-account_fingerprint = ""
-ui_signature = ""
-enrollment_bundle_path = ""
-enrollment_bundle_sha256 = ""
-allow_target_refs = []
-event_debounce_ms = 500
-reconcile_seconds = 15
-```
-
-- `Connector` 和 `ModelBackend` 接口保持不变；新增 `DisabledModelBackend`，任何误调用都立即失败并写审计。
-- AT-SPI IPC 增加严格 Pydantic 消息：`init`、`ready`、`baseline`、`event_hint`、`snapshot`、`health`、`error`、`shutdown`。不存在输入、点击、导航或发送类型。
-- 管理台和暂停接口统一使用逻辑 channel `wechat_personal_lab`，不再暴露 `wechat_uia` 等平台实现名称。
-- 新增持久化 transcript cursor，保存每个 `target_ref` 的滚动链哈希、尾部指纹、状态和最后事件 ID；不在 cursor 中重复保存正文。
-
-## 3. AT-SPI 语义门控与 Observe Connector
-
-### 语义探针
-
-新增命令：
-
-```bash
-lemonbot channel linux-atspi-semantic-probe --kind private
-lemonbot channel linux-atspi-semantic-probe --kind group
-```
-
-- 每次生成一次性合成 canary，由实验账号和对端账号手动发送；群聊使用专用测试群。
-- 通过 `EventListener.register_with_app` 只监听微信，事件仅触发 500ms 防抖后的有限结构重读。
-- 探针只报告角色、接口、结构路径、事件数量、方向判定、发送者节点存在性和 canary 是否命中。
-- 不输出或持久化真实聊天正文、联系人、群名和 canary；非 canary 文本只在内存中比较。
-- 私聊和群聊分别完成两轮测试，覆盖微信重启及锁屏/解锁。
-- 若入站/自己发送方向无法稳定区分，私聊门控失败；若群发送者无法稳定识别，群聊单独保持禁用。完整阶段验收要求两者均通过。
-
-### Enrollment 与入站
-
-- Enrollment bundle 权限必须为 `0600`，保存随机 `target_ref`、聊天类型、稳定 AT-SPI 属性和必要的不可逆标题指纹，不保存显示名称作为身份依据。
-- Observe 只读取当前可见且已登记的会话，不自动导航、滚动或补抓后台会话。
-- 切换到另一个已登记会话时先建立 baseline，屏幕上已有历史消息全部视为旧消息；只接收 baseline 后到达的消息。
-- AT-SPI 事件只是提示，正文必须通过重新读取结构确认；只接收方向明确的入站文本，自己发送的消息丢弃。
-- 群消息必须带稳定 `sender_ref`；只有显示名称或结构歧义时暂停该群。
-- 使用 transcript 尾部唯一对齐和链式事件 ID 去重；重启后无法唯一对齐时暂停而不是猜测或回放。
-- 原始入站正文在通过白名单和方向校验后保存到 `lab.db`，但不会发送给模型、网络服务或日志。
-- `deliver()` 在本阶段固定返回 `observe_only`；runtime 不启动模型、工具、主动任务、outbox dispatcher、浏览器或视觉 worker。
-
-## 4. 隔离、部署与运维
-
-- 实现 Linux supervisor：固定参数调用 `systemd-run --user`，再使用 bubblewrap 和 xdg-dbus-proxy 启动 AT-SPI worker，全程不经过 Shell。
-- worker 只可访问只读运行包、必要系统库和过滤后的 AT-SPI bus；禁止网络、Home、仓库配置、数据库、附件库、微信数据目录和 Secret Service。
-- 如果 systemd 安全属性、bubblewrap、D-Bus 过滤或微信应用身份无法验证，connector 拒绝启动。
-- 保留并完善微信 accessibility user service；新增 `lemonbot.service`，绑定图形会话，不启用 linger。
-- 用 `lemonbot install-service --config ...` 替换 `install-startup`。
-- 增加 `lemonbot emergency-stop` 和 `lemonbot resume --confirm`。急停写入持久 sentinel、终止 worker；重启后仍暂停，恢复时重新建立 baseline，不补抓停机消息。
-- `doctor` 检查 Ubuntu/Wayland、UID、微信包和哈希、AT-SPI、systemd 单元、安全沙箱、enrollment 权限及数据库；Observe 模式不要求云 API 密钥。
-- README、运行手册和安全文档改为 Linux-first；原 Windows/企业微信研发记录保留为明确标注的历史档案。
-
-## 5. 测试与验收
-
-- Ubuntu CI 执行锁文件检查、全部 pytest、Ruff、严格 mypy 和密钥扫描。
-- 删除 Windows、UIA、pywechat 和企业微信测试；新增 fake AT-SPI 树、事件乱序、事件洪水、同名会话、窗口切换、弹窗、结构漂移、群发送者缺失和 cursor 对齐测试。
-- IPC 覆盖非法 JSON、额外字段、错误 request ID、未知消息类型、超限帧和 worker 异常退出。
-- 验证 worker 无法联网或读取 Home、`lab.db`、微信数据和 Secret Service。
-- 在 baseline、事件处理、数据库提交和进程重启各阶段强制终止，证明不会重放历史、重复记录或产生出站消息。
-- VM 实机验收：
-  - 私聊与测试群语义门控均通过微信重启和锁屏/解锁测试。
-  - 连续 Observe 24 小时，无历史回放、自己消息、重复事件、跨会话记录或群发送者误判。
-  - 模型调用数、工具调用数和 outbox 记录均为零。
-  - 暂停、急停和重启保持 fail-closed。
-  - 日志、探针报告和配置中不存在聊天正文、联系人名称或 API 密钥。
-
-Observe 验收后再单独规划 Linux Draft 阶段：启用 DeepSeek API 生成本地草稿，但仍不触碰微信输入框；Reply、主动聊天、图片和文件能力继续作为后续独立安全门控。
-
-## 6. 当前风险门禁
-
-- AT-SPI 能发现应用、header 和 canary，不等于能证明消息方向或发送者身份。
-- 私聊 self/peer 均为全宽、无属性、无子节点的同构 `list item`；群聊也没有稳定 sender 属性。
-- 不允许 enrollment，不允许启动 `wechat_atspi` connector，不允许人工伪造结构签名。
-- 显示标签、左右位置、气泡颜色和消息顺序都不是身份；任何不确定性都必须停止处理。
-- 只有至少两轮 canary 校准并覆盖微信重启和锁屏/解锁后，布局才可作为方向线索；仍不得用于
-  白名单、管理员或权限判定。
+No automatic client/image upgrades, offline-message backfill, multimodal support or
+proactive messaging are planned as implicit 1.0 behavior.
+[Earlier Linux work](docs/history/linux-plan-before-1.0.md) preserves chronology;
+[Windows/Observe/native identity research](docs/history/README.md) is inactive.

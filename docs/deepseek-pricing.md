@@ -1,6 +1,6 @@
 # DeepSeek Flash 价格与运行预算
 
-核对日期：2026-10-09（Asia/Shanghai）。来源：[DeepSeek 官方价格页](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)。
+核对日期：2026-10-10（Asia/Shanghai）。来源：[DeepSeek 官方价格页](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)。
 使用官方接口 `https://api.deepseek.com`，模型 ID `deepseek-flash`，对应 DeepSeek-V4.1-Flash。
 
 价格单位为人民币元 / 百万 tokens：
@@ -17,7 +17,7 @@
 本轮运行限额为每日 5 元、每月 100 元，输入上下文上限 8,192 tokens、输出上限 512 tokens。
 现有预算模块只有统一输入/输出单价，本轮配置按高峰缓存未命中上限预留和记录：输入 2 元、输出 8 元 / 百万 tokens。
 此金额是保守的预算估算，不是供应商实际账单；缓存命中和空闲时段通常使实际扣费更低。
-最大输入与输出额度对应单次估算上限约 0.02048 元。模型不自动升级，关闭工具和长期记忆提取。
+最大输入与输出额度对应单次估算上限约 0.02048 元。模型不自动升级，工具关闭；长期记忆提取可选，启用后费用计入同一预算。
 
 密钥通过本机 Secret Service 的 `lab` 命名空间保存，文档与 TOML 不包含密钥。
 

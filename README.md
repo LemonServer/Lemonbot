@@ -1,56 +1,81 @@
-# Lemonbot
+# Lemonbot 1.0
 
-**可直接运行（限定本机已绑定的 testing 群与一个白名单私聊）。**
-群聊仅真正 @ 本机账号时回复，私聊自动回复新文本；两会话自动导航、DeepSeek Flash
-回复与持久上下文实机通过。程序重启后群回答“青柠”、私聊回答“纸船”，各一次发送尝试、
-一条精确回执，无旧消息重放。服务保持运行，仓库默认仍关闭。
-工具与主动消息关闭；本机已启用隔离的长期记忆提取/检索（仓库默认关闭）。
-每日 5 元、每月 100 元预算及原发送限流保留，记忆请求计入预算。
-2026-10-10 优化及扩容后两条实测约 13 秒（小样本）；宿主重启仍需人工登录及恢复服务。
-旧 UNKNOWN 一条保留不重发，固定镜像、微信版本与原卷不变，PR #171 继续冻结。
+A Linux WeChat text agent with persistent conversation context and optional scoped
+long-term memory. Lemonbot replies to genuine mentions in allowlisted groups and
+new text in allowlisted private chats, using DeepSeek Flash.
 
-操作与验收见 [conversation 手册](docs/wechat-agent-conversation.md)。
+**Start here:** [first deployment](docs/deployment.md) ·
+[operations and troubleshooting](docs/operations.md) ·
+[development](CONTRIBUTING.md) · [all docs](docs/README.md)
 
-## 开始使用
+## What 1.0 supports
 
-离线验证无需微信或 Docker：
+- 1–20 exact-name allowlisted conversations; automatic serial navigation and sending.
+- Group replies only when message metadata really mentions the logged-in account.
+- Separate private-chat and group-member context, retained across program restart.
+- Quoted text with explicit quote context; optional long-term extraction and SQLite FTS recall.
+- Persistent inbox/outbox, precise new-self-message confirmation, budgets, rate limits,
+  pause controls and an authenticated localhost administration UI.
+- Brief conversational replies. Tools, media processing and proactive messages remain off.
+
+This is a **desktop deployment**, requiring manual QR login. Host restart recovery
+is manual. Automatic navigation depends on the pinned client's UI and must fail
+closed when the target cannot be verified. The account may sync other chats inside
+WeChat; the container is not a group-level privacy boundary.
+
+Base send/receive, genuine mentions, private chat, program restart context and pause
+recovery have real-account evidence. Four configured conversations were resolved
+and read successfully; this is not full end-to-end acceptance for every target.
+Quote parsing and memory extraction have narrower evidence; long-term recall beyond
+the recent window and fresh-machine/account deployment remain unverified.
+See the [capability evidence matrix](docs/release-1.0.md).
+
+## Requirements
+
+Ubuntu **24.04 desktop**, **x86_64**, Python **3.12**, `uv`, Docker Engine,
+a logged-in desktop session with an unlocked Secret Service keyring.
+Recommended: **4 vCPU / 8 GiB RAM**, at least **8 GiB free before image pull**;
+retain **3 GiB free**. The Docker image digest and WeChat version are frozen.
+
+## Try without WeChat
 
 ```bash
-uv sync --all-extras --locked
+git clone https://github.com/LemonServer/Lemonbot.git
+cd Lemonbot
+uv sync --locked --extra dev
 uv run --locked python -m lemonbot.research.agent_wechat_lab demo
 ```
 
-输出明确标记 `simulated_http_not_live`；模拟通过不代表实机通过。
-实机启动和暂停恢复按 [固定环境与恢复手册](docs/environment-baseline.md)执行。
-双会话日常运行与暂停恢复见 [conversation 手册](docs/wechat-agent-conversation.md)。
-旧单群 canary 操作见 [runtime 手册](docs/wechat-agent-runtime.md)，不要与日常入口同时运行。
+This exercises simulated HTTP, persistence, restart and UNKNOWN no-retry without
+Docker, an account or a model key. `simulated_http_not_live` is not a real-channel result.
 
-## 文档入口
+## Deploy and operate
 
-- [文档索引](docs/README.md)：区分当前操作文档、实机证据和历史方案。
-- [Linux 计划](PLAN_linux.md)：当前优先级、剩余验收与止损条件。
-- [环境基线](docs/environment-baseline.md)：镜像、微信、依赖锁与持久路径。
-- [实机复现记录](docs/agent-wechat-reproduction.md)：实验方法和各阶段结果。
-- [安全边界](docs/security.md)：正式 runtime 与独立实验的不同作用域。
+Follow [the complete first-install guide](docs/deployment.md); do not start the bot
+from the public example before login, binding and secret setup. Public configuration
+stays disabled, and setup never sends messages or enables boot startup.
 
-## 开发验证
+From the repository, after setup:
 
 ```bash
-uv lock --check
-uv run --locked pytest -q
-uv run --locked ruff check .
-uv run --locked mypy src
+systemctl --user start lemonbot-wechat-conversation.service
+uv run --locked python scripts/wechat_conversation_control.py status
+uv run --locked python scripts/wechat_conversation_control.py resume
+# Safe restart / stop: pause first and wait for in-flight work.
+uv run --locked python scripts/wechat_bot_restart.py
+uv run --locked python scripts/wechat_bot_restart.py --stop
 ```
 
-2026-10-10 全仓 540 项测试通过，Ruff、mypy（116 个源文件）和锁文件检查通过。
-存在一条依赖层 Starlette/httpx 弃用警告。正式配置保持 `runtime.connector = "fake"`、
-`wechat_atspi.enabled = false`、`models.provider = "disabled"` 和 `vision.enabled = false`。
-正式连接器仓库默认关闭；本机私有 lab 配置启用双会话导航与 DeepSeek 文本回复。
-数据库 schema 未修改，工具、多群和媒体关闭。性能结果见 [延迟优化报告](docs/wechat-latency-optimization.md)。
+Change exact names in the private whitelist, then safely restart and explicitly
+resume. A restart preserves pause and context; UNKNOWN is never automatically resent.
 
-## 名称白名单（2026-10-10）
+## Develop
 
-填写 [本机白名单配置](config/wechat-whitelist.local.toml) 的 groups 与 contacts，启动时自动解析
-唯一显示名并同步读取范围和运行白名单，移除的会话自动禁用，不需要编辑 JSON 或数据库。
-支持 1–20 个会话，群仅真正 @ 时回复；本机仍沿用现有 testing 与一个测试联系人。
-配置格式、重启操作、歧义与暂停规则见 [白名单管理说明](docs/wechat-whitelist.md)。
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for architecture,
+checks and invariants. [PLAN_linux.md](PLAN_linux.md) is the current roadmap;
+[historical research](docs/history/README.md) preserves earlier routes and evidence.
+
+[MIT](LICENSE) covers Lemonbot's own code.
+[Third-party notices](THIRD_PARTY_NOTICES.md) describe the separately referenced
+image and unresolved upstream licensing; no third-party images or account data
+are included in this release.
