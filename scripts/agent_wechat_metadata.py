@@ -254,6 +254,8 @@ class SourceReader:
             )
             if found:
                 matches.append((path, entry["hex_key"]))
+        if not matches:
+            raise ValueError("MessageTableMissing")
         if len(matches) != 1:
             raise ValueError("MessageTableAmbiguous")
         path, key = matches[0]
@@ -352,9 +354,16 @@ class SourceReader:
                 account,
             )
         chats = list(anchors)
-        sources = [self.source_table(chat, account) for chat in chats]
         grouped: dict[tuple[Path, str], list[tuple[int, str]]] = {}
-        for index, (path, key, table) in enumerate(sources):
+        source_errors: dict[int, str] = {}
+        for index, chat in enumerate(chats):
+            try:
+                path, key, table = self.source_table(chat, account)
+            except ValueError as error:
+                if str(error) not in {"MessageTableMissing", "MessageTableAmbiguous"}:
+                    raise
+                source_errors[index] = str(error)
+                continue
             grouped.setdefault((path, key), []).append((index, table))
         results: list[list[dict[str, Any]]] = [[] for _ in chats]
         snapshot_started = time.monotonic()
@@ -398,10 +407,12 @@ class SourceReader:
                 time.sleep(0.03)
         snapshot_seconds = time.monotonic() - snapshot_started
         targets = []
-        for chat, rows in zip(chats, results, strict=True):
+        for index, (chat, rows) in enumerate(zip(chats, results, strict=True)):
             ids = anchors[chat]
             latest = [r["local_id"] for r in rows[:100]]
-            if ids is None:
+            if index in source_errors:
+                selected, error = [], source_errors[index]
+            elif ids is None:
                 selected, error = [], None
             else:
                 overlap = [i for i, row in enumerate(rows) if row["local_id"] in ids]

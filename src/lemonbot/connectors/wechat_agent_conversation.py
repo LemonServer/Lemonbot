@@ -457,8 +457,12 @@ class ConversationMultiplexer(AgentWechatConnector):
             for ref in refs:
                 child = self.children[ref]
                 result = by_chat[child.binding.chat_id]
-                if result.get("error") == "AnchorLost":
-                    self.target_failure(ref, LabPaused("AnchorLost"))
+                if result.get("error") in {
+                    "AnchorLost",
+                    "MessageTableMissing",
+                    "MessageTableAmbiguous",
+                }:
+                    self.target_failure(ref, LabPaused(result["error"]))
                     continue
                 if result.get("error") is not None:
                     raise ValueError
@@ -517,7 +521,10 @@ class ConversationMultiplexer(AgentWechatConnector):
                 except LabPaused as error:
                     self.target_failure(ref, error)
             await self._cycle(refs, baseline=True)
-            if self.resume_requested and self.target_pauses:
+            if self.resume_requested and any(
+                reason not in {"MessageTableMissing", "MessageTableAmbiguous"}
+                for reason in self.target_pauses.values()
+            ):
                 raise LabPaused("TargetResumeVerificationFailed")
             if len(self.target_pauses) == len(self.children):
                 raise LabPaused("AllTargetsPaused")

@@ -263,3 +263,30 @@ def test_sync_preserves_verified_self_before_replacing_old_scope(reader, tmp_pat
     assert bridge.SourceReader("synthetic", stored).canonical_identity == "self"
     with pytest.raises(ValueError, match="CanonicalSelfMismatch"):
         bridge.SourceReader("synthetic", {**stored, "self_identity": "other"})
+
+
+@pytest.mark.parametrize("error", ["MessageTableMissing", "MessageTableAmbiguous"])
+def test_unreadable_table_is_target_scoped_without_claiming_empty_history(reader, error):
+    obj, calls, _path = reader
+    original = obj.source_table
+
+    def source(chat, account):
+        if chat == "peer":
+            raise ValueError(error)
+        return original(chat, account)
+
+    obj.source_table = source
+    result = obj.read_cycle({"group@chatroom": [105], "peer": None})
+    assert result["accountVerified"] is True
+    group, peer = result["targets"]
+    assert group["error"] is None
+    assert peer["error"] == error and peer["rows"] == []
+    assert calls["snapshot"] == 1
+    assert calls["auth"] == 2
+
+
+def test_corrupt_source_remains_global_failure(reader):
+    obj, _calls, _path = reader
+    obj.source_table = lambda *_args: (_ for _ in ()).throw(ValueError("WalFrameChecksumMismatch"))
+    with pytest.raises(ValueError, match="WalFrameChecksumMismatch"):
+        obj.read_cycle({"group@chatroom": None, "peer": None})

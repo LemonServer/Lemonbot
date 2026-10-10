@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-10",
+  "scope": "redacted diagnostics, no new business messages",
+  "bound_targets": 3,
+  "matching_table_counts": [1, 1, 0],
+  "message_databases": 1,
+  "known_message_keys": 1,
+  "missing_target_api_message_count": 0,
+  "before": {"paused": true, "reason": "MessageSnapshotUnavailable"},
+  "cause": "zero table matches classified as ambiguity; target error aborted whole cycle",
+  "after": {
+    "paused": false,
+    "target_pause_reasons": ["MessageTableMissing"],
+    "queue_depth": 0,
+    "unknown_outbox": 1
+  },
+  "limits": "New target not validated for real send/receive; explicit resume required after history sync. No WeChat restart or data deletion."
+}

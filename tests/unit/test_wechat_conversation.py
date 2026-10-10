@@ -335,6 +335,44 @@ async def test_identity_change_pauses_globally(tmp_path: Path) -> None:
         await transport.close()
 
 
+async def test_missing_table_pauses_only_affected_target_and_explicit_resume_keeps_it(tmp_path):
+    mock = TwoChats()
+    original = mock.metadata
+    missing = True
+
+    async def metadata(request):
+        response = await original(request)
+        if request.url.path == "/read-cycle" and missing:
+            body = response.json()
+            for target in body["targets"]:
+                if target["chatId"] == mock.peer:
+                    target.update(error="MessageTableMissing", rows=[], anchors=[])
+            return httpx.Response(200, json=body)
+        return response
+
+    mock.metadata = metadata
+    transport = await setup(mock, tmp_path)
+    try:
+        group_ref, peer_ref = (t.binding.chat_ref for t in mock.targets())
+        assert transport.target_pauses == {peer_ref: "MessageTableMissing"}
+        assert transport.children[peer_ref].anchors is None
+        mock.add(mock.group, "healthy group", mention=True)
+        transport._notifications.set()
+        events = await transport.poll()
+        assert [e.chat_id for e in events] == [group_ref]
+        assert transport.paused is None
+        transport.prepare_resume()
+        await transport.baseline()
+        assert transport.target_pauses == {peer_ref: "MessageTableMissing"}
+        missing = False
+        assert transport.target_pauses  # Recovery never happens just on poll/restart.
+        transport.prepare_resume()
+        await transport.baseline()
+        assert transport.target_pauses == {}
+    finally:
+        await transport.close()
+
+
 async def test_arrival_during_snapshot_retries_only_reads_without_dropping_events(
     tmp_path: Path,
 ) -> None:
