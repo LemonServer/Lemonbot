@@ -12,6 +12,7 @@ host = "127.0.0.1"
 port = 8767
 
 [wechat_agent]
+memory_enabled = false # Opt in to scoped extraction after confirmed delivery and recall.
 enabled = false
 mode = "conversation"
 token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"

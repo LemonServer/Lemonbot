@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
+
+import pytest
 
 from lemonbot.domain import InboundEvent, ModelCapabilities
 from lemonbot.memory import (
@@ -14,7 +17,13 @@ from lemonbot.memory import (
     Provenance,
     SQLiteMemoryStore,
 )
-from lemonbot.orchestration import EventPipeline, FakeModelBackend, PipelineConfig, PipelineStatus
+from lemonbot.orchestration import (
+    EventPipeline,
+    FakeConnector,
+    FakeModelBackend,
+    PipelineConfig,
+    PipelineStatus,
+)
 from lemonbot.policy import DeterministicPolicy
 from lemonbot.storage import CoreRepository, Database
 
@@ -29,6 +38,91 @@ class TightModel(FakeModelBackend):
 
     def capabilities(self) -> ModelCapabilities:
         return ModelCapabilities(tools=True, json_output=True, context_tokens=self._context_tokens)
+
+
+@pytest.mark.parametrize("unknown", [False, True])
+async def test_conversation_memory_extracts_only_after_ack_and_isolates_members(
+    tmp_path: Path, unknown: bool
+) -> None:
+    path = tmp_path / "confirmed.db"
+    database, repository = await _repository(path)
+    memory = SQLiteMemoryStore(path)
+    scope = "context_" + "a" * 64
+    other = "context_" + "b" * 64
+    model = FakeModelBackend(
+        [
+            "confirmed reply",
+            json.dumps(
+                {
+                    "memories": [
+                        {
+                            "kind": "preference",
+                            "text": "prefers lemon tea",
+                            "source_message_ids": ["source-event"],
+                            "confidence": 0.9,
+                        }
+                    ],
+                    "summary": None,
+                }
+            ),
+        ]
+    )
+    try:
+        await repository.set_allowlisted("fake", "group")
+        pipeline = EventPipeline(
+            repository,
+            DeterministicPolicy(repository),
+            model,
+            memory_context=MemoryContextService(memory, ContextBuilder(model)),
+            memory_derivation=MemoryDerivationService(store=memory, backend=model),
+        )
+        await pipeline.ingest(
+            InboundEvent(
+                channel="fake",
+                chat_id="group",
+                sender_id="a",
+                event_id="source-event",
+                text="I prefer lemon tea",
+                metadata={"wechat_mode": "conversation", "context_scope": scope},
+            )
+        )
+        assert (await pipeline.process_once("fake")).status is PipelineStatus.COMPLETED
+        assert len(model.requests) == 1
+        assert not await memory.search(channel="fake", chat_id=scope, query="")
+        connector = FakeConnector()
+        connector.raise_after_accept = unknown
+        result = await pipeline.dispatch_once(connector, channel="fake")
+        assert result.status is (PipelineStatus.UNKNOWN if unknown else PipelineStatus.ACKNOWLEDGED)
+        assert len(model.requests) == (1 if unknown else 2)
+        reopened = SQLiteMemoryStore(path)
+        records = await reopened.search(channel="fake", chat_id=scope, query="lemon")
+        assert len(records) == (0 if unknown else 1)
+        assert not await reopened.search(channel="fake", chat_id=other, query="")
+        assert not await reopened.search(channel="fake", chat_id="group", query="")
+        if not unknown:
+            for member_scope, expected in [(scope, True), (other, False)]:
+                fresh = FakeModelBackend(["reply"])
+                restarted = EventPipeline(
+                    repository,
+                    DeterministicPolicy(repository),
+                    fresh,
+                    memory_context=MemoryContextService(reopened, ContextBuilder(fresh)),
+                )
+                await restarted.ingest(
+                    InboundEvent(
+                        channel="fake",
+                        chat_id="group",
+                        sender_id="member",
+                        event_id="next-" + member_scope,
+                        text="lemon",
+                        metadata={"wechat_mode": "conversation", "context_scope": member_scope},
+                    )
+                )
+                await restarted.process_once("fake")
+                rendered = "\n".join(x.content or "" for x in fresh.requests[0].messages)
+                assert ("prefers lemon tea" in rendered) is expected
+    finally:
+        await database.close()
 
 
 async def _repository(path: Path) -> tuple[Database, CoreRepository]:

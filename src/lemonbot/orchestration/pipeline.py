@@ -7,6 +7,7 @@ import json
 import re
 import time
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractAsyncContextManager, nullcontext
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal
@@ -23,6 +24,7 @@ from lemonbot.domain import (
     EventKind,
     InboundEvent,
     InboxItem,
+    InboxState,
     MessageRole,
     ModelBackend,
     ModelMessage,
@@ -146,6 +148,7 @@ class EventPipeline:
         approval_service: ApprovalService | None = None,
         side_effect_lock: asyncio.Lock | None = None,
         event_eligible: Callable[[InboundEvent], bool] | None = None,
+        memory_operation: Callable[[], AbstractAsyncContextManager[Any]] | None = None,
     ) -> None:
         self.repository = repository
         self.policy = policy
@@ -157,6 +160,7 @@ class EventPipeline:
         self.approval_service = approval_service
         self.side_effect_lock = side_effect_lock or asyncio.Lock()
         self.event_eligible = event_eligible
+        self.memory_operation = memory_operation or nullcontext
 
     async def ingest(self, event: InboundEvent) -> PipelineResult:
         with measure("inbound.persist"):
@@ -392,10 +396,27 @@ class EventPipeline:
                     ),
                     "chunk_chars": self.config.chunk_chars,
                     "max_chunks": 2,
+                    **(
+                        {
+                            "memory_usage": {
+                                "turns": model_run.turns_used,
+                                "input": model_run.input_tokens_used,
+                                "output": model_run.output_tokens_used,
+                            }
+                        }
+                        if self.memory_derivation is not None
+                        and model_run is not None
+                        and event.metadata.get("wechat_mode") == "conversation"
+                        else {}
+                    ),
                 },
             )
             outbox = await self.repository.create_outbox(outbound)
-        if prepared is not None and model_run is not None:
+        if (
+            prepared is not None
+            and model_run is not None
+            and event.metadata.get("wechat_mode") != "conversation"
+        ):
             await self._maintain_memory_best_effort(
                 item,
                 prepared,
@@ -481,7 +502,7 @@ class EventPipeline:
                 message_id=self._source_message_id(entry),
                 event_id=(entry.external_id if entry.role is MessageRole.USER else None),
                 channel=entry.channel,
-                chat_id=entry.chat_id,
+                chat_id=self._memory_scope(event),
                 role=entry.role,
                 content=entry.content,
                 occurred_at=entry.occurred_at,
@@ -548,6 +569,15 @@ class EventPipeline:
             truncated=bundle.truncated,
         )
 
+    @staticmethod
+    def _memory_scope(event: InboundEvent) -> str:
+        if event.metadata.get("wechat_mode") == "conversation":
+            scope = event.metadata.get("context_scope")
+            if not isinstance(scope, str) or not re.fullmatch(r"context_[a-f0-9]{64}", scope):
+                raise PermanentPipelineError("invalid memory context binding")
+            return scope
+        return event.chat_id
+
     async def _audit_memory_event(
         self,
         item: InboxItem,
@@ -596,7 +626,7 @@ class EventPipeline:
                 message_id=str(assistant_message_id),
                 event_id=item.event.event_id,
                 channel=item.event.channel,
-                chat_id=item.event.chat_id,
+                chat_id=self._memory_scope(item.event),
                 role=MessageRole.ASSISTANT,
                 content=reply,
                 occurred_at=utc_now(),
@@ -1104,11 +1134,63 @@ class EventPipeline:
             )
         if state is OutboxState.ACKNOWLEDGED:
             status = PipelineStatus.ACKNOWLEDGED
+            if self.memory_derivation is not None and "memory_usage" in message.metadata:
+                await self._maintain_confirmed_memory(message)
         elif state is OutboxState.UNKNOWN:
             status = PipelineStatus.UNKNOWN
         else:
             status = PipelineStatus.DEAD
         return PipelineResult(status=status, item_id=item.id, detail=state.value)
+
+    async def _maintain_confirmed_memory(self, message: OutboundMessage) -> None:
+        # ACK is already durable. Extraction failure cannot change its outcome,
+        # retry delivery, or include an UNKNOWN assistant answer in memory.
+        try:
+            async with self.memory_operation():
+                event = await self.repository.inbound_event(
+                    message.channel, message.chat_id, message.reply_to_event_id or ""
+                )
+                if event is None or event.metadata.get("wechat_mode") != "conversation":
+                    return
+                if await self.repository.is_paused(event.channel) or (
+                    self.event_eligible is not None and not self.event_eligible(event)
+                ):
+                    return
+                item = InboxItem(id=0, event=event, state=InboxState.COMPLETED, attempts=1)
+                recent = await self.repository.recent_messages(
+                    event.channel,
+                    event.chat_id,
+                    limit=self.config.recent_messages,
+                    through_external_id=event.event_id,
+                    context_scope=self._memory_scope(event),
+                    confirmed_only=True,
+                )
+                prepared = await self._prepare_context(item, recent)
+                usage = message.metadata["memory_usage"]
+                await self._maintain_memory_best_effort(
+                    item,
+                    prepared,
+                    reply=message.text,
+                    assistant_message_id=message.message_id,
+                    model_turns_used=usage["turns"],
+                    input_tokens_used=usage["input"],
+                    output_tokens_used=usage["output"],
+                )
+        except Exception as exc:
+            try:
+                await self.repository.append_audit(
+                    AuditRecord(
+                        action="memory.derive",
+                        outcome="ignored_failure",
+                        channel=message.channel,
+                        chat_id=message.chat_id,
+                        event_id=message.reply_to_event_id,
+                        detail={"error_type": type(exc).__name__},
+                    )
+                )
+            except Exception:
+                # A best-effort memory/audit failure cannot invalidate a durable ACK.
+                return
 
     def _bounded_reply(self, value: str) -> str:
         value = value.strip()

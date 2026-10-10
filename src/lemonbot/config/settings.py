@@ -124,6 +124,7 @@ class WechatAgentSettings(StrictModel):
     token_file: str = ""
     state_dir: str = ""
     whitelist_file: str = ""
+    memory_enabled: bool = False
 
     @model_validator(mode="after")
     def validate_paths(self) -> WechatAgentSettings:
@@ -134,6 +135,8 @@ class WechatAgentSettings(StrictModel):
                 raise ValueError("wechat_agent paths must be absolute")
         if self.whitelist_file and self.mode != "conversation":
             raise ValueError("wechat whitelist requires conversation mode")
+        if self.memory_enabled and self.mode != "conversation":
+            raise ValueError("wechat memory requires conversation mode")
         return self
 
 

@@ -401,6 +401,9 @@ class LemonbotRuntime:
         agent_selected = self.settings.runtime.connector == "wechat_agent"
         canary_only = agent_selected and self.settings.wechat_agent.mode == "canary"
         passive_services = observe_only or agent_selected
+        memory_enabled = not passive_services or (
+            agent_selected and not canary_only and self.settings.wechat_agent.memory_enabled
+        )
         if not passive_services:
             await self.proactive_store.initialize()
         # RuntimeLock guarantees this is the only live core for the profile.
@@ -429,12 +432,12 @@ class LemonbotRuntime:
             tools=tools,
             memory_context=(
                 None
-                if passive_services
+                if not memory_enabled
                 else MemoryContextService(self.memory, ContextBuilder(self.model))
             ),
             memory_derivation=(
                 None
-                if passive_services
+                if not memory_enabled
                 else MemoryDerivationService(store=self.memory, backend=self.model)
             ),
             approval_service=self.approval_service,
@@ -443,6 +446,11 @@ class LemonbotRuntime:
                 self.connector.transport.can_process
                 if isinstance(self.connector, RuntimeAgentWechatConnector)
                 and isinstance(self.connector.transport, ConversationMultiplexer)
+                else None
+            ),
+            memory_operation=(
+                self.connector.processing_operation
+                if isinstance(self.connector, RuntimeAgentWechatConnector) and not canary_only
                 else None
             ),
             config=PipelineConfig(
@@ -968,7 +976,11 @@ class LemonbotRuntime:
                 isinstance(self.connector, RuntimeAgentWechatConnector)
                 and self.settings.wechat_agent.mode == "conversation"
             ):
-                if not self.connector.ready or await self.repository.has_active_outbox(CHANNEL):
+                if (
+                    not self.connector.ready
+                    or not self.connector.processing_idle.is_set()
+                    or await self.repository.has_active_outbox(CHANNEL)
+                ):
                     await asyncio.sleep(0.2)
                     continue
                 self.connector.work_available.clear()
