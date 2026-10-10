@@ -26,6 +26,7 @@ from lemonbot.domain.models import (
     OutboundMessage,
     utc_now,
 )
+from lemonbot.latency import record
 
 CHANNEL = "wechat_agent_lab"
 API_URL = "http://127.0.0.1:6174"
@@ -80,6 +81,18 @@ class AgentWechatHTTP:
         except ValueError:
             raise LabPaused(f"APIUnavailableOrInvalid:{stage}:JSON") from None
         finally:
+            category = (
+                "send"
+                if sending
+                else "auth"
+                if path == "/api/status/auth"
+                else "a11y"
+                if path == "/api/debug/a11y"
+                else "navigate"
+                if method == "POST"
+                else "lookup"
+            )
+            record("wechat." + category, started)
             if sending:
                 self.last_send_seconds = asyncio.get_running_loop().time() - started
 

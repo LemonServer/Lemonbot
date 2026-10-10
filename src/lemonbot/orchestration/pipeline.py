@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -37,6 +38,7 @@ from lemonbot.domain import (
     ToolResult,
     utc_now,
 )
+from lemonbot.latency import measure, record
 from lemonbot.memory import (
     ContextBuilder,
     ConversationTurn,
@@ -157,7 +159,8 @@ class EventPipeline:
         self.event_eligible = event_eligible
 
     async def ingest(self, event: InboundEvent) -> PipelineResult:
-        inserted = await self.repository.record_inbound(event)
+        with measure("inbound.persist"):
+            inserted = await self.repository.record_inbound(event)
         return PipelineResult(
             status=PipelineStatus.QUEUED if inserted else PipelineStatus.SKIPPED,
             detail=None if inserted else "duplicate event",
@@ -168,9 +171,11 @@ class EventPipeline:
             await self.ingest(event)
 
     async def process_once(self, channel: str | None = None) -> PipelineResult:
+        started = time.monotonic()
         item = await self.repository.claim_next_inbox(channel)
         if item is None:
             return PipelineResult(status=PipelineStatus.IDLE)
+        record("inbound.claim", started)
         try:
             async with asyncio.timeout(self.config.max_task_seconds):
                 result = await self._process_claimed(item)
@@ -244,7 +249,8 @@ class EventPipeline:
             side_effect=True,
             arguments={"message_id": str(message_id)},
         )
-        preflight = await self.policy.evaluate(action)
+        with measure("policy.preflight"):
+            preflight = await self.policy.evaluate(action)
         if preflight.decision is not PolicyDecision.AUTO:
             await self.repository.complete_inbox(item.id)
             return PipelineResult(
@@ -303,7 +309,8 @@ class EventPipeline:
                 ),
                 confirmed_only=event.metadata.get("wechat_mode") == "conversation",
             )
-            prepared = await self._prepare_context(item, recent)
+            with measure("model.context"):
+                prepared = await self._prepare_context(item, recent)
             model_run = await self._run_model_and_tools(item, list(prepared.messages))
             reply_text = model_run.reply
             attachment_failures = event.metadata.get("attachment_failures", 0)
@@ -712,7 +719,8 @@ class EventPipeline:
             if not await self.repository.mark_inbox_model_started(item.id):
                 raise PermanentPipelineError("inbox state changed before model provider I/O")
             try:
-                response = await self.model.generate(request)
+                with measure("model.request"):
+                    response = await self.model.generate(request)
             except (BudgetError, ModelGatewayError) as exc:
                 # A provider call may already have incurred cost even though no
                 # response reached the core. Never re-plan or blindly retry the

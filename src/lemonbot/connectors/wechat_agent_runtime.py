@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,6 +21,7 @@ from lemonbot.domain.models import (
     InboundEvent,
     OutboundMessage,
 )
+from lemonbot.latency import record
 from lemonbot.storage import CoreRepository
 
 
@@ -123,7 +125,9 @@ class RuntimeAgentWechatConnector(Connector):
     async def processing_operation(self) -> AsyncIterator[None]:
         # Mask notification servicing during generation without holding the UI
         # mutex across policy commits (the admin uses the policy lock too).
+        started = time.monotonic()
         async with self.operation_lock:
+            record("processing.lock_wait", started)
             self.processing_idle.clear()
         try:
             yield
