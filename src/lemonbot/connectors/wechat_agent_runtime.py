@@ -12,6 +12,7 @@ from pathlib import Path
 
 from lemonbot.connectors.base import Connector
 from lemonbot.connectors.wechat_agent import CHANNEL, AgentWechatConnector, LabPaused
+from lemonbot.connectors.wechat_agent_conversation import ConversationMultiplexer
 from lemonbot.connectors.wechat_agent_state import private_read, private_write
 from lemonbot.domain.models import (
     AuditRecord,
@@ -40,6 +41,10 @@ class RuntimeAgentWechatConnector(Connector):
         self.operation_lock = asyncio.Lock()
         self.processing_idle = asyncio.Event()
         self.processing_idle.set()
+        self.work_available = asyncio.Event()
+        self.work_available.set()
+        self.work_settled = asyncio.Event()
+        self.work_settled.set()
         self.closed = False
         self.ready = False
         self.pause_reason: str | None = None
@@ -127,7 +132,8 @@ class RuntimeAgentWechatConnector(Connector):
         # mutex across policy commits (the admin uses the policy lock too).
         started = time.monotonic()
         async with self.operation_lock:
-            record("processing.lock_wait", started)
+            if time.monotonic() - started >= 0.01:
+                record("processing.lock_wait", started)
             self.processing_idle.clear()
         try:
             yield
@@ -137,17 +143,31 @@ class RuntimeAgentWechatConnector(Connector):
     async def events(self) -> AsyncIterator[InboundEvent]:
         while not self.closed:
             await self.processing_idle.wait()
+            if isinstance(self.transport, ConversationMultiplexer):
+                await self.work_settled.wait()
             rows: list[InboundEvent] = []
+            started = time.monotonic()
             async with self.operation_lock:
+                if time.monotonic() - started >= 0.01:
+                    record("receive.lock_wait", started)
                 if (
                     self.ready
                     and self.processing_idle.is_set()
                     and not await self.repository.is_paused(CHANNEL)
                 ):
+                    if isinstance(self.transport, ConversationMultiplexer) and (
+                        await self.repository.has_active_inbox(CHANNEL)
+                        or await self.repository.has_active_outbox(CHANNEL)
+                    ):
+                        self.work_settled.clear()
+                        self.work_available.set()
+                        continue
                     try:
                         rows = await self.transport.poll()
                     except LabPaused as error:
                         await self._pause(str(error))
+                    if rows and isinstance(self.transport, ConversationMultiplexer):
+                        self.work_settled.clear()
             for event in rows:
                 yield event
             wait = getattr(self.transport, "wait_for_changes", None)
@@ -189,4 +209,6 @@ class RuntimeAgentWechatConnector(Connector):
     async def close(self) -> None:
         self.closed = True
         self.processing_idle.set()
+        self.work_settled.set()
+        self.work_available.set()
         await self.transport.close()

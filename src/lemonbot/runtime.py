@@ -950,8 +950,19 @@ class LemonbotRuntime:
                 if not self.connector.ready or await self.repository.has_active_outbox(CHANNEL):
                     await asyncio.sleep(0.2)
                     continue
+                self.connector.work_available.clear()
                 async with self.connector.processing_operation():
                     result = await self.pipeline.process_once(channel)
+                if result.status is PipelineStatus.IDLE:
+                    if not await self.repository.has_active_inbox(
+                        CHANNEL
+                    ) and not await self.repository.has_active_outbox(CHANNEL):
+                        self.connector.work_settled.set()
+                    try:
+                        await asyncio.wait_for(self.connector.work_available.wait(), timeout=1)
+                    except TimeoutError:
+                        pass
+                    continue
             else:
                 result = await self.pipeline.process_once(channel)
             if (
@@ -973,6 +984,8 @@ class LemonbotRuntime:
             if self._emergency.is_set() or await self.repository.is_paused(channel):
                 continue
             await self.pipeline.ingest(event)
+            if isinstance(self.connector, RuntimeAgentWechatConnector):
+                self.connector.work_available.set()
 
     async def _dispatch_loop(self) -> None:
         assert self.pipeline is not None and self.connector is not None
@@ -986,6 +999,11 @@ class LemonbotRuntime:
                 await asyncio.sleep(1)
                 continue
             result = await self.pipeline.dispatch_once(self.connector, channel=channel)
+            if (
+                isinstance(self.connector, RuntimeAgentWechatConnector)
+                and result.status is not PipelineStatus.IDLE
+            ):
+                self.connector.work_available.set()
             if (
                 isinstance(self.connector, RuntimeAgentWechatConnector)
                 and result.status is PipelineStatus.UNKNOWN

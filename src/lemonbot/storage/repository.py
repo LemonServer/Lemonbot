@@ -1056,6 +1056,21 @@ class CoreRepository:
                 for row in rows
             ]
 
+    async def has_active_inbox(self, channel: str) -> bool:
+        async with self.database.sessions() as session:
+            return bool(
+                await session.scalar(
+                    select(
+                        exists().where(
+                            InboxRow.channel == channel,
+                            InboxRow.state.in_(
+                                [InboxState.PENDING.value, InboxState.PROCESSING.value]
+                            ),
+                        )
+                    )
+                )
+            )
+
     async def has_active_outbox(self, channel: str) -> bool:
         async with self.database.sessions() as session:
             return bool(

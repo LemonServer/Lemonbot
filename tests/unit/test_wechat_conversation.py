@@ -33,6 +33,7 @@ class TwoChats(SimulatedWechat):
         self.names = {self.group: "testing", self.peer: "contact"}
         self.messages: dict[str, list[dict[str, Any]]] = {k: [] for k in self.names}
         self.reads = 0
+        self.opens = 0
         self.navigation_failure = False
         self.duplicate_title = False
         self.duplicate_reply = False
@@ -63,6 +64,7 @@ class TwoChats(SimulatedWechat):
             if identifier not in self.names:
                 return httpx.Response(404)
             if path.endswith("/open"):
+                self.opens += 1
                 if not self.navigation_failure:
                     self.title = self.names[identifier]
                 return httpx.Response(200, json={"ok": True})
@@ -350,3 +352,57 @@ async def test_arrival_during_snapshot_retries_only_reads_without_dropping_event
         assert await child.poll() == []
     finally:
         await transport.close()
+
+
+async def test_pending_work_prevents_notification_reads_until_delivery(tmp_path: Path) -> None:
+    from lemonbot.connectors.wechat_agent_runtime import RuntimeAgentWechatConnector
+    from lemonbot.orchestration import EventPipeline, FakeModelBackend, PipelineStatus
+    from lemonbot.policy import DeterministicPolicy, PolicyConfig
+    from lemonbot.storage import CoreRepository, Database
+
+    mock = TwoChats()
+    transport = await setup(mock, tmp_path)
+    db = Database.from_path(tmp_path / "priority.db")
+    await db.initialise()
+    repo = CoreRepository(db)
+    wrapper = RuntimeAgentWechatConnector(transport, repo, tmp_path)
+    wrapper.ready = True
+    for ref in transport.children:
+        await repo.set_allowlisted(CHANNEL, ref)
+    pipeline = EventPipeline(
+        repo,
+        DeterministicPolicy(repo, config=PolicyConfig(quiet_enabled=False)),
+        FakeModelBackend(["first answer", "second answer"]),
+    )
+    stream = wrapper.events()
+    pending = None
+    try:
+        mock.add(mock.group, "first question", mention=True)
+        first = await asyncio.wait_for(anext(stream), 2)
+        await pipeline.ingest(first)
+        mock.add(mock.peer, "second question")
+        await asyncio.sleep(0.01)
+        before = mock.reads
+        pending = asyncio.create_task(anext(stream))
+        await asyncio.sleep(0.05)
+        assert mock.reads == before and not pending.done()
+        assert await repo.has_active_inbox(CHANNEL)
+        async with wrapper.processing_operation():
+            assert (await pipeline.process_once(CHANNEL)).status is PipelineStatus.COMPLETED
+        assert await repo.has_active_outbox(CHANNEL)
+        await asyncio.sleep(0.05)
+        assert mock.reads == before and not pending.done()
+        assert (
+            await pipeline.dispatch_once(wrapper, channel=CHANNEL)
+        ).status is PipelineStatus.ACKNOWLEDGED
+        wrapper.work_settled.set()
+        second = await asyncio.wait_for(pending, 2)
+        assert second.text == "second question"
+        assert mock.posts == 1
+    finally:
+        if pending is not None and not pending.done():
+            pending.cancel()
+            await asyncio.gather(pending, return_exceptions=True)
+        await stream.aclose()
+        await wrapper.close()
+        await db.close()

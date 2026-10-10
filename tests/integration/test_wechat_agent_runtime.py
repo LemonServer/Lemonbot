@@ -243,6 +243,12 @@ async def test_canary_remains_subject_to_policy_without_model_calls(
             assert isinstance(runtime.pipeline.policy, DeterministicPolicy)
             runtime.pipeline.policy.clock = lambda: datetime.now(UTC).replace(hour=16)
         else:
+            # Rate accounting must use the actual creation clock; the fixed
+            # daytime clock used by quiet-hour tests can be hours ahead.
+            runtime.pipeline.policy.clock = lambda: datetime.now(UTC)
+            runtime.pipeline.policy.config = runtime.pipeline.policy.config.model_copy(
+                update={"quiet_enabled": False}
+            )
             # Queue three distinct replies at the configured default limit. No real sends.
             for number in range(3):
                 mock.append("LB26_E2E_" + f"{number:024X}")
