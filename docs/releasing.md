@@ -5,7 +5,9 @@ MCP client information imports the runtime version. Never independently stamp a 
 
 1. Update current docs, changelog, evidence matrix and notes; archive dated experiments.
 2. Run the checks in CONTRIBUTING.md and an isolated checkout demo/setup test.
-3. Scan the public exported tree with Gitleaks; no DB, private config, identifiers or secrets.
+3. Run `bash scripts/scan_release_tree.sh` to scan HEAD’s exported public tree with
+   pinned/checksummed Gitleaks. This works with shallow checkouts and never needs a
+   push-history range. No DB, private config, identifiers or secrets.
 4. Drain live work before any deployment; preserve volumes, context, pause and UNKNOWN.
 5. Fetch remote main, verify ancestry, resolve differences without force push.
 6. Commit release records, create an annotated tag and push the exact commit/tag.
