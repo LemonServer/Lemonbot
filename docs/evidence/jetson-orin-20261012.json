@@ -39,7 +39,7 @@
     "sqlcipher_version": "4.6.1 community",
     "frida_version": "17.7.3",
     "zstd_version": "1.4.8",
-    "key_extractor_sha256": "3a3e064ff4ba1111e951d00dba113ca3248f185799389e2c22737555ed25f958"
+    "extractor_file_sha256": "3a3e064ff4ba1111e951d00dba113ca3248f185799389e2c22737555ed25f958"
   },
   "synthetic_checks": {
     "offline_demo": "simulated_http_not_live_passed",
@@ -202,7 +202,8 @@
     "native_release_secret_scan": "final_run_pending",
     "mypy": "passed",
     "systemd_unit_syntax": "passed",
-    "current_invocation_startup_report": "passed"
+    "current_invocation_startup_report": "passed",
+    "uv_ci_0.12.5_lock_compatibility": "passed"
   },
   "not_live_verified": [
     "host_restart_recovery",

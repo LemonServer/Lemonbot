@@ -70,7 +70,7 @@ def report(architecture: str) -> dict:
         "sqlcipher_version": cipher,
         "frida_version": frida.__version__,
         "zstd_version": zstd.ZSTD_versionString().decode("ascii"),
-        "key_extractor_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
+        "extractor_file_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
     }
 
 
