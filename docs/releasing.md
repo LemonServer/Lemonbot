@@ -8,6 +8,9 @@ MCP client information imports the runtime version. Never independently stamp a 
 3. Run `bash scripts/scan_release_tree.sh` to scan HEAD’s exported public tree with
    pinned/checksummed Gitleaks. This works with shallow checkouts and never needs a
    push-history range. No DB, private config, identifiers or secrets.
+   The pinned scanner selects native Linux x64 or arm64 and verifies its SHA-256.
+   `LEMONBOT_GITLEAKS_BIN` may select a verified local executable; version 8.30.1
+   is required. Unsupported default platforms fail closed.
 4. Drain live work before any deployment; preserve volumes, context, pause and UNKNOWN.
 5. Fetch remote main, verify ancestry, resolve differences without force push.
 6. Commit release records, create an annotated tag and push the exact commit/tag.

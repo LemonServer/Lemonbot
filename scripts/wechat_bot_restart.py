@@ -7,6 +7,7 @@ Does not restart WeChat or automatically resume a persistent pause.
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import subprocess
 import sys
@@ -14,6 +15,7 @@ import time
 from pathlib import Path
 
 from lemonbot.config import RuntimePaths
+from lemonbot.config.paths import default_wechat_runtime_config
 from lemonbot.config.settings import load_settings
 
 UNIT = "lemonbot-wechat-conversation.service"
@@ -28,12 +30,29 @@ def command(*args: str, empty_allowed: bool = False) -> str:
     return result.stdout
 
 
+def startup_report(invocation: str) -> str:
+    # Some desktop journals contain the user unit only in the system journal.
+    # Scope by this user's UID, exact unit and this invocation, never old startup.
+    return command(
+        "journalctl",
+        "_UID=" + str(os.getuid()),
+        "_SYSTEMD_USER_UNIT=" + UNIT,
+        "_SYSTEMD_INVOCATION_ID=" + invocation,
+        "--no-pager",
+        "-o",
+        "cat",
+        "-g",
+        "^wechat_startup ",
+        empty_allowed=True,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path.home() / ".local/state/lemonbot/agent-wechat-lab/conversation-runtime.toml",
+        default=default_wechat_runtime_config(),
     )
     parser.add_argument(
         "--stop", action="store_true", help="Pause, drain and stop without restarting."
@@ -101,19 +120,7 @@ def main() -> None:
         raise RuntimeError("StartupInvocationUnavailable")
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline:
-        report = command(
-            "journalctl",
-            "--user",
-            "-u",
-            UNIT,
-            "_SYSTEMD_INVOCATION_ID=" + invocation,
-            "--no-pager",
-            "-o",
-            "cat",
-            "-g",
-            "^wechat_startup ",
-            empty_allowed=True,
-        )
+        report = startup_report(invocation)
         if '"summary": true' in report:
             print(report, end="", flush=True)
             if '"startup_failed": true' in report:

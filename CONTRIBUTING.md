@@ -2,6 +2,9 @@
 
 Start with [README](README.md), [deployment](docs/deployment.md) and
 [AGENTS.md](AGENTS.md). Runtime support targets Ubuntu 24.04 desktop / Python 3.12.
+The [Orin ARM64 adaptation](docs/deployment-jetson-orin.md) has limited live evidence
+on JetPack 7.2.1 and remains a separate opt-in branch. Checks need only locked runtime and dev dependencies; vision is
+loaded on demand by its separate worker.
 
 ## Local checks (no real account required)
 

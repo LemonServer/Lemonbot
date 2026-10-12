@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,42 @@ _spec = importlib.util.spec_from_file_location(
 assert _spec and _spec.loader
 bridge = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bridge)
+
+
+@pytest.mark.parametrize("mode", ["encrypted", "plaintext"])
+def test_service_database_mode_is_explicit_and_always_read_only(
+    monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    captured = []
+
+    def run(argv: list[str], **kwargs: object) -> object:
+        captured.append((argv, kwargs))
+        return SimpleNamespace(returncode=0, stdout='[{"count":1}]')
+
+    monkeypatch.setattr(bridge.subprocess, "run", run)
+    assert bridge.SourceReader.query(
+        Path("synthetic-service.db"),
+        "synthetic-service-key",
+        "SELECT 1 AS count",
+        service=True,
+        service_database_mode=mode,
+    ) == [{"count": 1}]
+    argv, kwargs = captured[0]
+    assert "-readonly" in argv
+    assert "PRAGMA query_only=ON" in str(kwargs["input"])
+    assert ("PRAGMA key=" in str(kwargs["input"])) == (mode == "encrypted")
+    assert "synthetic-service-key" not in " ".join(argv)
+
+
+def test_plaintext_service_mode_cannot_bypass_encrypted_message_snapshots() -> None:
+    with pytest.raises(ValueError, match="PlaintextOnlyForServiceDatabase"):
+        bridge.SourceReader.query(Path("synthetic-message.db"), "a" * 64, "SELECT 1",
+                                 service_database_mode="plaintext")
+    with pytest.raises(ValueError, match="PlaintextOnlyForServiceDatabase"):
+        bridge.SourceReader._query(Path("synthetic-message.db"), "a" * 64, "SELECT 1",
+                                  service_database_mode="plaintext")
+    with pytest.raises(ValueError, match="InvalidServiceDatabaseMode"):
+        bridge.SourceReader("synthetic", {}, service_database_mode="auto")
 
 
 def test_quoted_reply_preserves_current_text_and_quote_without_trusting_quoted_identity() -> None:

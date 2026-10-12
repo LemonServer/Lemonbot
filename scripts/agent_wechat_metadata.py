@@ -129,8 +129,16 @@ def decode_source(value: str, compressed: int) -> str:
 
 class SourceReader:
     def __init__(
-        self, token: str, config: dict[str, Any], binding_path: Path | None = None
+        self,
+        token: str,
+        config: dict[str, Any],
+        binding_path: Path | None = None,
+        *,
+        service_database_mode: str = "encrypted",
     ) -> None:
+        if service_database_mode not in {"encrypted", "plaintext"}:
+            raise ValueError("InvalidServiceDatabaseMode")
+        self.service_database_mode = service_database_mode
         self.token = token
         self.config = config
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -207,7 +215,18 @@ class SourceReader:
             return json.load(response)
 
     @staticmethod
-    def query(path: Path, key: str, sql: str, *, service: bool = False) -> list[dict[str, Any]]:
+    def query(
+        path: Path,
+        key: str,
+        sql: str,
+        *,
+        service: bool = False,
+        service_database_mode: str = "encrypted",
+    ) -> list[dict[str, Any]]:
+        if service_database_mode not in {"encrypted", "plaintext"}:
+            raise ValueError("InvalidServiceDatabaseMode")
+        if not service and service_database_mode != "encrypted":
+            raise ValueError("PlaintextOnlyForServiceDatabase")
         if not service:
             for attempt in range(3):
                 try:
@@ -218,14 +237,30 @@ class SourceReader:
                         raise
                     time.sleep(0.03)
             raise AssertionError("unreachable")
-        return SourceReader._query(path, key, sql, service=True)
+        return SourceReader._query(
+            path, key, sql, service=True, service_database_mode=service_database_mode
+        )
 
     @staticmethod
     def _query(
-        path: Path, key: str, sql: str, *, service: bool = False, immutable: bool = False
+        path: Path,
+        key: str,
+        sql: str,
+        *,
+        service: bool = False,
+        immutable: bool = False,
+        service_database_mode: str = "encrypted",
     ) -> list[dict[str, Any]]:
+        if service_database_mode not in {"encrypted", "plaintext"}:
+            raise ValueError("InvalidServiceDatabaseMode")
+        if not service and service_database_mode != "encrypted":
+            raise ValueError("PlaintextOnlyForServiceDatabase")
         if service:
-            prefix = "PRAGMA key='" + key.replace("'", "''") + "';\n"
+            prefix = (
+                ""
+                if service_database_mode == "plaintext"
+                else "PRAGMA key='" + key.replace("'", "''") + "';\n"
+            )
         else:
             if len(key) != 64 or any(c not in "0123456789abcdefABCDEF" for c in key):
                 raise ValueError("InvalidKey")
@@ -254,6 +289,7 @@ class SourceReader:
             self.token,
             "SELECT account_dir,db_name,hex_key FROM wechat_keys",
             service=True,
+            service_database_mode=self.service_database_mode,
         )
         dirs = {
             r["account_dir"]
@@ -806,6 +842,9 @@ def main() -> None:
     parser.add_argument("--forward-ip")
     parser.add_argument("--bind-address", default="127.0.0.1")
     parser.add_argument("--allowed-peer")
+    parser.add_argument(
+        "--service-database-mode", choices=("encrypted", "plaintext"), default="encrypted"
+    )
     args = parser.parse_args()
     if args.forward_ip:
         import ipaddress
@@ -827,7 +866,12 @@ def main() -> None:
     reader = (
         None
         if args.forward_ip
-        else SourceReader(token, json.loads(args.binding.read_text()), args.binding)
+        else SourceReader(
+            token,
+            json.loads(args.binding.read_text()),
+            args.binding,
+            service_database_mode=args.service_database_mode,
+        )
     )
     serve(
         token,

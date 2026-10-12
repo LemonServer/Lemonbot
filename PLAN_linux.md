@@ -25,6 +25,12 @@ Manual login and host-restart recovery are required. PR #171 remains frozen.
 
 ## Next milestones
 
+The `feat/jetson-orin-arm64` branch adds an explicitly experimental native ARM64
+environment. Native dependencies, binding, two-target replies and restart context
+passed on JetPack 7.2.1 Orin in the limited six-message acceptance. Other targets,
+devices and host restart recovery remain unverified. Follow [the Orin guide](docs/deployment-jetson-orin.md). Preserve the
+original AMD64 digest, 1.0.0 tag and send/identity/memory invariants.
+
 1. Verify a fresh machine and account using the documented setup, without existing state.
 2. Complete real-account quoted-reply and long-term recall outside the recent window.
 3. Extend acceptance coverage of added whitelist conversations without conflating readability with sends.

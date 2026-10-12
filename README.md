@@ -5,6 +5,7 @@ long-term memory. Lemonbot replies to genuine mentions in allowlisted groups and
 new text in allowlisted private chats, using DeepSeek Flash.
 
 **Start here:** [first deployment](docs/deployment.md) ·
+[Jetson Orin ARM64](docs/deployment-jetson-orin.md) ·
 [operations and troubleshooting](docs/operations.md) ·
 [development](CONTRIBUTING.md) · [all docs](docs/README.md)
 
@@ -32,10 +33,21 @@ See the [capability evidence matrix](docs/release-1.0.md).
 
 ## Requirements
 
-Ubuntu **24.04 desktop**, **x86_64**, Python **3.12**, `uv`, Docker Engine,
+Ubuntu **24.04 desktop**, Python **3.12**, `uv`, Docker Engine,
 a logged-in desktop session with an unlocked Secret Service keyring.
 Recommended: **4 vCPU / 8 GiB RAM**, at least **8 GiB free before image pull**;
 retain **3 GiB free**. The Docker image digest and WeChat version are frozen.
+
+| Host | Status |
+|---|---|
+| Ubuntu 24.04 desktop / x86_64 | Existing pinned 1.0 environment and documented real-account evidence |
+| Jetson AGX Orin / Ubuntu 24.04 / ARM64 | **Verified on JetPack 7.2.1**: native channel, two authorized conversations, persistent context and program/bridge restart; other devices and targets unverified |
+
+ARM64 uses a separate pinned candidate, WeChat 4.1.0.16, fresh state and dedicated
+volumes. It requires explicit `--experimental-arm64`; see the [Orin guide](docs/deployment-jetson-orin.md).
+No emulation, system reflash, local model or GPU acceleration is needed by this route.
+The opt-in flag remains explicit on the adaptation branch; the unchanged v1.0.0
+tag still describes the original AMD64 release. ARM64 host restart recovery is manual.
 
 ## Try without WeChat
 

@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from lemonbot.config import RuntimePaths
+from lemonbot.config.paths import default_wechat_runtime_config
 from lemonbot.config.settings import load_settings
 from lemonbot.connectors.wechat_agent import CHANNEL
 from lemonbot.connectors.wechat_agent_state import private_read, private_write
@@ -86,7 +87,7 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path.home() / ".local/state/lemonbot/agent-wechat-lab/conversation-runtime.toml",
+        default=default_wechat_runtime_config(),
     )
     args = parser.parse_args()
     try:

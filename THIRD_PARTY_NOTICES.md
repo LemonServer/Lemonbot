@@ -22,4 +22,13 @@ It does not copy upstream source or ship the image, WeChat installer or account 
 This notice grants no rights to those components; assess the upstream terms before
 reuse or redistribution. The frozen PR #171 candidate is not part of 1.0 deployment.
 
+Experimental Orin deployment separately references the ARM64 0.7.4 image pinned in
+[its guide](docs/deployment-jetson-orin.md). Complete image/source association remains
+unverified; a matching helper file does not verify the whole build.
+
+The Orin browser bridge downloads Ubuntu's noVNC 1.3.0-2 static resources into the
+desktop user's data directory. [noVNC](https://novnc.com/info.html) is MPL-2.0; its
+copyright/license files are retained locally. No noVNC assets are bundled in this
+MIT source repository. WebSocket dependency versions and hashes are in uv.lock.
+
 DeepSeek is an external paid service subject to its own terms and pricing.

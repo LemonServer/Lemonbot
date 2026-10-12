@@ -2,10 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from platform import machine
 
 from platformdirs import user_data_path
 
 from lemonbot.config.settings import AppSettings
+
+
+def default_wechat_runtime_config() -> Path:
+    root = Path.home() / ".local/state/lemonbot"
+    if machine() == "aarch64":
+        root /= "jetson-orin"
+    return root / "agent-wechat-lab/conversation-runtime.toml"
 
 
 @dataclass(frozen=True, slots=True)

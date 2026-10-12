@@ -11,6 +11,7 @@
 | Document | Purpose |
 |---|---|
 | [Project README](../README.md) | Scope and quickest entry |
+| [Jetson AGX Orin](deployment-jetson-orin.md) | Native ARM64 deployment, limited live evidence and acceptance gates |
 | [Release 1.0](release-1.0.md) | Capability evidence and verification limits |
 | [Linux roadmap](../PLAN_linux.md) | Delivered scope and next milestones |
 | [Whitelist](wechat-whitelist.md) | Exact names, startup sync and target status |

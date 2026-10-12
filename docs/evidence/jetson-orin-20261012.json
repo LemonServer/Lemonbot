@@ -1,0 +1,235 @@
+{
+  "date": "2026-10-12",
+  "timezone": "Asia/Shanghai",
+  "result": "runnable",
+  "code_base": "f3f0249171f3411a44995342473d5d6560de4bfe",
+  "branch": "feat/jetson-orin-arm64",
+  "code_revision": "pending_local_commit",
+  "host": {
+    "model": "NVIDIA Jetson AGX Orin Developer Kit 64GB",
+    "architecture": "aarch64",
+    "os": "Ubuntu 24.04.4 LTS",
+    "jetpack": "7.2.1-b49",
+    "l4t": "39.2.1-20260806224157",
+    "kernel": "6.8.12-1021-tegra",
+    "python": "3.12.3",
+    "uv": "0.13.0",
+    "docker": "29.9.0",
+    "desktop_dbus_secret_service": "available_unlocked"
+  },
+  "image": {
+    "reference": "ghcr.io/thisnick/agent-wechat@sha256:decca639793631dc174e09b83937f1f7ed566a0cf94cf2d82ec703c3867e7ae5",
+    "platform": "linux/arm64",
+    "config_digest": "sha256:60c2c41f860e5062fbfb9509508de0372a7d63edb7bc8daddb0d17632a00a801",
+    "candidate_tag": "0.7.4",
+    "wechat": "4.1.0.16",
+    "compressed_layer_bytes": 845571427,
+    "native_container_size_bytes": 2838921794,
+    "full_source_revision_association_verified": false,
+    "helper_matches_upstream_tag_commit": "a96d56323087a86ca0ec55266a02527a7d997e7d",
+    "transfer": "digest_verified_oci_import_after_daemon_tls_timeout",
+    "service_database_mode": "plaintext",
+    "wechat_message_database_mode": "encrypted_validated_snapshot"
+  },
+  "native_dependency_check": {
+    "ok": true,
+    "evidence": "native_dependencies_not_live_channel_acceptance",
+    "architecture": "arm64",
+    "wechat_package_version": "4.1.0.16",
+    "sqlcipher_version": "4.6.1 community",
+    "frida_version": "17.7.3",
+    "zstd_version": "1.4.8",
+    "key_extractor_sha256": "3a3e064ff4ba1111e951d00dba113ca3248f185799389e2c22737555ed25f958"
+  },
+  "synthetic_checks": {
+    "offline_demo": "simulated_http_not_live_passed",
+    "native_sqlcipher_bridge_query": "synthetic_data_passed",
+    "native_mention_parser": "synthetic_data_passed",
+    "unknown_no_retry_across_restart": "automated_not_live_unknown_injection"
+  },
+  "browser": {
+    "novnc": "Ubuntu 1:1.3.0-2 static assets",
+    "asset_sha256": "52022b96f5540ffa8d3626279172616b9f395820f50a96924e6089117647d1be",
+    "websockets": "15.0.1",
+    "localhost_port": 6176,
+    "native_browser_rfb_connection": true,
+    "browser_javascript_errors": 0,
+    "origin_and_token_checks": "automated_passed"
+  },
+  "live_channel": {
+    "fresh_orin_state_and_volumes": true,
+    "old_state_migrated": false,
+    "old_machine_drained_and_stopped": "user_confirmed",
+    "identity_binding": "verified_canonical_self_and_exact_account",
+    "bound_conversations": 2,
+    "doctor_before_and_after_restart": "all_checks_passed",
+    "api_bind": "127.0.0.1:6174",
+    "metadata_bind": "127.0.0.1:6175",
+    "admin_bind": "127.0.0.1:8767",
+    "privileged": false,
+    "boot_start_enabled": false
+  },
+  "acceptance": {
+    "evidence": "live_authorized_two_batches_six_peer_messages",
+    "user_confirmed_ordinary_group_no_reply": true,
+    "user_confirmed_correct_replies_and_no_duplicates": true,
+    "samples": [
+      {
+        "trial": 2,
+        "correlation": "explicit_trial_label",
+        "conversation_kind": "group",
+        "state": "acknowledged",
+        "attempts": 1,
+        "expected_token_in_reply": true,
+        "other_scope_token_in_reply": false,
+        "receive_seconds": 2.786,
+        "model_request_seconds": [
+          0.908
+        ],
+        "navigation_seconds": [
+          2.997
+        ],
+        "post_seconds": [
+          3.659
+        ],
+        "dispatch_confirmation_seconds": 15.592,
+        "total_seconds": 20.504
+      },
+      {
+        "trial": 3,
+        "correlation": "explicit_trial_label",
+        "conversation_kind": "private",
+        "state": "acknowledged",
+        "attempts": 1,
+        "expected_token_in_reply": true,
+        "other_scope_token_in_reply": false,
+        "receive_seconds": 2.781,
+        "model_request_seconds": [
+          0.66
+        ],
+        "navigation_seconds": [
+          3.176
+        ],
+        "post_seconds": [
+          3.605
+        ],
+        "dispatch_confirmation_seconds": 15.067,
+        "total_seconds": 18.871
+      },
+      {
+        "trial": 4,
+        "correlation": "explicit_trial_label",
+        "conversation_kind": "private",
+        "state": "acknowledged",
+        "attempts": 1,
+        "expected_token_in_reply": true,
+        "other_scope_token_in_reply": false,
+        "receive_seconds": 2.275,
+        "model_request_seconds": [
+          0.944
+        ],
+        "navigation_seconds": [],
+        "post_seconds": [
+          3.565
+        ],
+        "dispatch_confirmation_seconds": 10.675,
+        "total_seconds": 14.609
+      },
+      {
+        "trial": 5,
+        "correlation": "restart_boundary_and_unique_bound_conversation",
+        "conversation_kind": "group",
+        "state": "acknowledged",
+        "attempts": 1,
+        "expected_token_in_reply": true,
+        "other_scope_token_in_reply": false,
+        "receive_seconds": 2.37,
+        "model_request_seconds": [
+          1.301
+        ],
+        "navigation_seconds": [
+          2.956
+        ],
+        "post_seconds": [
+          3.528
+        ],
+        "dispatch_confirmation_seconds": 15.034,
+        "total_seconds": 19.452
+      },
+      {
+        "trial": 6,
+        "correlation": "restart_boundary_and_unique_bound_conversation",
+        "conversation_kind": "private",
+        "state": "acknowledged",
+        "attempts": 1,
+        "expected_token_in_reply": true,
+        "other_scope_token_in_reply": false,
+        "receive_seconds": 2.61,
+        "model_request_seconds": [
+          0.718
+        ],
+        "navigation_seconds": [
+          3.374
+        ],
+        "post_seconds": [
+          3.545
+        ],
+        "dispatch_confirmation_seconds": 15.864,
+        "total_seconds": 19.496
+      }
+    ],
+    "confirmed_replies": 5,
+    "unknown_outbox": 0,
+    "model_calls": 5,
+    "estimated_cost_cny": "0.008886",
+    "memory_extraction_enabled": false,
+    "persistent_pause_observed_after_restart": "ManualPause",
+    "restart_replayed_messages": 0,
+    "status": "passed"
+  },
+  "automatic_checks": {
+    "pytest": {
+      "passed": 632,
+      "failed": 0,
+      "warnings": 1,
+      "seconds": 51.04,
+      "status": "passed"
+    },
+    "ruff": "passed",
+    "mypy_source_files": 118,
+    "uv_lock": "passed",
+    "release_consistency": "passed",
+    "native_release_secret_scan": "final_run_pending",
+    "mypy": "passed",
+    "systemd_unit_syntax": "passed",
+    "current_invocation_startup_report": "passed"
+  },
+  "not_live_verified": [
+    "host_restart_recovery",
+    "other_arm64_devices",
+    "additional_whitelist_targets",
+    "quoted_at_edge_cases",
+    "long_term_memory_extraction_and_recall",
+    "live_unknown_fault_injection"
+  ],
+  "runtime": {
+    "bot": "running",
+    "metadata": "running",
+    "novnc": "running",
+    "paused": false,
+    "memory_enabled": false,
+    "model": "deepseek-flash",
+    "daily_budget_cny": "5",
+    "monthly_budget_cny": "100"
+  },
+  "notes": [
+    "Six peer messages in two batches; ordinary group silence user-confirmed; five unique ACKs with one attempt each.",
+    "No extra live trials or observation window.",
+    "Second-batch questions omitted numeric labels and were correlated by recorded restart boundary and one unique event in each bound scope.",
+    "Latency records read with current UID and exact user-unit journal fields; raw journal and chat identifiers not exported."
+  ],
+  "preserved_release_tag": {
+    "name": "v1.0.0",
+    "object": "4ef721c0ed289bf004abe05c41b5ae12ce661f8b"
+  }
+}

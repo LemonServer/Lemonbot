@@ -7,6 +7,7 @@ and an optional session-scoped salted display-label pseudonym.
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import math
 import sys
@@ -75,9 +76,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = sys.stdin.buffer.read(MAX_LABEL_PNG_BYTES + 1)
         if len(payload) > MAX_LABEL_PNG_BYTES or not payload.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("invalid image")
-        from rapidocr_onnxruntime import RapidOCR  # type: ignore[import-untyped]
-
-        result, _elapsed = RapidOCR()(payload)
+        # Load the opt-in dependency only when this separate worker is invoked.
+        rapidocr = importlib.import_module("rapidocr_onnxruntime")
+        result, _elapsed = rapidocr.RapidOCR()(payload)
         minimized = _minimize_ocr_result(
             result,
             session_salt=session_salt,

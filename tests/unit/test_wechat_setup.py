@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import json
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -18,7 +19,32 @@ _spec = importlib.util.spec_from_file_location(
 )
 assert _spec and _spec.loader
 setup = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = setup
 _spec.loader.exec_module(setup)
+
+
+def image(env: setup.FixedEnvironment = setup.AMD64) -> dict:
+    return {
+        "Id": "sha256:synthetic-" + env.architecture,
+        "Architecture": env.architecture,
+        "Os": "linux",
+        "RepoDigests": [env.image],
+    }
+
+
+@pytest.fixture(autouse=True)
+def supported_host(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(setup.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(setup.platform, "system", lambda: "Linux")
+
+    def docker(_args: argparse.Namespace, *argv: str, **_kwargs: object) -> str:
+        assert argv == ("image", "inspect", setup.AMD64.image)
+        return json.dumps([image()])
+
+    monkeypatch.setattr(setup, "docker", docker)
+    assets = tmp_path / "synthetic novnc assets"
+    assets.mkdir()
+    monkeypatch.setattr(setup, "novnc_assets", lambda: assets)
 
 
 def args(tmp_path: Path) -> argparse.Namespace:
@@ -26,12 +52,15 @@ def args(tmp_path: Path) -> argparse.Namespace:
     state.mkdir(parents=True, mode=0o700)
     token = state / "token"
     private_write(token, b"a" * 64)
-    return argparse.Namespace(state_dir=state, token_file=token, sudo=False, proxy=None)
+    return argparse.Namespace(
+        state_dir=state, token_file=token, sudo=False, proxy=None, experimental_arm64=False
+    )
 
 
-def container(token: Path) -> dict:
+def container(token: Path, env: setup.FixedEnvironment = setup.AMD64) -> dict:
     return {
-        "Config": {"Image": setup.IMAGE},
+        "Config": {"Image": env.image},
+        "Image": image(env)["Id"],
         "State": {"Running": True},
         "HostConfig": {
             "CapAdd": ["CAP_SYS_PTRACE"],
@@ -40,8 +69,8 @@ def container(token: Path) -> dict:
             "PortBindings": {"6174/tcp": [{"HostIp": "127.0.0.1", "HostPort": "6174"}]},
         },
         "Mounts": [
-            {"Type": "volume", "Name": setup.VOLUMES[0], "Destination": "/data", "RW": True},
-            {"Type": "volume", "Name": setup.VOLUMES[1], "Destination": "/home/wechat", "RW": True},
+            {"Type": "volume", "Name": env.volumes[0], "Destination": "/data", "RW": True},
+            {"Type": "volume", "Name": env.volumes[1], "Destination": "/home/wechat", "RW": True},
             {"Type": "bind", "Source": str(token), "Destination": "/data/auth-token", "RW": False},
         ],
         "NetworkSettings": {
@@ -70,16 +99,21 @@ def test_existing_environment_rejects_unsafe_reuse(tmp_path: Path, change: str) 
         setup.validate_container(value, token)
 
 
+@pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
 async def test_first_bind_generates_private_disabled_config_and_preserves_repeat(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    env: setup.FixedEnvironment,
 ) -> None:
     options = args(tmp_path)
+    options.experimental_arm64 = env.experimental
+    monkeypatch.setattr(setup.platform, "machine", lambda: env.machine)
+    monkeypatch.setattr(setup, "docker", lambda *_args, **_kwargs: json.dumps([image(env)]))
     mock = SimulatedWechat()
     mock.append("initialization text", is_self=True)
     monkeypatch.setattr(setup, "AgentWechatHTTP", lambda _token: mock.http())
     monkeypatch.setattr(setup, "backend", lambda _args: None)
-    monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file))
+    monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file, env))
     synced = AsyncMock()
     monkeypatch.setattr(setup, "sync_whitelist", synced)
     await setup.bind_account(options)
@@ -90,6 +124,10 @@ async def test_first_bind_generates_private_disabled_config_and_preserves_repeat
     assert config.wechat_agent.token_file == str(options.token_file)
     assert not config.wechat_agent.enabled
     assert config.runtime.connector == "fake"
+    assert config.models.provider == "disabled"
+    assert not config.wechat_agent.memory_enabled
+    if env.experimental:
+        assert config.runtime.data_root == str(Path.home() / ".local/share/Lemonbot-wechat-orin")
     assert (
         json.loads(private_read(options.state_dir / "metadata-binding.json"))["self_identity"]
         == mock.account
@@ -108,6 +146,7 @@ async def test_bind_requires_self_evidence_and_creates_no_binding(
 ) -> None:
     options = args(tmp_path)
     mock = SimulatedWechat()
+    monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file))
     monkeypatch.setattr(setup, "AgentWechatHTTP", lambda _token: mock.http())
     with pytest.raises(ValueError, match="CanonicalSelfAmbiguous"):
         await setup.bind_account(options)
@@ -142,6 +181,8 @@ def test_environment_reuses_container_without_pull_or_delete(
 
     def docker(_args: argparse.Namespace, *argv: str, **_kwargs: object) -> str:
         calls.append(argv)
+        if argv[:2] == ("image", "inspect"):
+            return json.dumps([image()])
         if argv[0] == "info":
             return str(tmp_path)
         if "viewonly" in argv[-1] and "-Q" in argv[-1]:
@@ -153,11 +194,16 @@ def test_environment_reuses_container_without_pull_or_delete(
     assert not any(c[0] in {"pull", "run", "rm", "stop", "volume"} for c in calls)
 
 
+@pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
 def test_persistent_service_install_is_idempotent_and_does_not_start(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    env: setup.FixedEnvironment,
 ) -> None:
     options = args(tmp_path)
+    options.experimental_arm64 = env.experimental
+    monkeypatch.setattr(setup.platform, "machine", lambda: env.machine)
+    monkeypatch.setattr(setup, "docker", lambda *_args, **_kwargs: json.dumps([image(env)]))
     text = (setup.REPO / "config/wechat-agent-conversation.example.toml").read_text()
     text = text.replace(
         'state_dir = "~/.local/state/lemonbot/agent-wechat-lab"',
@@ -168,7 +214,7 @@ def test_persistent_service_install_is_idempotent_and_does_not_start(
         "token_file = " + json.dumps(str(options.token_file)),
     )
     private_write(options.state_dir / "conversation-runtime.toml", text.encode())
-    monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file))
+    monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file, env))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     calls = []
     monkeypatch.setattr(setup, "command", lambda *argv: calls.append(argv))
@@ -252,7 +298,9 @@ def test_first_environment_pins_image_and_checks_explicit_daemon_proxy(
             if argv[-1] == "{{.HTTPSProxy}}":
                 return options.proxy if proxy_matches else ""
             return str(tmp_path)
-        if argv[:2] == ("volume", "inspect") or argv[:2] == ("image", "inspect"):
+        if argv[:2] == ("image", "inspect"):
+            return "" if _kwargs.get("optional") else json.dumps([image()])
+        if argv[:2] == ("volume", "inspect"):
             return ""
         if "x11vnc -Q" in argv[-1]:
             return "ans=viewonly:0"
@@ -289,3 +337,156 @@ def test_low_disk_aborts_before_environment_mutation(
         setup.environment(options)
     assert len(calls) == 1
     assert calls[0][1] == "info"
+
+
+@pytest.mark.parametrize(
+    ("machine", "reason"),
+    [("aarch64", "ExperimentalARM64OptInRequired"), ("armv7l", "UnsupportedHostArchitecture")],
+)
+def test_unsupported_architecture_rejected_before_token_or_docker_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    machine: str,
+    reason: str,
+) -> None:
+    options = args(tmp_path)
+    options.token_file.unlink()
+    monkeypatch.setattr(setup.platform, "machine", lambda: machine)
+    calls = []
+    monkeypatch.setattr(setup, "docker", lambda *argv, **_kwargs: calls.append(argv) or "")
+    with pytest.raises(ValueError, match=reason):
+        setup.environment(options)
+    assert not options.token_file.exists()
+    assert not calls
+
+
+@pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
+def test_native_profiles_use_distinct_state_and_volumes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: setup.FixedEnvironment
+) -> None:
+    options = args(tmp_path)
+    options.experimental_arm64 = True
+    monkeypatch.setattr(setup.platform, "machine", lambda: env.machine)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "actual desktop user")
+    assert setup.selected_environment(options) == env
+    state, token = setup.default_paths(env)
+    assert state.is_absolute() and token.is_absolute()
+    assert str(state).startswith(str(Path.home()))
+    assert setup.default_paths(setup.AMD64) != setup.default_paths(setup.ARM64)
+    assert set(setup.AMD64.volumes).isdisjoint(setup.ARM64.volumes)
+    from lemonbot.config import paths
+
+    monkeypatch.setattr(paths, "machine", lambda: env.machine)
+    assert paths.default_wechat_runtime_config() == state / "conversation-runtime.toml"
+
+
+@pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
+@pytest.mark.parametrize("fault", ["architecture", "os", "digest", "container_image"])
+async def test_every_binding_and_service_entry_rejects_mismatched_image_before_side_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    env: setup.FixedEnvironment,
+    fault: str,
+) -> None:
+    options = args(tmp_path)
+    options.experimental_arm64 = env.experimental
+    monkeypatch.setattr(setup.platform, "machine", lambda: env.machine)
+    value, instance = image(env), container(options.token_file, env)
+    reason = "ImageArchitectureMismatch"
+    if fault == "architecture":
+        value["Architecture"] = "arm64" if env == setup.AMD64 else "amd64"
+    elif fault == "os":
+        value["Os"] = "windows"
+    elif fault == "digest":
+        value["RepoDigests"] = ["upstream:latest"]
+        reason = "PinnedImageRequired"
+    else:
+        instance["Image"] = "sha256:another-image"
+        reason = "ContainerImageMismatch"
+    monkeypatch.setattr(setup, "docker", lambda *_args, **_kwargs: json.dumps([value]))
+    monkeypatch.setattr(setup, "inspect", lambda _args: instance)
+    http = AsyncMock()
+    monkeypatch.setattr(setup, "AgentWechatHTTP", http)
+    with pytest.raises(ValueError, match=reason):
+        await setup.bind_account(options)
+    http.assert_not_called()
+    config = (setup.REPO / "config/wechat-agent-conversation.example.toml").read_text()
+    config = config.replace(
+        'state_dir = "~/.local/state/lemonbot/agent-wechat-lab"',
+        "state_dir = " + json.dumps(str(options.state_dir)),
+    ).replace(
+        'token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"',
+        "token_file = " + json.dumps(str(options.token_file)),
+    )
+    private_write(options.state_dir / "conversation-runtime.toml", config.encode())
+    commands = []
+    monkeypatch.setattr(setup, "command", lambda *argv: commands.append(argv) or "")
+    with pytest.raises(ValueError, match=reason):
+        setup.install_services(options)
+    assert not commands
+    with pytest.raises(ValueError, match=reason):
+        setup.open_vnc(options)
+    with pytest.raises(ValueError, match=reason):
+        setup.backend(options)
+    assert not (options.state_dir / "binding.json").exists()
+
+
+def test_arm64_container_rejects_legacy_volumes(tmp_path: Path) -> None:
+    options = args(tmp_path)
+    value = container(options.token_file, setup.ARM64)
+    value["Mounts"][0]["Name"] = setup.AMD64.volumes[0]
+    with pytest.raises(ValueError, match="UnexpectedMounts"):
+        setup.validate_container(value, options.token_file, setup.ARM64)
+
+
+async def test_login_initialization_never_repairs_existing_missing_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    options = args(tmp_path)
+    anchor = options.state_dir / "binding.json"
+    private_write(anchor, b"synthetic-existing-anchor")
+    http = AsyncMock()
+    http.request.return_value = {"status": "logged_in", "loggedInUser": None}
+    calls = []
+    monkeypatch.setattr(setup, "websocket_connect", lambda *a, **kw: calls.append((a, kw)))
+    with pytest.raises(setup.LabPaused, match="AccountIdentityMissing"):
+        await setup.initialize_login(options, http)
+    assert not calls
+    assert private_read(anchor) == b"synthetic-existing-anchor"
+
+
+@pytest.mark.parametrize(
+    ("event", "reason"),
+    [("login_success", None), ("qr", "ManualLoginRequired"),
+     ("error", "LoginInitializationFailed"), ("login_timeout", "LoginInitializationFailed")],
+)
+async def test_login_initialization_uses_candidate_protocol_and_requires_real_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, event: str, reason: str | None
+) -> None:
+    options = args(tmp_path)
+    http = AsyncMock()
+    http.request.side_effect = [
+        {"status": "logged_in", "loggedInUser": None},
+        {"status": "logged_in", "loggedInUser": "synthetic-account"},
+    ]
+    calls = []
+
+    async def messages():
+        yield json.dumps({"type": event})
+
+    @asynccontextmanager
+    async def socket(*argv: str, **kwargs: object):
+        calls.append((argv, kwargs))
+        yield messages()
+
+    monkeypatch.setattr(setup, "websocket_connect", socket)
+    if reason:
+        with pytest.raises(setup.LabPaused, match=reason):
+            await setup.initialize_login(options, http)
+    else:
+        await setup.initialize_login(options, http)
+        assert http.request.await_count == 2
+    assert len(calls) == 1
+    assert "newAccount=false" in calls[0][0][0]
+    assert calls[0][1]["proxy"] is None
+    assert not (options.state_dir / "binding.json").exists()

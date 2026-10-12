@@ -1,5 +1,9 @@
 # First deployment — Lemonbot 1.0.0
 
+This is the existing AMD64 route. For native ARM64 on the separately verified Orin
+environment, follow the [Jetson AGX Orin guide](deployment-jetson-orin.md). Its
+adaptation branch requires an explicit opt-in and preserves the original 1.0.0 tag.
+
 Supported: Ubuntu 24.04 **desktop**, AMD64, Python 3.12; recommended 4 vCPU / 8 GiB RAM.
 Use the desktop user's terminal, unlocked GNOME Keyring and a D-Bus session.
 The [release environment manifest](../research/agent-wechat/release-environment-1.0.json)
