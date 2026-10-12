@@ -22,6 +22,7 @@ AT-SPI 和 PR #171 不作为执行指令。旧机器的数据、绑定、记忆�
 | Docker | 29.9.0，containerd snapshotter |
 | Python / uv | 宿主 3.12.3 / 0.13.0；容器 Python 3.10.12 |
 | 分支 / 起点 | feat/jetson-orin-arm64 / f3f0249171f3411a44995342473d5d6560de4bfe |
+| 已验证代码提交 | 63bc92e8078defbc358a464c265522b0393c1af8 |
 | 镜像 / 微信 | 上游 0.7.4 ARM64 候选 / 4.1.0.16 |
 | 原生库 | SQLCipher 4.6.1 community，Frida 17.7.3，zstd 1.4.8 |
 | 浏览器桥 | noVNC 1.3.0-2 静态资源；websockets 15.0.1 |
@@ -44,6 +45,9 @@ ghcr.io/thisnick/agent-wechat@sha256:decca639793631dc174e09b83937f1f7ed566a0cf94
 不将 MIT 扩展至镜像、微信或 noVNC，见 [第三方声明](../THIRD_PARTY_NOTICES.md)。
 
 [本次证据](evidence/jetson-orin-20261012.json) 区分原生依赖、合成测试和真实通道。
+最终 632 项测试、Ruff、mypy（118 源文件）、锁文件、发布一致性及原生 ARM64
+Gitleaks 8.30.1 扫描均通过；锁文件亦经 CI 的 uv 0.12.5 检查。三个用户单位语法和
+当前调用的启动报告读取通过。唯一测试警告是既有 Starlette/httpx 弃用提示。
 继续执行时重新检查设备现状，不将 dated evidence 当作登录、授权或服务状态。
 
 ## 首装与通道门槛

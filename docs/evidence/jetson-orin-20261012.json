@@ -4,7 +4,7 @@
   "result": "runnable",
   "code_base": "f3f0249171f3411a44995342473d5d6560de4bfe",
   "branch": "feat/jetson-orin-arm64",
-  "code_revision": "pending_local_commit",
+  "code_revision": "63bc92e8078defbc358a464c265522b0393c1af8",
   "host": {
     "model": "NVIDIA Jetson AGX Orin Developer Kit 64GB",
     "architecture": "aarch64",
@@ -199,7 +199,7 @@
     "mypy_source_files": 118,
     "uv_lock": "passed",
     "release_consistency": "passed",
-    "native_release_secret_scan": "final_run_pending",
+    "native_release_secret_scan": "passed_gitleaks_8.30.1_arm64_verified_binary",
     "mypy": "passed",
     "systemd_unit_syntax": "passed",
     "current_invocation_startup_report": "passed",
