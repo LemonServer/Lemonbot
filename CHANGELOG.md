@@ -15,4 +15,4 @@ First stable release for the pinned Ubuntu desktop deployment.
 Manual QR login and host recovery remain required. New-machine/account installation,
 quoted-reply full E2E and beyond-window long-term recall have not completed real-account
 acceptance. Third-party image/source license is not established by Lemonbot's MIT grant.
-See [release evidence](docs/release-1.0.md).
+See [release evidence](docs/reference/releases/release-1.0.md).

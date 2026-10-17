@@ -7,7 +7,7 @@
 汇总事实见 [脱敏证据](../evidence/atspi-identity-20260909.json)。
 
 > 归档说明（2026-10-08）：本路线暂停开发；当前主线与版本见
-> [文档索引](../README.md)和[环境基线](../environment-baseline.md)。以下结论适用于注明的原生微信环境。
+> [文档索引](../README.md)和[环境基线](environment-baseline.md)。以下结论适用于注明的原生微信环境。
 
 ## 已得到的结论
 

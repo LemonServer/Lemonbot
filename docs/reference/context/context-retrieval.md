@@ -1,8 +1,6 @@
-# 本地混合检索与诊断（阶段 4）
+# 本地混合检索与诊断
 
-阶段 4 已完成独立模块及合成数据验证，新流程仍关闭，没有接入机器人回答。
-本阶段不调用 DeepSeek、不读取密钥环、不导航微信或发送消息、不修改运行服务或生产数据库。
-图片上下文的线上行为要到阶段 5 实现分类/组装、阶段 8 部署验收后才切换。
+关键词、CUDA 语义向量和近期候选的实现与本地诊断。设备测量是注明日期的证据，当前部署状态见[交接页](../../context-memory-implementation.md)。
 
 ## 数据流和安全边界
 
@@ -10,7 +8,7 @@
 校验原始归档完整性；新消息始终与历史候选分开。索引是可重建的独立 SQLite 文件，
 不是归档 schema 的新版本，也不替代原始消息。运行数据库不需要为阶段 4 升级。
 
-[HybridContextRetriever](../src/lemonbot/memory/unified/retrieval.py) 使用如下过程：
+[HybridContextRetriever](../../../src/lemonbot/memory/unified/retrieval.py) 使用如下过程：
 
 1. 按 channel、账号、会话 ID 和 private/group 全部字段过滤。私聊分别隔离，同群允许
    跨发送者检索，候选保留原作者。不会根据显示名扩大范围。
@@ -139,5 +137,5 @@ uv run --locked python scripts/check_context_retrieval.py --config config/lemonb
 本机 2026-10-15 使用阶段 3 同一 TensorRT FP16 模型，六个关联样例全部召回且首位正确；
 真实混合检索中位数约 73.6 ms、最大 82.0 ms，重开 worker/索引后 0 单元重建、0 向量回填。
 这里包括临时小范围归档刷新、FTS、GPU 查询及来源复核，不代表大存档或聊天端到端延迟。
-完整脱敏数据见 [阶段 4 CUDA 证据](evidence/context-memory-stage4-retrieval-20261015.json)。
+完整脱敏数据见 [阶段 4 CUDA 证据](../../evidence/context-memory-stage4-retrieval-20261015.json)。
 阶段 3 的后端推理基准见 [worker 手册](embedding-worker.md)。

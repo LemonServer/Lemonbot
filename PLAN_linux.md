@@ -1,68 +1,25 @@
-# Lemonbot 1.0 roadmap
+# Linux 路线图
 
-The active release is **1.0.0**: pinned Linux desktop WeChat text runtime.
-Deploy via [first installation](docs/deployment.md), operate via
-[the current handbook](docs/operations.md), develop via [CONTRIBUTING](CONTRIBUTING.md).
+现有 1.0.0 标签保留 AMD64 固定路线，Orin ARM64 适配在独立分支中推进。
+部署看[部署入口](docs/deployment.md)，日常运行看[运维](docs/operations.md)。
 
-## Delivered scope
+## 当前工作
 
-- Genuine group @ and allowlisted private text; automatic serialized navigation.
-- Persistent scoped context, program-restart continuity, quotes with explicit labeling.
-- Optional scoped memory extraction after confirmed delivery and SQLite FTS retrieval.
-- Exact-name whitelist synchronization and per-target startup status (up to 20).
-- Persistent pause, precise readback, UNKNOWN no-retry, model budgets and send limits.
-- Fixed image/client, deployment helper and persistent user service installation.
+统一上下文八阶段计划的 1–7 阶段已通过，阶段 8 已部署到本机授权两会话，整体验收进行中。
+详细通过项、限制和剩余任务只维护在[当前交接](docs/context-memory-implementation.md)。
+架构为统一消息归档 → CUDA 混合检索 → DeepSeek 分类 → 校验上下文 → 回答 → 确认送达后维护。
+群内共享保留作者，私聊和账号隔离。公共示例默认关闭；本机云端长期整理和主动消息仍关闭。
 
-Four locally configured conversations have passed matching/readability checks.
-Full restart/context E2E is established for the original group/private pair; quote,
-long-term recall and other targets have narrower evidence. See
-[release verification](docs/release-1.0.md). Do not broaden that conclusion.
+1. 完成阶段 8 剩余的重启后内容回忆核对，记录回执、费用和延迟，不能把代码通过当整体验收通过。
+2. 任何失败先修复本阶段，不累积跨阶段阻塞；只在 testing 和授权私聊参与有限验收。
+3. 实机通过后才评估扩大白名单、启用云端长期整理或其他能力；这些都不自动启用。
 
-Repository memory default is off; short limits default to 3/10, daily 30/global 50.
-Local optional configuration can enable memory or disable short limits with 0;
-positive rolling-24-hour and money limits remain. Tools/proactive/media remain off.
-Manual login and host-restart recovery are required. PR #171 remains frozen.
+## 后续独立任务
 
-## Next milestones
+- 新设备/新账号从干净环境部署的端到端复现。
+- 完整设备重启后的人工恢复验收。
+- 群聊择机接话、主动跟进和分享的独立设计；当前仍须真 @，主动发送关闭。
 
-The `feat/jetson-orin-arm64` branch adds an explicitly experimental native ARM64
-environment. Native dependencies, binding, two-target replies and restart context
-passed on JetPack 7.2.1 Orin in the limited six-message acceptance. Other targets,
-devices and host restart recovery remain unverified. Follow [the Orin guide](docs/deployment-jetson-orin.md). Preserve the
-original AMD64 digest, 1.0.0 tag and send/identity/memory invariants.
-
-1. Verify a fresh machine and account using the documented setup, without existing state.
-2. Complete real-account quoted-reply and long-term recall outside the recent window.
-3. Extend acceptance coverage of added whitelist conversations without conflating readability with sends.
-4. Only after these, separately design unattended host recovery or further capabilities.
-
-The explicitly authorized first capability extension adds native DeepSeek Flash image
-input, public-page reads, local SearXNG search and clock access. These stay disabled
-in public examples; track live evidence separately in [read capabilities](docs/read-capabilities.md).
-The local Orin acceptance now covers scoped image replies and followups, genuine
-group image quotes, public link reads, search/time replies and honest verification-page
-card feedback. WeChat article body access remains unverified; this is limited to
-the authorized group/private pair and does not extend to other targets or accounts.
-Group participation without real @ and proactive followups remain future work.
-No automatic client/image upgrades, offline-message backfill or proactive messaging
-are planned as implicit 1.0 behavior.
-
-The authorized unified-context redesign is implemented in eight separate tasks:
-contracts, archive, CUDA embeddings, retrieval, two-stage classification/answer,
-consolidation/cache, offline readiness, then live deployment. Track current stage
-and handoff in [the implementation record](docs/context-memory-implementation.md).
-Stages 1–7 add default-off contracts, raw archive, backup-copy migration, CUDA
-embeddings, scoped retrieval and classification/answer assembly. Native Orin FP16
-embedding/retrieval and offline two-stage checks passed. Stage 8 has safely migrated
-and enabled the new flow for the authorized pair; real synthetic two-stage API preflight
-passed, while finite WeChat acceptance is still in progress. Confirmed-delivery consolidation/cache accounting is offline-tested;
-stage 7 integrated offline readiness, lifecycle, migration/rollback and source diagnostics
-also passed. See [context operations](docs/context-memory-operations.md) for the
-prepared stage-8 cutover and [two-stage flow](docs/context-flow.md) for budget boundaries.
-Stage 8 real-model and WeChat acceptance remains pending.
-New group memory is shared with author attribution, private/account scopes stay
-isolated, and local model inference defaults to CUDA/TensorRT. Do not deploy later
-stages or migrate live data while completing an earlier task.
-
-[Earlier Linux work](docs/history/linux-plan-before-1.0.md) preserves chronology;
-[Windows/Observe/native identity research](docs/history/README.md) is inactive.
+保留一个 POST、唯一回执、UNKNOWN 不重试、持久暂停、串行导航和原数据。
+不隐式升级微信镜像，不补回停机消息，不用模拟或历史记录替代实际验收。
+[技术细节](docs/reference/README.md)与[历史路线](docs/history/README.md)分开保存。

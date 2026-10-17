@@ -5,10 +5,10 @@
 > 历史基线说明（2026-08-27）：本文保留最初获批的绿地重构方案。核心架构和安全边界仍然
 > 有效，但“企业微信作为生产通道”和“Windows 个人微信 UIA 为主要实验路线”已被后续实证
 > 调整。当前通道结论、Windows 失败实验和 Linux AT-SPI 下一步见
-> [`docs/research-handoff.md`](../research-handoff.md)。
+> [`docs/research-handoff.md`](research-handoff.md)。
 
 > 2026-10-08 导航更新：完整导航见 [文档索引](../README.md)，当前进度统一见
-> [`docs/linux-wechat-current-status.md`](../linux-wechat-current-status.md)，下一阶段顺序见
+> [`docs/linux-wechat-current-status.md`](linux-wechat-current-status.md)，下一阶段顺序见
 > [`PLAN_linux.md`](../../PLAN_linux.md)。本文保留历史设计，不作为现行部署或通道启用步骤。
 
 ## 总体方案

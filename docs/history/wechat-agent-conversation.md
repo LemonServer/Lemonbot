@@ -99,7 +99,7 @@ testing 只接受消息 source 顶层 atuserlist 对本机原始微信 ID 的精
 非触发群消息、自发消息、非白名单消息不调用模型，也不进入模型上下文。模型失败不重复调用。
 
 采用 DeepSeek Flash，8,192 输入上下文、512 输出 tokens、2,000 字符回复上限。
-全天被动响应，保留原发送限流，每日 5 元、每月 100 元。价格与官方余额接口见 [计费说明](../deepseek-pricing.md)。
+全天被动响应，保留原发送限流，每日 5 元、每月 100 元。价格与官方余额接口见 [计费说明](../reference/models/deepseek-pricing.md)。
 
 ## 本机入口
 
@@ -312,7 +312,7 @@ journalctl --user -u lemonbot-wechat-conversation.service --since today --grep="
 
 日志以单调时钟记录锁等待、通知到读取、快照、入库、任务领取、策略、模型和 HTTP 阶段。
 数据库报告的端到端时长使用带时区的消息时间和回执时间，包含不同进程时钟误差。
-详细基线、验收及扩容条件见 [延迟优化报告](../wechat-latency-optimization.md)。
+详细基线、验收及扩容条件见 [延迟优化报告](wechat-latency-optimization.md)。
 
 ## 延迟优化验收完成（2026-10-10）
 
@@ -320,7 +320,7 @@ journalctl --user -u lemonbot-wechat-conversation.service --since today --grep="
 群与私聊分别 13.037、13.367 秒，中位数 13.202 秒，达到 25 秒目标。
 六条均一次发送并精确确认；用户确认收到。未暂停、队列为空、旧 UNKNOWN 一条未重发。
 服务保持运行，固定镜像、微信版本、模型、原卷和限流不变。
-详细阶段、恢复问题与小样本限制见 [延迟优化报告](../wechat-latency-optimization.md)。
+详细阶段、恢复问题与小样本限制见 [延迟优化报告](wechat-latency-optimization.md)。
 
 ## 名称白名单（2026-10-10）
 

@@ -2,7 +2,7 @@
 
 # 固定环境与恢复手册
 
-> 更新：2026-10-09。testing 真 @ 与一个白名单私聊的模型回复、上下文隔离及程序重启延续实机通过，服务保持运行；仓库默认关闭。日常入口见 [conversation 手册](../wechat-agent-conversation.md)，下文旧 canary 启动路径仍保留。宿主重启自动恢复未验收。
+> 更新：2026-10-09。testing 真 @ 与一个白名单私聊的模型回复、上下文隔离及程序重启延续实机通过，服务保持运行；仓库默认关闭。日常入口见 [conversation 手册](wechat-agent-conversation.md)，下文旧 canary 启动路径仍保留。宿主重启自动恢复未验收。
 
 基线：`historical-fixed-20261008`，2026-10-08 本机读取确认。
 机器可读清单见 [environment-baseline.json](../../research/agent-wechat/environment-baseline.json)，
@@ -122,7 +122,7 @@ uv run --locked python -m lemonbot.research.agent_wechat_lab run \
 独立通道与正式入口可靠收发验收均通过。原卷容器及程序重启、新指令、持久暂停、显式恢复有实机证据；独立入口完整三十分钟通过，正式入口约 12 分钟、22 次正常采样后用户提前结束并接受，完整三十分钟未完成。旧实验 UNKNOWN 保留不重发；宿主重启恢复仍未验收。
 
 正式连接器已提供默认关闭的配置和模拟测试，使用同一传输并共享持久锁；独立 data_root，
-不迁移旧实验任务。恢复步骤见 [runtime 手册](../wechat-agent-runtime.md)。原 native AT-SPI
+不迁移旧实验任务。恢复步骤见 [runtime 手册](wechat-agent-runtime.md)。原 native AT-SPI
 继续关闭，本阶段不调用模型或工具。
 
 ## 磁盘整理记录
@@ -136,7 +136,7 @@ Docker 的 reclaimable 标签不作为删除许可。本轮无 prune 或磁盘�
 
 ## 延迟优化部署（2026-10-10）
 
-代码基线 `fbf5afc`，变更明细与验收状态见 [延迟优化报告](../wechat-latency-optimization.md)。
+代码基线 `fbf5afc`，变更明细与验收状态见 [延迟优化报告](wechat-latency-optimization.md)。
 微信未重启，固定镜像、微信版本与原卷未改变；仅替换自有元数据桥并重启桥和空闲 runtime。
 部署前持久暂停，活动入站和 outbox 均为零；重启仍保留 ManualPause，显式恢复后队列为空。
 旧 UNKNOWN 一条保留不重发。当前仍为 2 vCPU、约 4 GiB 内存；扩容对照尚未进行。
@@ -149,7 +149,7 @@ Docker 的 reclaimable 标签不作为删除许可。本轮无 prune 或磁盘�
 人工重建临时 user services 后显式恢复。
 `systemd-run --user --collect` 创建的单位不会跨宿主重启保存；
 当前桥 helper 对不存在单位执行 stop 会失败，不能把它当作无人值守恢复入口。
-本次手动恢复步骤与待测结果见 [延迟优化报告](../wechat-latency-optimization.md)。
+本次手动恢复步骤与待测结果见 [延迟优化报告](wechat-latency-optimization.md)。
 
 ## 延迟优化验收完成（2026-10-10）
 
@@ -157,7 +157,7 @@ Docker 的 reclaimable 标签不作为删除许可。本轮无 prune 或磁盘�
 群与私聊分别 13.037、13.367 秒，中位数 13.202 秒，达到 25 秒目标。
 六条均一次发送并精确确认；用户确认收到。未暂停、队列为空、旧 UNKNOWN 一条未重发。
 服务保持运行，固定镜像、微信版本、模型、原卷和限流不变。
-详细阶段、恢复问题与小样本限制见 [延迟优化报告](../wechat-latency-optimization.md)。
+详细阶段、恢复问题与小样本限制见 [延迟优化报告](wechat-latency-optimization.md)。
 
 ## 白名单启动同步（2026-10-10）
 

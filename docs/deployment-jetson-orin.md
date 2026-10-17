@@ -142,7 +142,7 @@ testing 与一个明确授权的精确私聊名称，先手动打开两会话同
 将生成的 `config/lemonbot.toml` 已有字段改为 `runtime.connector="wechat_agent"`、
 `wechat_agent.enabled=true`、`models.provider="deepseek"`，保持 `memory_enabled=false`。
 不要追加重复 TOML 表；保留 Orin 数据路径、token/state/whitelist、价格、预算和限制。
-默认每日 5 CNY、每月 100 CNY；启用时复核 [模型价格](deepseek-pricing.md)。
+默认每日 5 CNY、每月 100 CNY；启用时复核 [模型价格](reference/models/deepseek-pricing.md)。
 
 ## 服务与两批六条验收
 

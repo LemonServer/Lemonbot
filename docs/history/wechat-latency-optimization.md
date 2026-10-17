@@ -100,8 +100,8 @@
 通知等待混有自身发送产生的写入通知，不能按该指标直接推导对端消息延迟。
 历史与本轮场景、回复长度和负载不同，以上是小样本前后比较，不能完全归因或外推。
 
-证据：[四条耗时](evidence/wechat-latency-trials-20261010.json)、
-[优化阶段摘要](evidence/wechat-latency-optimization-20261010.json)。
+证据：[四条耗时](../evidence/wechat-latency-trials-20261010.json)、
+[优化阶段摘要](../evidence/wechat-latency-optimization-20261010.json)。
 准备扩容时已持久 ManualPause，确认活动入站和 outbox 均为零，停止 runtime；旧 UNKNOWN 一条不重发。
 用户关机调配资源后按既有手册恢复，暂停必须显式解除。
 
@@ -151,5 +151,5 @@
 服务保持运行，不追加三十分钟观察。自动化检查为本轮既有 540 项通过、Ruff、mypy
 和锁检查通过，最终阶段仅新增只读证据与文档，未重复无关检查。
 
-[完整六条测量](evidence/wechat-latency-trials-20261010.json)、
-[扩容阶段日志摘要](evidence/wechat-latency-hardware-stages-20261010.json)。
+[完整六条测量](../evidence/wechat-latency-trials-20261010.json)、
+[扩容阶段日志摘要](../evidence/wechat-latency-hardware-stages-20261010.json)。

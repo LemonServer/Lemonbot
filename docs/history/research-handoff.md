@@ -10,13 +10,13 @@
 > testing 专用一次性 canary 发送研究命令不接入 runtime/outbox；首次实机尝试仅留下草稿，未发送。
 
 > 当前导航（2026-10-08）：主线转为固定 agent-wechat 独立实验，单条闭环通过、连续验收暂停。
-> 统一入口见 [文档索引](../README.md)，版本与恢复见 [环境基线](../environment-baseline.md)。
+> 统一入口见 [文档索引](../README.md)，版本与恢复见 [环境基线](environment-baseline.md)。
 
 ## 先读这里
 
 接手者应按以下顺序阅读：
 
-1. [`linux-wechat-current-status.md`](../linux-wechat-current-status.md)：当前代码基线、能力矩阵、阻塞与测试证据。
+1. [`linux-wechat-current-status.md`](linux-wechat-current-status.md)：当前代码基线、能力矩阵、阻塞与测试证据。
 2. [`PLAN_linux.md`](../../PLAN_linux.md)：当前研究顺序与停止条件；后半部是历史 Observe 设计。
 3. [`security.md`](../security.md)：当前安全边界和不可放宽的规则。
 4. [`operations.md`](../operations.md)：研究命令和应急操作；Observe 登记与部署仍关闭。

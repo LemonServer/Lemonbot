@@ -50,3 +50,11 @@ migrations; do not change schema for deployment docs. Add fault tests when chang
 confirmation, concurrency, pause or extraction. Keep current docs separate from research.
 Follow [MIT](LICENSE) for own code and [third-party notices](THIRD_PARTY_NOTICES.md).
 Do not vendor upstream code or redistribute third-party images without license review.
+
+## Documentation
+
+Daily instructions live in `docs/operations.md` and `docs/restart-jetson-orin.md`;
+current acceptance and the next task live only in `docs/context-memory-implementation.md`.
+Put implementation details under `docs/reference/`, dated investigations under `docs/history/`
+and sanitized results under `docs/evidence/`. Update the index and relative links when moving files.
+Do not append debugging transcripts to daily manuals or treat past measurements as current state.

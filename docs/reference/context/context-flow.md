@@ -1,8 +1,6 @@
-# 两阶段分类与回答（阶段 5）
+# 两阶段分类与回答
 
-阶段 5 已完成默认关闭的新回答分支及离线验证。生产配置、服务和数据库保持原状，
-本阶段没有读取用户聊天、调用付费模型、发送微信消息或重新绑定账号。
-实际模型格式、用量与微信图片关联的新增验收仍在阶段 8；不把模拟通过当作线上问题已解决。
+新流程的分类、来源校验与回答实现。公开默认关闭，本机部署和验收状态见[当前交接](../../context-memory-implementation.md)。
 
 ## 流水线
 
@@ -24,9 +22,9 @@
    不新增发送方法。最终仍是一条持久 outbox 任务，一次 POST 和唯一 self 回读确认；
    UNKNOWN 不重发，重启不补处理停机消息。
 
-代码入口：[flow.py](../src/lemonbot/memory/unified/flow.py)、
-[assembly.py](../src/lemonbot/memory/unified/assembly.py)、
-[pipeline.py](../src/lemonbot/orchestration/pipeline.py)。
+代码入口：[flow.py](../../../src/lemonbot/memory/unified/flow.py)、
+[assembly.py](../../../src/lemonbot/memory/unified/assembly.py)、
+[pipeline.py](../../../src/lemonbot/orchestration/pipeline.py)。
 
 分类请求采用普通文本响应并要求仅输出 JSON，由程序执行严格校验。这样，已完成且用量
 明确的请求即使返回损坏 JSON，也能回退而不把它与传输/IPC 不确定混为一谈。
@@ -42,7 +40,7 @@
 并提供精确到 part 的 SourceRef。引用某条消息的文字不能借用同消息的图片。
 普通换题即使检索出现图片描述，也不会自动携带最近一张图。
 
-[BoundImageResolver](../src/lemonbot/memory/unified/images.py) 复用已有持久 inbox 和附件表，
+[BoundImageResolver](../../../src/lemonbot/memory/unified/images.py) 复用已有持久 inbox 和附件表，
 无需新增数据库 schema 或复制附件：
 
 - 精确匹配账号/会话中的源消息、image part 和 `image_source_ref`；来源只能是已验证
@@ -65,7 +63,7 @@
 
 ## 预算、工具和失败处理
 
-[PrepaidPair](../src/lemonbot/models/prepaid_budget.py) 使用既有 BudgetManager 和持久账本：
+[PrepaidPair](../../../src/lemonbot/models/prepaid_budget.py) 使用既有 BudgetManager 和持久账本：
 
 - 两个初始请求各按配置上限（最多 8192 输入、512 输出，图片各按既有 1024 token 估算）
   预留；图片计入输入 token 上限，不将 Base64 长度当文本 token。
@@ -113,27 +111,21 @@ archive 同时开启、旧 `wechat_agent.memory_enabled` 关闭、模型轮数�
 `data_root/context-index/<profile>/index.sqlite3`，复用独立 CUDA worker；默认关闭不创建索引或 worker。
 GPU 无法使用时显式降级为阶段 4 的关键词/近期检索，不静默改用 ARM CPU 模型。
 
-前七阶段不得修改运行服务；本机勿提前把开关改为 true。阶段 7 完成整体验证/生命周期检查，
-阶段 8 再备份、迁移、部署和有限实机验收。回退仍通过关闭新开关和安全重启，保留所有状态。
+首次启用须完成备份、迁移和有限实机验收；已部署的本机不重复执行迁移。
+回退通过关闭新开关和安全重启，保留所有状态。
 
 ## 验证范围
 
-自动化使用临时数据库、模拟模型及 HTTP Mock，没有真实 API、用户图片或微信发送。
+离线用例使用临时数据库、模拟模型及 HTTP Mock，不调用真实 API 或发送微信。
+后续真实 API/微信验证单独记录在当前交接，不与模拟结果混同。
 覆盖文本关联/独立、图片追问/换题、精确引用图、附件篡改/失效、分类期间观察失效、
 候选裁减后 ID 成员资格、作者/片段核验、无效 JSON、预留与单次结算、额度跨重启、
 取消/崩溃/日期切换、历史 URL 不授予工具权限、暂停和 UNKNOWN，以及默认关闭的兼容性。
-运行统计与阶段状态见 [实施记录](context-memory-implementation.md)。
+运行统计与阶段状态见 [实施记录](../../context-memory-implementation.md)。
 
 阶段 6 已实现确认送达后的索引更新、来源可追溯的事实/偏好/更正、整理和缓存统计，
 见[整理手册](context-consolidation.md)。
 本阶段没有提前启用长期整理、主动消息或不 @ 接话。
 
 
-## 阶段 8 修复与当前验收状态
-
-本机现已部署本流程，首轮微信图片验收失败的修复见
-[交接记录](context-memory-implementation.md)；真实合成图片 API 四步已通过，微信复验待用户反馈。
-请求展示去除重复 scope/空值及已提供原图的重复临时描述，但原归档/完整来源验证/ACK 后观察保存不变。
-候选图片可用性单独核验，不把历史 not_loaded 当作永久不可用，也不自动上传最近图片。
-新流程优先保留已选历史；可选工具 schema 与工具结果预留放不下时本轮不开放工具，
-不会通过删除已选图片/来源来挤出空间。上下文与费用上限保持不变。
+当前部署与修订验收统一见[交接页](../../context-memory-implementation.md)。

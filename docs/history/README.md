@@ -18,3 +18,12 @@ Use [current deployment](../deployment.md) and [operations](../operations.md).
 Evidence remains in [docs/evidence](../evidence/); fixed observed artifacts remain
 in [research/agent-wechat](../../research/agent-wechat/README.md).
 No record is proof of universal deployment reproducibility.
+
+## 2026-10-17 文档整理归档
+
+- [统一上下文各阶段与排错完整记录](context-memory-implementation-20261017.md)
+- [图片、链接与搜索早期验收记录](read-capabilities-20261017.md)
+- [本机重启手册整理前快照](restart-jetson-orin-20261017.md)
+- [2026-10-10 收发延迟测量](wechat-latency-optimization.md)
+
+当前状态只维护在[开发交接](../context-memory-implementation.md)，不再向历史快照追加状态。

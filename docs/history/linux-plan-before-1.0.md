@@ -42,7 +42,7 @@ appmsg/type 57 的当前文字及被引用的纯文本，不扩展媒体、链�
 变更通知唤醒增量读取，忙碌期间合并通知；正文与真实 @ 来源同快照读取。
 上下文按群＋发送者及私聊联系人隔离；仅确认送达的助手回答进入后续上下文。
 实机最终两批短词设置和重启追问通过，用户集中确认，无需追加三十分钟观察。
-日常操作见 [conversation 手册](../wechat-agent-conversation.md)。
+日常操作见 [conversation 手册](wechat-agent-conversation.md)。
 
 2026-10-10 延迟优化代码已分阶段提交并部署，540 项自动化测试通过。
 执行顺序：同机四条实机测量 → 用户关机扩至 4 vCPU / 8 GiB → 扩容后两条对照。
@@ -52,7 +52,7 @@ appmsg/type 57 的当前文字及被引用的纯文本，不扩展媒体、链�
 扩容后两条分别 13.037、13.367 秒，中位数 13.202 秒，达到 ≤25 秒目标；均一次发送并确认。
 六条指定测试完成，队列为空、无新增 UNKNOWN，服务保持运行，不追加观察或放宽限流。
 产品代码不再修改，以保持硬件对照条件；宿主重启恢复仍需人工重建临时服务。
-测量、回退与结果见 [延迟优化报告](../wechat-latency-optimization.md)。
+测量、回退与结果见 [延迟优化报告](wechat-latency-optimization.md)。
 保持固定镜像、模型、数据卷、上下文与可靠发送校验；旧 UNKNOWN 不重发。
 宿主重启恢复、媒体、工具需另行规划；长期记忆启用状态以上方最新记录为准。
 
@@ -81,8 +81,8 @@ appmsg/type 57 的当前文字及被引用的纯文本，不扩展媒体、链�
 固定源码未提供可确认许可，用户要求继续本机独立 HTTP 实现；不复制或分发上游代码/镜像。
 许可缺失和镜像源码未绑定须如实记录，不能宣称已有作者授权。
 
-配置与恢复见 [runtime 手册](../wechat-agent-runtime.md)，实机步骤与证据见
-[复现报告](../agent-wechat-reproduction.md)。保留镜像、全部原卷和 UNKNOWN；空间≥3 GiB。
+配置与恢复见 [runtime 手册](wechat-agent-runtime.md)，实机步骤与证据见
+[复现报告](agent-wechat-reproduction.md)。保留镜像、全部原卷和 UNKNOWN；空间≥3 GiB。
 
 ## 固定基线与恢复条件
 
@@ -90,7 +90,7 @@ appmsg/type 57 的当前文字及被引用的纯文本，不扩展媒体、链�
 - 历史研究锁文件及 token 仍在持久 state；使用 `scripts/agent_wechat_repro.py start`，不运行重新解析 latest 的 pin。
 - localhost API、独立原历史卷、SYS_PTRACE、上游 seccomp 设置；不挂宿主微信数据，不授予 privileged。
 - noVNC Connect 只建立 viewer。浏览器输入还需 x11vnc viewonly=0；API/容器内控制不依赖 viewer 已连接。
-- 恢复方法、命令与实机验收表统一见 [复现报告](../agent-wechat-reproduction.md)。
+- 恢复方法、命令与实机验收表统一见 [复现报告](agent-wechat-reproduction.md)。
 
 ## 历史 Observe 设计参考
 

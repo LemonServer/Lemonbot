@@ -8,7 +8,7 @@
 ## 状态与目标
 
 当前实施优先级见 [`PLAN_linux.md`](../../PLAN_linux.md)，已有实机证据与测试环境见
-[`linux-wechat-current-status.md`](../linux-wechat-current-status.md)。本设计的两轮校准尚未完成；
+[`linux-wechat-current-status.md`](linux-wechat-current-status.md)。本设计的两轮校准尚未完成；
 通过后仍须单独评估身份来源，不能直接满足现有 enrollment 的结构签名与稳定 sender 条件。
 
 本设计是独立、默认关闭的只读研究，不是 connector。目标仅是判断：经用户明确授权的本地视觉

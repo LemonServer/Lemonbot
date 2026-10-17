@@ -6,19 +6,19 @@
 > 延迟优化六条测试完成：同机中位数 37.14 秒，扩容后 13.202 秒（两条小样本），均一次发送确认。
 > 服务运行、队列为空、旧 UNKNOWN 保留；540 项测试、Ruff、mypy（116 源文件）和锁检查通过。
 > 宿主重启后仍需人工登录及恢复临时服务，仓库默认关闭，工具、主动任务和长期记忆提取关闭。
-> 原生 AT-SPI 历史记录在下方，当前操作见 [conversation 手册](../wechat-agent-conversation.md)。
+> 原生 AT-SPI 历史记录在下方，当前操作见 [conversation 手册](wechat-agent-conversation.md)。
 
 ## 原生 AT-SPI 历史状态
 
 > 研究事实复核：2026-09-10；路线更新：2026-09-29（Asia/Shanghai）。代码历史基线：`f96d479` + 本次归档的研究修改。
 > 已确认状态：Lemonbot 原生产 connector、enrollment、模型和 outbox 仍硬关闭。
 > 2026-09-29 历史优先级：限时复现 agent-wechat；环境状态及逐步验收见
-> [`agent-wechat-reproduction.md`](../agent-wechat-reproduction.md)。阶段结论为部分通过：核心 API 收发、身份区分、连续 sender 一致、重启和送达确认成功；testing 已在前台时 `/open` 跳过，Escape 后从无会话视图打开返回 `no_action_selected`。上游 a11y 回退端点在固定镜像中为 404，离屏列表未验证。当时实验容器停止，两个专用数据卷保留；暂不集成。当时通用 `/api/status` 报告 `logged_out`；本次登录以当前 `/api/status/auth` 实测为准。
+> [`agent-wechat-reproduction.md`](agent-wechat-reproduction.md)。阶段结论为部分通过：核心 API 收发、身份区分、连续 sender 一致、重启和送达确认成功；testing 已在前台时 `/open` 跳过，Escape 后从无会话视图打开返回 `no_action_selected`。上游 a11y 回退端点在固定镜像中为 404，离屏列表未验证。当时实验容器停止，两个专用数据卷保留；暂不集成。当时通用 `/api/status` 报告 `logged_out`；本次登录以当前 `/api/status/auth` 实测为准。
 
 本文是当前进度、阻塞和研究结果的统一入口。下一阶段实施顺序见
 [`PLAN_linux.md`](../../PLAN_linux.md)，命令与操作要求见 [`operations.md`](../operations.md)，
 信任边界见 [`security.md`](../security.md)，旧路线和早期实验见
-[`research-handoff.md`](../research-handoff.md)。历史文档中的“当前”“下一步”不覆盖本次复核结论。
+[`research-handoff.md`](research-handoff.md)。历史文档中的“当前”“下一步”不覆盖本次复核结论。
 
 ## 仓库基线与提交沿革
 
@@ -178,10 +178,10 @@ git diff --check: passed
 
 > 本节记录当时的 AT-SPI/资料卡研究和 Observe 门禁判断；其中视觉校准作为下一项工作的建议已过期。
 > 当前执行顺序以 [`PLAN_linux.md`](../../PLAN_linux.md) 和
-> [`agent-wechat-reproduction.md`](../agent-wechat-reproduction.md) 为准。
+> [`agent-wechat-reproduction.md`](agent-wechat-reproduction.md) 为准。
 
 2026-09-09/10 新的非 OCR 实机结论见
-[`AT-SPI 身份调研`](../atspi-identity-research.md)：`testing` 子树的独立 accessible ID 均为空，
+[`AT-SPI 身份调研`](atspi-identity-research.md)：`testing` 子树的独立 accessible ID 均为空，
 消息行无关系或动作；但操作者从消息头像打开资料卡后，`Weixin ID` 标签与非空值可直接读取。
 使用两个独立子进程完成的一轮同成员资料卡关闭/重开对比，字段值摘要与结构均一致。不同成员
 对比因暂时缺少第二个样本而未执行；长连接比较曾挂起，独立短生命周期读取恢复正常。
@@ -207,7 +207,7 @@ git diff --check: passed
 独立解决。没有新的具体身份来源时停止 connector 扩展，继续修改轮询或发送方式不能解除该阻塞。
 
 当时的视觉校准和身份评估建议不再是当前实施顺序；当前工作以新的
-[`agent-wechat-reproduction.md`](../agent-wechat-reproduction.md) 为准。发送研究仍不作为解锁 Observe 的捷径。`Alt press → S press/release → Alt release` 仍是未执行候选，
+[`agent-wechat-reproduction.md`](agent-wechat-reproduction.md) 为准。发送研究仍不作为解锁 Observe 的捷径。`Alt press → S press/release → Alt release` 仍是未执行候选，
 不能写成成功机制；`LOCKMODIFIERS` 的失败记录不应被重复解释为成功证据。
 
 Observe 门禁仍保持关闭。复现 agent-wechat 的成功只作为后续适配层输入，不自动开启生产 connector；

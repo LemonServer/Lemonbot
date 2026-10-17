@@ -2,7 +2,7 @@
 
 Public configuration defaults to disabled. Live conversation mode is restricted to
 `profile="lab"`, explicitly bound exact-name conversations and the original account.
-Tools, media processing and proactive tasks remain off. Chat/model output cannot
+Public examples disable optional media/tools; explicit local configuration can enable bounded read-only capabilities. Proactive tasks remain off. Chat/model output cannot
 grant permissions or change bindings, budgets or core rules.
 
 ## Identity, delivery and privacy
@@ -12,8 +12,9 @@ grant permissions or change bindings, budgets or core rules.
 - Persist intent before one POST. Only a unique new self-message readback confirms.
   Timeout, interruption or ambiguity is UNKNOWN with no automatic retry.
 - Serialize navigation, sending and read work; pause persists across program restart.
-- Scope context/memory to private target or group+sender. Do not cross-share private
-  data. Only confirmed replies enter delivered context or memory extraction.
+- Legacy context is private-target or group+sender scoped. The opt-in unified flow
+  shares within a group with author attribution; private chats and accounts remain isolated.
+  Only confirmed replies enter delivered context or memory extraction.
 - Runtime inbox, conversation and memory data are private local SQLite records;
   they **do contain authorized chat text**. Public logs/reports omit text and raw IDs.
   Startup console/journal intentionally show configured names; keep them private.

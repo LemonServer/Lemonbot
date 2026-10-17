@@ -113,7 +113,7 @@ uv run --locked lemonbot secret set deepseek_api_key --profile lab
 
 Enter the key using the hidden terminal prompt. It is stored in Secret Service,
 not TOML, command arguments or the repository. Review [current official pricing and
-budget accounting](deepseek-pricing.md) before enabling cloud requests.
+budget accounting](reference/models/deepseek-pricing.md) before enabling cloud requests.
 
 In generated `config/lemonbot.toml`, change only these activation fields:
 
@@ -176,4 +176,4 @@ establishes a fresh baseline; historical and downtime messages are not replayed.
 
 Admin UI binds `127.0.0.1:8767`; use the locally generated authenticated URL, do not
 expose or share it. Use the control script for credential-free console status.
-Next: [operations](operations.md), [release evidence](release-1.0.md).
+Next: [operations](operations.md), [release evidence](reference/releases/release-1.0.md).

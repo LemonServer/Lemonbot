@@ -35,7 +35,7 @@ request_timeout_seconds = 45
 enabled = true
 daily_limit_cny = "5"
 monthly_limit_cny = "100"
-# Conservative peak cache-miss estimates; see docs/deepseek-pricing.md.
+# Conservative peak cache-miss estimates; see docs/reference/models/deepseek-pricing.md.
 flash_input_cny_per_million = "2"
 flash_output_cny_per_million = "8"
 pro_input_cny_per_million = "2"

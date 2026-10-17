@@ -16,7 +16,7 @@ seccomp 配置，接受 Hook/微信数据库密钥提取；不挂宿主微信目
 
 独立通道及正式入口的限定实机验收已通过，默认配置继续关闭；不扩大到模型或其他会话。
 暂停原因持久化，显式恢复重验账号、目标群、前台并重建基线；实验和 runtime 共享互斥锁。
-本节描述已授权实验的实际范围，不授予新操作权限。详见 [环境基线](../environment-baseline.md)。
+本节描述已授权实验的实际范围，不授予新操作权限。详见 [环境基线](environment-baseline.md)。
 
 ## 原生 AT-SPI 信任边界
 
@@ -63,7 +63,7 @@ Lemonbot 当前只信任核心代码、管理员生成的 schema v2 配置、`06
 进入可能产生外部结果的提交后禁止自动重试，回读不证明方向或身份，`acknowledged` 始终为 false。
 人工空框确认和 setter 回执不能升级为生产草稿证明。历史实验授权不授权后续实验，本文也不
 授权执行发送。命令要求见 [`operations.md`](../operations.md)，结果见
-[`linux-wechat-current-status.md`](../linux-wechat-current-status.md)。
+[`linux-wechat-current-status.md`](linux-wechat-current-status.md)。
 
 ## AT-SPI worker 隔离
 

@@ -21,7 +21,7 @@
 2026-10-10 优化及扩容后两条实测约 13 秒（小样本）；宿主重启仍需人工登录及恢复服务。
 旧 UNKNOWN 一条保留不重发，固定镜像、微信版本与原卷不变，PR #171 继续冻结。
 
-操作、故障排查及最新验收见 [conversation 手册](../wechat-agent-conversation.md)。
+操作、故障排查及最新验收见 [conversation 手册](wechat-agent-conversation.md)。
 以下为已完成 canary 里程碑和按日期保留的历史记录，不覆盖当前结论。
 
 ## 历史：单群 canary 验收
@@ -30,7 +30,7 @@
 > 本阶段结论：**正式接入通过**，范围限定为前台 testing 单群合成指令。
 > 全仓 475 项测试、Ruff、mypy（112 个源文件）及锁检查通过；自动化检查不代替实机证据。
 > 历史固定 digest 保留，PR #171 冻结。原卷和微信数据未清理，本轮收发仅限 testing 合成标记。
-> 当前版本/恢复见 [环境基线](../environment-baseline.md)，执行顺序见 [Linux 计划](../../PLAN_linux.md)。
+> 当前版本/恢复见 [环境基线](environment-baseline.md)，执行顺序见 [Linux 计划](../../PLAN_linux.md)。
 
 ## 当前结论
 
@@ -424,7 +424,7 @@ HTTP 传输、前台守卫和消息转换已移到连接器层，独立入口复
 
 475 项全仓测试、Ruff、mypy（112 个源文件）、锁文件检查通过；模拟测试不计作实机通过。
 重启新指令、前台切走恢复、独立入口三十分钟观察及正式入口实机启用仍待完成。
-正式运行说明见 [runtime 手册](../wechat-agent-runtime.md)。
+正式运行说明见 [runtime 手册](wechat-agent-runtime.md)。
 
 
 本轮代码已分阶段提交，共用传输/诊断为 78c3bdb，默认关闭的 runtime 为 c02d9e1。
@@ -507,4 +507,4 @@ model_io_started_count=0、tool_execution_rows=0，475 项全仓测试和静态�
 群与私聊分别 13.037、13.367 秒，中位数 13.202 秒，达到 25 秒目标。
 六条均一次发送并精确确认；用户确认收到。未暂停、队列为空、旧 UNKNOWN 一条未重发。
 服务保持运行，固定镜像、微信版本、模型、原卷和限流不变。
-详细阶段、恢复问题与小样本限制见 [延迟优化报告](../wechat-latency-optimization.md)。
+详细阶段、恢复问题与小样本限制见 [延迟优化报告](wechat-latency-optimization.md)。

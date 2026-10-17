@@ -1,8 +1,6 @@
-# 独立 CUDA 嵌入 worker（阶段 3）
+# 独立 CUDA 嵌入 worker
 
-阶段 3 已在本机 Orin 原生 CUDA 上通过合成样例验证，尚未接入机器人回答。
-归档和新上下文开关继续关闭，没有迁移运行数据库、调整用户服务或调用云端模型。
-混合检索在阶段 4 实施，两阶段分类与回答在阶段 5 实施。
+固定模型、隔离环境、引擎构建和设备验证参考。本机已接入新上下文检索；部署范围和验收边界见[交接页](../../context-memory-implementation.md)。
 
 ## 本机版本和固定制品
 
@@ -16,8 +14,8 @@ GPU 为 Orin、compute capability 8.7，CUDA runtime/driver API 均报告 13020�
 [Xenova 的 ONNX 制品](https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781)
 提交 `75c43b069aac4d136ba6bc1122f995fedcfd2781`，不跟随 main 下载。
 该转换注明 BAAI 基础模型，但不能核实它对应的原始 BAAI checkpoint 提交。
-下载校验代码在 [artifacts.py](../src/lemonbot/embeddings/artifacts.py)，许可边界见
-[第三方说明](../THIRD_PARTY_NOTICES.md)。
+下载校验代码在 [artifacts.py](../../../src/lemonbot/embeddings/artifacts.py)，许可边界见
+[第三方说明](../../../THIRD_PARTY_NOTICES.md)。
 
 | 文件 | SHA-256 |
 |---|---|
@@ -73,7 +71,7 @@ uv run --locked python scripts/embedding_setup.py verify --config config/lemonbo
 
 若临时目录是本机 uv 缓存，可给每条命令加 `UV_CACHE_DIR=/tmp/lemonbot-uv`。
 install 创建仅 worker 使用的 system-site-packages venv，以复用系统 TensorRT；按
-[哈希锁定 requirements](../deploy/embedding-worker-requirements.txt) 安装依赖，再安装本 checkout
+[哈希锁定 requirements](../../../deploy/embedding-worker-requirements.txt) 安装依赖，再安装本 checkout
 的 editable 包且不展开项目依赖。拒绝把核心环境当作 worker；重复执行不重建已有 venv。
 锁文件更新后须同步导出：
 
@@ -94,7 +92,7 @@ FP32 参考关闭 TF32；FP16 允许 TensorRT 按层保留更高精度。
 
 ## 进程接口与边界
 
-主进程通过 [IsolatedEmbeddingWorker](../src/lemonbot/embeddings/proxy.py) 创建 worker，
+主进程通过 [IsolatedEmbeddingWorker](../../../src/lemonbot/embeddings/proxy.py) 创建 worker，
 使用现有 supervisor 的最小环境变量集合和 `python -I -m lemonbot.embeddings.worker`。
 协议仅含 init、embed、chunk、stats 和 shutdown，沿用 1 MiB 帧上限。
 主进程导入 proxy 不加载 NumPy、TensorRT、ONNX Runtime 或 torch。
@@ -124,7 +122,7 @@ FP32 参考关闭 TF32；FP16 允许 TensorRT 按层保留更高精度。
 
 ## 设备验收记录
 
-完整脱敏报告见 [2026-10-15 CUDA 证据](evidence/context-memory-stage3-cuda-20261015.json)。
+完整脱敏报告见 [2026-10-15 CUDA 证据](../../evidence/context-memory-stage3-cuda-20261015.json)。
 本报告没有聊天内容、账号标识、凭据或 GPU UUID。固定文档、查询、空白、混合中英文/emoji、
 长文和最大 16×512 profile 均参与验证；六个样例两种精度均排名正确。
 FP16/FP32 最低余弦相似度 **0.999991845**，选择原生 TensorRT FP16。
