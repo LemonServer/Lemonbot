@@ -65,6 +65,9 @@ def test_chromium_is_pinned_to_validated_dns_and_has_no_proxy() -> None:
 
 
 class _FakeLocator:
+    async def count(self) -> int:
+        return 0
+
     async def inner_text(self, *, timeout: int) -> str:  # noqa: ASYNC109 - Playwright API fake
         assert timeout == 5000
         return "safe body"
@@ -81,7 +84,7 @@ class _FakePage:
         return "Safe title"
 
     def locator(self, selector: str) -> _FakeLocator:
-        assert selector == "body"
+        assert selector in {"body", "#js_content"}
         return _FakeLocator()
 
 
@@ -173,3 +176,50 @@ async def test_browser_disables_script_and_non_http_transports(
     assert playwright.chromium.browser.context is not None
     assert playwright.chromium.browser.context.options["java_script_enabled"] is False
     assert playwright.chromium.browser.context.websocket_handler is not None
+
+
+@pytest.mark.parametrize("article", [True, False])
+async def test_browser_distinguishes_hidden_article_from_verification_page(
+    monkeypatch: pytest.MonkeyPatch,
+    article: bool,
+) -> None:
+    import lemonbot.tools.browser as module
+
+    async def fetch(*_args: object, **_kwargs: object) -> PinnedHTTPSDownload:
+        return PinnedHTTPSDownload(
+            content=b"<html>public response</html>", content_type="text/html", filename=None
+        )
+
+    class Locator:
+        def __init__(self, selector: str) -> None:
+            self.selector = selector
+
+        async def count(self) -> int:
+            return int(article and self.selector == "#js_content")
+
+        async def text_content(self, **_kwargs: object) -> str:
+            return "Public article body hidden by page presentation styles."
+
+        async def inner_text(self, **_kwargs: object) -> str:
+            return "" if article else "环境异常，请完成验证"
+
+    monkeypatch.setattr(module, "pinned_https_get", fetch)
+    monkeypatch.setattr(_FakePage, "locator", lambda _self, selector: Locator(selector))
+    tool = BrowserReadTool(enabled=True, resolver=resolver, playwright_factory=_FakePlaywright)
+    result = await tool.invoke(
+        ToolContext(
+            profile="lab",
+            channel="test",
+            chat_id="chat",
+            event_id="event",
+            principal_id="sender",
+            granted_scopes=frozenset({"browser.read_public"}),
+        ),
+        {"url": "https://example.com/"},
+    )
+    assert result.ok is article
+    if article:
+        assert "Public article body" in result.content
+    else:
+        assert result.error_code == "page_verification_required"
+        assert "card title is not the article body" in result.content

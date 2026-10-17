@@ -31,7 +31,10 @@ configured Docker group. Group membership grants broad host access; log out/in a
 changing groups. Interactive sudo prompts appear in the terminal, never in config.
 All commands below assume the default state paths; advanced deployments can pass
 `--state-dir /absolute/path --token-file /absolute/path` consistently to setup.
-Control/restart commands accept `--config /absolute/path/conversation-runtime.toml`.
+Setup, control, restart and runtime accept `--config /absolute/path/lemonbot.toml`.
+Without it, `LEMONBOT_CONFIG` takes precedence over this checkout's
+`config/lemonbot.toml`. Existing config state/token paths are honored; conflicting
+explicit state/token overrides are rejected.
 
 ## 2. Fixed environment and manual login
 
@@ -81,13 +84,15 @@ send a self initialization text in testing and retry; mismatch requires investig
 Generated private files (never commit):
 
 ```
+config/lemonbot.toml
+config/wechat-whitelist.local.toml
 ~/.local/state/lemonbot/agent-wechat-reproduction/api-token
 ~/.local/state/lemonbot/agent-wechat-lab/
   comparison-key, binding.json, metadata-binding.json, conversation-binding.json
-  whitelist.toml, conversation-runtime.toml, paused.json
+  paused.json, conversation-admin-session.json (created by control)
 ```
 
-Edit `whitelist.toml`, using exact chat-list names including spaces and contact remarks:
+Edit `config/wechat-whitelist.local.toml`, using exact chat-list names including spaces and remarks:
 
 ```toml
 version = 1
@@ -110,7 +115,7 @@ Enter the key using the hidden terminal prompt. It is stored in Secret Service,
 not TOML, command arguments or the repository. Review [current official pricing and
 budget accounting](deepseek-pricing.md) before enabling cloud requests.
 
-In generated `conversation-runtime.toml`, change only these activation fields:
+In generated `config/lemonbot.toml`, change only these activation fields:
 
 ```toml
 [runtime]

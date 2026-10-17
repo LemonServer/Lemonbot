@@ -1,0 +1,27 @@
+{
+  "archive_unchanged": true,
+  "backend": "tensorrt",
+  "cases": 6,
+  "cross_account_isolated": true,
+  "expected_source_recalled": 6,
+  "expected_source_top_one": 6,
+  "initial_index": {
+    "changed": 6,
+    "degraded_reason": null,
+    "messages": 6,
+    "model_version": "bge-small-zh-v1.5:6813975a3b02b0d1714317ce02fed090c81e021f782cf21a345a3af3f3db993d",
+    "pending_vectors": 0,
+    "units": 6,
+    "vectorized": 6
+  },
+  "maximum_retrieval_ms": 81.9794469862245,
+  "median_retrieval_ms": 73.59589950647205,
+  "model_version": "bge-small-zh-v1.5:6813975a3b02b0d1714317ce02fed090c81e021f782cf21a345a3af3f3db993d",
+  "passed": true,
+  "precision": "fp16",
+  "restart_changed_units": 0,
+  "restart_vectorized_units": 0,
+  "scope": "synthetic_stage4_not_wechat",
+  "recorded_date": "2026-10-15",
+  "device_evidence": "context-memory-stage3-cuda-20261015.json"
+}

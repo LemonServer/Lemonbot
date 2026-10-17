@@ -68,7 +68,7 @@ class BrowserReadTool:
         self._timeout_seconds = timeout_seconds
         self._max_document_bytes = min(
             8 * 1024 * 1024,
-            max(256 * 1024, max_text_chars * 8),
+            max(2 * 1024 * 1024, max_text_chars * 8),
         )
         self._resolver = resolver
         self._playwright_factory = playwright_factory
@@ -112,12 +112,14 @@ class BrowserReadTool:
                 maximum_bytes=self._max_document_bytes,
                 timeout_seconds=min(self._timeout_seconds, 30),
                 resolver=self._resolver,
+                max_redirects=3,
             )
-        except (PinnedHTTPSFetchError, TimeoutError) as exc:
+        except (PinnedHTTPSFetchError, TimeoutError, UnsafeURLError) as exc:
             return ToolResult(ok=False, error_code="document_fetch_failed", content=str(exc))
         if document.content_type not in {None, "text/html", "application/xhtml+xml", "text/plain"}:
             return ToolResult(ok=False, error_code="unsupported_document_type")
         decoded = document.content.decode("utf-8-sig", errors="replace")
+        source_url = document.final_url or target.normalized_url
         if document.content_type == "text/plain":
             decoded = f"<pre>{html.escape(decoded)}</pre>"
 
@@ -162,15 +164,59 @@ class BrowserReadTool:
                     timeout=int(self._timeout_seconds * 1000),
                 )
                 title = (await page.title())[:1_000]
-                text = await page.locator("body").inner_text(timeout=5000)
+                article = page.locator("#js_content")
+                if await article.count() == 1:
+                    # Public WeChat articles can hide their server-rendered
+                    # body until page scripts run. Read that exact article
+                    # node without enabling scripts or using personal cookies.
+                    text = (await article.text_content(timeout=5000) or "").strip()
+                else:
+                    text = await page.locator("body").inner_text(timeout=5000)
+                if not text.strip() or (
+                    len(text) < 2000
+                    and any(
+                        marker in text.casefold()
+                        for marker in (
+                            "环境异常",
+                            "访问过于频繁",
+                            "请完成验证",
+                            "verify you are human",
+                            "sign in to continue",
+                            "请登录后",
+                            "该内容已被发布者删除",
+                        )
+                    )
+                ):
+                    verification = any(
+                        marker in text.casefold()
+                        for marker in (
+                            "环境异常",
+                            "访问过于频繁",
+                            "请完成验证",
+                            "verify you are human",
+                        )
+                    )
+                    return ToolResult(
+                        ok=False,
+                        error_code="page_verification_required"
+                        if verification
+                        else "page_unavailable",
+                        content=(
+                            "Anonymous access returned a verification challenge. "
+                            "The card title is not the article body. "
+                            "Do not retry or invent the body."
+                            if verification
+                            else "Page needs login or has no readable body. Do not invent its body."
+                        ),
+                    )
                 truncated = len(text) > self._max_text_chars
                 text = text[: self._max_text_chars]
                 return ToolResult(
                     ok=True,
-                    content=f"Title: {title}\nURL: {target.normalized_url}\n\n{text}",
+                    content=f"Title: {title}\nURL: {source_url}\n\n{text}",
                     facts=(
                         {
-                            "source": target.normalized_url,
+                            "source": source_url,
                             "trust": "untrusted_web_content",
                         },
                     ),

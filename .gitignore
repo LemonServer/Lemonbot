@@ -19,6 +19,7 @@ build/
 !.env.example
 config/lemonbot.toml
 config/wechat-whitelist.local.toml
+config/searxng/settings.local.yml
 data/
 runtime/
 *.db

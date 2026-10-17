@@ -2,18 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from platform import machine
 
 from platformdirs import user_data_path
 
-from lemonbot.config.settings import AppSettings
+from lemonbot.config.settings import AppSettings, resolve_config_path
 
 
 def default_wechat_runtime_config() -> Path:
-    root = Path.home() / ".local/state/lemonbot"
-    if machine() == "aarch64":
-        root /= "jetson-orin"
-    return root / "agent-wechat-lab/conversation-runtime.toml"
+    return resolve_config_path()
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +33,14 @@ class RuntimePaths:
     @property
     def objects(self) -> Path:
         return self.root / "objects" / self.profile
+
+    @property
+    def embedding_assets(self) -> Path:
+        return self.root / "embeddings" / self.profile
+
+    @property
+    def embedding_worker(self) -> Path:
+        return self.root / "embedding-worker" / "bin" / "python"
 
     @property
     def quarantine(self) -> Path:

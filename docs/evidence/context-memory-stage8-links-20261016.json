@@ -1,0 +1,183 @@
+{
+  "status": "public_link_followup_acceptance_pending",
+  "user_report": "public_links_failed_card_response_expected",
+  "observed_tool_outcomes": [
+    "url_not_explicitly_authorized",
+    "page_verification_required",
+    "TimeoutError"
+  ],
+  "url_boundary": "question_glued_to_url_without_whitespace_exact_authorization_preserved",
+  "card_body_read": false,
+  "card_verification_limitation_disclosed": true,
+  "device_diagnostics": {
+    "huggingface_direct_head": "timeout_20_seconds",
+    "provided_wiki_url_isolated_browser": {
+      "ok": true,
+      "content_chars": 8346,
+      "cloud_model_calls": 0,
+      "wechat_sends": 0
+    }
+  },
+  "fix": "raw_DSML_answer_replaced_with_failure_explanation_no_execution_or_paid_retry",
+  "tests": {
+    "pytest_passed": 943,
+    "duration_seconds": 182.05,
+    "ruff": "passed",
+    "mypy": "passed",
+    "lock": "passed",
+    "release": "passed",
+    "diff_check": "passed"
+  },
+  "deployment": {
+    "restarted": true,
+    "doctor_passed": true,
+    "paused_after_restart": true,
+    "acknowledged": 50,
+    "unknown": 0,
+    "pending_maintenance": 0,
+    "resumed": true
+  },
+  "followup_revision": {
+    "user_first_page_read_passed": true,
+    "followup_passed": false,
+    "saved_body_contains_requested_phrase": true,
+    "root_causes": [
+      "summary_selected_instead_of_page_passage",
+      "full_observation_duplicated_after_selected_excerpt"
+    ],
+    "offline_real_archive_keyword_replay": {
+      "top_candidate_contains_phrase": true,
+      "candidate_count": 13,
+      "cloud_calls": 0,
+      "sends": 0
+    },
+    "synthetic_long_page_regression": "passed",
+    "deployment": {
+      "restarted": true,
+      "doctor_passed": true,
+      "acknowledged": 53,
+      "unknown": 0,
+      "pending_maintenance": 0,
+      "resumed": true
+    },
+    "checks": {
+      "pytest": 944,
+      "duration_seconds": 167.36,
+      "ruff": "passed",
+      "mypy": "passed",
+      "lock": "passed",
+      "release": "passed",
+      "diff_check": "passed"
+    }
+  },
+  "empty_classifier_candidates_revision": {
+    "real_acceptance": "failed_before_revision",
+    "cause": "production_identifiers_and_CJK_unit_exceed_serialized_byte_budget_even_for_first_candidate",
+    "fix": [
+      "query_focused_400_character_prompt_view",
+      "full_source_validation_unchanged",
+      "explicit_original_excerpt_type",
+      "page_specific_prompt_only_on_page_evidence",
+      "candidate_count_before_classification_log"
+    ],
+    "real_synthetic_probes": [
+      {
+        "version": 1,
+        "calls": 2,
+        "passed": false,
+        "cost_estimate_cny": "0.003916"
+      },
+      {
+        "version": 2,
+        "calls": 2,
+        "passed": true,
+        "limitation": "called_original_excerpt_summary",
+        "cost_estimate_cny": "0.006508"
+      },
+      {
+        "version": 3,
+        "calls": 2,
+        "passed": true,
+        "unresolved_quote_placeholder": true,
+        "offered_candidates": 1,
+        "estimated_classification_tokens": 6536,
+        "answer_contains_correct_original": true,
+        "answer_chinese": true,
+        "cost_estimate_cny": "0.006212"
+      }
+    ],
+    "real_input_read_only_replay": {
+      "retrieved": 13,
+      "offered": 2,
+      "estimated_classification_tokens": 7509,
+      "requested_phrase_retained": true,
+      "cloud_calls": 0,
+      "sends": 0
+    },
+    "wechat_sends_by_diagnostics": 0,
+    "checks": {
+      "pytest": 944,
+      "duration_seconds": 184.61,
+      "ruff": "passed",
+      "mypy_files": 160,
+      "lock": "passed",
+      "release": "passed",
+      "diff_check": "passed"
+    },
+    "deployment": {
+      "restarted": true,
+      "doctor_passed": true,
+      "acknowledged": 55,
+      "unknown": 0,
+      "pending_maintenance": 0,
+      "resumed": true
+    }
+  },
+  "literal_passages_revision": {
+    "date": "2026-10-17",
+    "cause": "single_quote_not_recognized_original_body_ranked_below_failed_history",
+    "quote_forms": [
+      "chinese_double",
+      "chinese_single",
+      "ascii_single",
+      "unquoted_chinese"
+    ],
+    "distractor_messages": 16,
+    "real_synthetic_v4": {
+      "calls": 2,
+      "passed": true,
+      "offered_candidates": 2,
+      "estimated_classification_tokens": 7419,
+      "cost_estimate_cny": "0.006538",
+      "wechat_sends": 0
+    },
+    "checks": {
+      "pytest": 947,
+      "duration_seconds": 196.7,
+      "ruff": "passed",
+      "mypy": "passed",
+      "lock": "passed",
+      "release": "passed",
+      "diff_check": "passed"
+    },
+    "deployment": {
+      "doctor_passed": true,
+      "acknowledged": 56,
+      "unknown": 0,
+      "pending_maintenance": 0,
+      "resumed": true
+    },
+    "live_acceptance": "user_confirmed_explicit_page_followup_passed",
+    "receipt_check": {
+      "ack_before": 56,
+      "ack_after": 58,
+      "includes_separate_user_image_test": true,
+      "recent_attempts": [
+        1,
+        1
+      ],
+      "pending_maintenance": 0,
+      "unknown": 0
+    }
+  }
+}

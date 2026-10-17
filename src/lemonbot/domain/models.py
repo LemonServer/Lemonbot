@@ -141,18 +141,28 @@ class ToolCall(DomainModel):
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
+class ModelImage(DomainModel):
+    """Broker-selected content address, never image bytes or a model-chosen path."""
+
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    size: int = Field(ge=1, le=10 * 1024 * 1024)
+
+
 class ModelMessage(DomainModel):
     role: MessageRole
     content: str | None = Field(default=None, max_length=500_000)
     name: str | None = Field(default=None, max_length=128)
     tool_call_id: str | None = Field(default=None, max_length=256)
     tool_calls: tuple[ToolCall, ...] = ()
+    images: tuple[ModelImage, ...] = Field(default=(), max_length=1)
     # Ephemeral protocol field needed by DeepSeek thinking+tool calls.  The
     # storage schema intentionally has no place to persist it.
     reasoning_content: str | None = Field(default=None, max_length=500_000, repr=False)
 
     @model_validator(mode="after")
     def content_or_tool_call(self) -> ModelMessage:
+        if self.images and self.role is not MessageRole.USER:
+            raise ValueError("images are allowed only in user messages")
         if self.content is None and not self.tool_calls:
             raise ValueError("a model message requires content or tool calls")
         return self
@@ -178,6 +188,9 @@ class ModelRequest(DomainModel):
 
 
 class ModelResponse(DomainModel):
+    cached_prompt_tokens: int = Field(default=0, ge=0)
+    # Worker attestation of image encoding, not a model-generated claim.
+    image_input_accepted: bool | None = None
     content: str | None = None
     tool_calls: tuple[ToolCall, ...] = ()
     reasoning_content: str | None = Field(default=None, max_length=500_000, repr=False)

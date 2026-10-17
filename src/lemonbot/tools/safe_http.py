@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from email.message import Message
 from pathlib import PurePosixPath
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 from lemonbot.tools.url_guard import Resolver, system_resolver, validate_public_https
 
@@ -29,11 +29,18 @@ class PinnedHTTPSFetchError(RuntimeError):
     """The HTTPS response could not be obtained within the security policy."""
 
 
+class _HTTPSRedirect(PinnedHTTPSFetchError):
+    def __init__(self, location: str | None) -> None:
+        super().__init__("HTTPS redirects are forbidden")
+        self.location = location
+
+
 @dataclass(frozen=True, slots=True)
 class PinnedHTTPSDownload:
     content: bytes
     content_type: str | None
     filename: str | None
+    final_url: str | None = None
 
 
 class _PinnedHTTPSConnection(http.client.HTTPSConnection):
@@ -146,7 +153,7 @@ def _read_response(
     try:
         if response.status != 200:
             if 300 <= response.status < 400:
-                raise PinnedHTTPSFetchError("HTTPS redirects are forbidden")
+                raise _HTTPSRedirect(response.getheader("Location"))
             raise PinnedHTTPSFetchError(
                 f"HTTPS server returned an unexpected status ({response.status})"
             )
@@ -218,6 +225,7 @@ async def pinned_https_get(
     timeout_seconds: float = 15,
     resolver: Resolver = system_resolver,
     _connection_factory: ConnectionFactory = _default_connection_factory,
+    max_redirects: int = 0,
 ) -> PinnedHTTPSDownload:
     """Download one non-redirecting HTTPS response from a DNS-pinned public IP.
 
@@ -230,21 +238,37 @@ async def pinned_https_get(
         raise ValueError("maximum_bytes must be between 1 byte and 50 MiB")
     if timeout_seconds <= 0 or timeout_seconds > 30:
         raise ValueError("timeout_seconds must be between 0 and 30 seconds")
+    if not 0 <= max_redirects <= 3:
+        raise ValueError("redirect limit must be between 0 and 3")
     async with asyncio.timeout(timeout_seconds):
-        target = await validate_public_https(url, resolver=resolver)
-        addresses = sorted(
-            (ipaddress.ip_address(value) for value in target.addresses),
-            key=lambda address: (address.version, address.compressed),
-        )
-        if not addresses:  # pragma: no cover - enforced by validate_public_https
-            raise PinnedHTTPSFetchError("hostname resolved to no addresses")
-        pinned_address = addresses[0].compressed
-        return await asyncio.to_thread(
-            _fetch_sync,
-            hostname=target.hostname,
-            pinned_address=pinned_address,
-            normalized_url=target.normalized_url,
-            maximum_bytes=maximum_bytes,
-            timeout_seconds=timeout_seconds,
-            connection_factory=_connection_factory,
-        )
+        for hop in range(max_redirects + 1):
+            target = await validate_public_https(url, resolver=resolver)
+            addresses = sorted(
+                (ipaddress.ip_address(value) for value in target.addresses),
+                key=lambda address: (address.version, address.compressed),
+            )
+            if not addresses:
+                raise PinnedHTTPSFetchError("hostname resolved to no addresses")
+            try:
+                document = await asyncio.to_thread(
+                    _fetch_sync,
+                    hostname=target.hostname,
+                    pinned_address=addresses[0].compressed,
+                    normalized_url=target.normalized_url,
+                    maximum_bytes=maximum_bytes,
+                    timeout_seconds=timeout_seconds,
+                    connection_factory=_connection_factory,
+                )
+                return PinnedHTTPSDownload(
+                    document.content,
+                    document.content_type,
+                    document.filename,
+                    target.normalized_url,
+                )
+            except _HTTPSRedirect as redirect:
+                if hop == max_redirects or not redirect.location or len(redirect.location) > 4096:
+                    raise PinnedHTTPSFetchError(
+                        "HTTPS redirects are forbidden or exceeded"
+                    ) from None
+                url = urljoin(target.normalized_url, redirect.location)
+        raise AssertionError("unreachable")

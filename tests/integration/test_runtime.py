@@ -13,11 +13,15 @@ from lemonbot.runtime import LemonbotRuntime
 from lemonbot.tools.mcp import MCPError, MCPStdioClient
 
 
-async def test_fake_runtime_vertical_slice(tmp_path: Path) -> None:
+@pytest.mark.parametrize("explicit_disabled", [False, True])
+async def test_fake_runtime_vertical_slice(tmp_path: Path, explicit_disabled: bool) -> None:
     raw = AppSettings().model_dump(mode="python")
     raw["runtime"]["data_root"] = str(tmp_path)
     raw["models"]["provider"] = "fake"
+    if not explicit_disabled:
+        raw.pop("context_memory")
     settings = AppSettings.model_validate(raw)
+    assert not settings.context_memory.enabled
     runtime = LemonbotRuntime(settings)
     await runtime.initialize()
     try:

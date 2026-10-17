@@ -114,6 +114,23 @@ def run_checks(settings: AppSettings, paths: RuntimePaths) -> list[Check]:
                 _system_atspi_check(),
             ]
         )
+    from lemonbot.memory.unified.operations import health
+
+    context = health(settings, paths)
+    checks.append(
+        Check(
+            "unified-context",
+            bool(context["ok"]),
+            "disabled; no device/API probe"
+            if not settings.context_memory.archive_enabled
+            else (
+                "offline schema/artifacts checked; CUDA/live acceptance separate"
+                if context["ok"]
+                else "incomplete; run unified operations doctor"
+            ),
+            required=settings.context_memory.archive_enabled,
+        )
+    )
     return checks
 
 

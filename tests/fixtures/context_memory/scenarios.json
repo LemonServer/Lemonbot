@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "description": "Synthetic content only. Expected relevance is a future retrieval/classifier oracle, not live evidence.",
+  "messages": [
+    {"id": "image-a", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "image", "kind": "image", "unavailable_reason": "synthetic_attachment_not_downloaded"}]},
+    {"id": "image-followup", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "text", "kind": "text", "text": "刚才图片里的杯子是什么颜色？"}]},
+    {"id": "unrelated", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "text", "kind": "text", "text": "Python 的列表如何排序？"}]},
+    {"id": "image-b", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "image", "kind": "image", "unavailable_reason": "synthetic_attachment_not_downloaded"}]},
+    {"id": "explicit-image-a", "chat": "private-a", "kind": "private", "sender": "alice", "quote": "image-a", "quote_part": "image", "parts": [{"part_id": "text", "kind": "text", "text": "我问的是这张图里的杯子。"}]},
+    {"id": "link-a", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "link", "kind": "link", "url": "https://example.org/article", "title": "合成网页样例"}]},
+    {"id": "link-followup", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "text", "kind": "text", "text": "刚才链接的结论是什么？"}]},
+    {"id": "card-a", "chat": "private-a", "kind": "private", "sender": "alice", "parts": [{"part_id": "card", "kind": "card", "url": "https://example.org/card", "title": "合成卡片样例"}]},
+    {"id": "group-word", "chat": "group-a", "kind": "group", "sender": "alice", "mentioned": false, "parts": [{"part_id": "text", "kind": "text", "text": "这次活动的暗号是银杏。"}]},
+    {"id": "group-followup", "chat": "group-a", "kind": "group", "sender": "bob", "mentioned": true, "parts": [{"part_id": "text", "kind": "text", "text": "Alice 刚才说的活动暗号是什么？"}]},
+    {"id": "private-other", "chat": "private-b", "kind": "private", "sender": "bob", "parts": [{"part_id": "text", "kind": "text", "text": "Alice 私聊说过什么？"}]},
+    {"id": "group-other", "chat": "group-b", "kind": "group", "sender": "bob", "mentioned": true, "parts": [{"part_id": "text", "kind": "text", "text": "其他群的活动暗号是什么？"}]}
+  ],
+  "cases": [
+    {"name": "image_followup", "current": "image-followup", "expected_sources": ["image-a"], "excluded_sources": ["group-word"]},
+    {"name": "unrelated_topic", "current": "unrelated", "expected_sources": [], "excluded_sources": ["image-a"]},
+    {"name": "new_image_no_old_fallback", "current": "image-b", "expected_sources": [], "excluded_sources": ["image-a"]},
+    {"name": "exact_quote", "current": "explicit-image-a", "expected_sources": ["image-a"], "excluded_sources": ["image-b"]},
+    {"name": "link_followup", "current": "link-followup", "expected_sources": ["link-a"], "excluded_sources": ["image-a"]},
+    {"name": "group_shared_attributed", "current": "group-followup", "expected_sources": ["group-word"], "excluded_sources": ["link-a"]},
+    {"name": "private_isolation", "current": "private-other", "expected_sources": [], "excluded_sources": ["image-a", "group-word"]},
+    {"name": "group_isolation", "current": "group-other", "expected_sources": [], "excluded_sources": ["group-word", "private-other"]}
+  ]
+}

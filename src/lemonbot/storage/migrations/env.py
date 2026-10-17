@@ -12,7 +12,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-if database_url := os.environ.get("LEMONBOT_DATABASE_URL"):
+if not config.attributes.get("explicit_database_path") and (
+    database_url := os.environ.get("LEMONBOT_DATABASE_URL")
+):
     if not database_url.startswith("sqlite:///"):
         raise RuntimeError("LEMONBOT_DATABASE_URL must be a local sqlite:/// URL")
     config.set_main_option("sqlalchemy.url", database_url)

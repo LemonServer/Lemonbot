@@ -153,6 +153,7 @@ class ContextBuilder:
         selected_memory_ids = {hit.record.memory_id for hit in selected_hits}
         return ContextBundle(
             messages=messages,
+            selected_message_ids=tuple(t.message_id for t in [*selected_turns, current]),
             memory_ids=tuple(hit.record.memory_id for hit in selected_hits),
             estimated_tokens=estimated,
             omitted_turns=len(deduplicated_turns) - len(selected_turns),

@@ -32,3 +32,26 @@ copyright/license files are retained locally. No noVNC assets are bundled in thi
 MIT source repository. WebSocket dependency versions and hashes are in uv.lock.
 
 DeepSeek is an external paid service subject to its own terms and pricing.
+
+Optional local search references the official [SearXNG](https://github.com/searxng/searxng)
+container, licensed AGPL-3.0. Lemonbot does not vendor or redistribute its source/image;
+the installed upstream service retains its own license and source association. See
+[local search deployment](docs/read-capabilities.md). Playwright-managed Chromium is
+downloaded separately under its upstream licenses, not bundled in this repository.
+
+## Optional local embeddings
+
+The optional worker downloads [BAAI/bge-small-zh-v1.5](https://huggingface.co/BAAI/bge-small-zh-v1.5)
+through the separately maintained [Xenova ONNX conversion](https://huggingface.co/Xenova/bge-small-zh-v1.5),
+pinned to revision `75c43b069aac4d136ba6bc1122f995fedcfd2781` and individual SHA-256 hashes.
+The BAAI model card declares MIT; the conversion README identifies that base model,
+but the inspected conversion metadata does not establish the exact original checkpoint
+revision or an additional conversion license. Do not infer those associations.
+Weights, tokenizers, generated TensorRT plans and model-card files are downloaded or
+built locally, not bundled in this source repository. The downloaded card is retained.
+
+NVIDIA CUDA and TensorRT remain system components under NVIDIA's own terms, not
+covered by Lemonbot's MIT license. The standalone environment uses the already
+installed TensorRT Python bindings; it does not redistribute CUDA/TensorRT or replace
+the device driver. Its other Python dependencies and hashes are exported from uv.lock
+in [the worker requirements](deploy/embedding-worker-requirements.txt).

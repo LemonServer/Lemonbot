@@ -50,6 +50,10 @@ class IsolatedBrowserReadTool:
             timeout_seconds=config.timeout_seconds,
         ).manifest()
 
+    def with_name(self, name: str) -> IsolatedBrowserReadTool:
+        self._manifest = self._manifest.model_copy(update={"name": name})
+        return self
+
     @classmethod
     async def create(
         cls,

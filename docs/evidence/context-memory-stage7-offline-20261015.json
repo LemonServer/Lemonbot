@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-15",
+  "stage": 7,
+  "mode": "offline_synthetic_not_live_acceptance",
+  "starting_head": "f23012524fbabab730096f99295fe6b61fe852cd",
+  "uncommitted_worktree": true,
+  "checks": {
+    "pytest": {
+      "passed": 931,
+      "seconds": 156.96,
+      "existing_warnings": 1
+    },
+    "targeted_matrix": {
+      "passed": 181,
+      "seconds": 91.73
+    },
+    "new_tests": 15,
+    "ruff": "passed",
+    "mypy": {
+      "passed": true,
+      "source_files": 159
+    },
+    "uv_lock": "passed",
+    "release_check": "passed",
+    "diff_check": "passed"
+  },
+  "migration_rehearsal": {
+    "from": "20260825_0006",
+    "to": "20261015_0008",
+    "independent_synthetic_copy": true,
+    "first_import_inserted": 3,
+    "second_import_inserted": 0,
+    "unknown_assistant_excluded": true,
+    "legacy_rows_unchanged": true,
+    "unknown_count_preserved": 1,
+    "persistent_pause_preserved": true,
+    "configuration_rollback_compatible": true,
+    "schema_downgrade_refused": true
+  },
+  "lifecycle": {
+    "complete_database_export_restore": true,
+    "private_backup_permissions": "0600",
+    "standard_index_invalidated_and_rebuilt": true,
+    "linked_index_refused": true,
+    "scoped_erasure_tested_on_synthetic_only": true,
+    "shared_objects_preserved": true,
+    "erased_jobs_sources_redacted_charges_retained": true
+  },
+  "composed_path": {
+    "cases": 4,
+    "genuine_mentions_and_normal_archive": true,
+    "group_cross_author_retrieval": true,
+    "private_group_account_isolation": true,
+    "one_post_unique_receipt": true,
+    "ambiguous_receipt_unknown_no_retry": true,
+    "persistent_pause_and_no_downtime_replay": true,
+    "gpu_backend": "synthetic_only"
+  },
+  "real_cuda_evidence": "stage_3_and_4_only_no_new_device_measurement",
+  "real_cloud_or_wechat_calls": false,
+  "running_services_changed": false,
+  "production_database_or_config_changed": false,
+  "default_off_preserved": true,
+  "next_stage": 8,
+  "pending": [
+    "real_two_stage_api_preflight_with_existing_global_budget",
+    "production_cutover",
+    "authorized_testing_and_private_contact_acceptance",
+    "real_combined_cuda_latency_cost_and_cache_evidence"
+  ],
+  "cloud_consolidation_live_acceptance": "not_run_default_off"
+}

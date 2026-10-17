@@ -7,7 +7,7 @@ import re
 import shutil
 import sqlite3
 from contextlib import closing
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePath
 from uuid import UUID, uuid4
 
@@ -68,6 +68,7 @@ class AttachmentStore:
         *,
         max_attachment_bytes: int = 50 * 1024 * 1024,
         minimum_free_bytes: int = DEFAULT_MINIMUM_FREE_BYTES,
+        image_retention_days: int | None = None,
     ) -> None:
         if minimum_free_bytes < 0:
             raise ValueError("minimum_free_bytes cannot be negative")
@@ -80,6 +81,7 @@ class AttachmentStore:
         self._minimum_free_bytes = minimum_free_bytes
         self._capacity_status = AttachmentCapacityStatus(minimum_free_bytes=minimum_free_bytes)
         self._lock = asyncio.Lock()
+        self.image_retention_days = image_retention_days
 
     @property
     def capacity_status(self) -> AttachmentCapacityStatus:
@@ -103,6 +105,35 @@ class AttachmentStore:
 
     async def initialize(self) -> None:
         await asyncio.to_thread(self._initialize_sync)
+
+    async def expire_images(self, days: int = 7) -> None:
+        """Lazy retention cleanup; retain records, remove only unshared expired image bytes."""
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        async with self._lock:
+            await asyncio.to_thread(self._expire_images_sync, cutoff)
+
+    def _expire_images_sync(self, cutoff: str) -> None:
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            digests = db.execute(
+                "SELECT DISTINCT sha256 FROM attachments WHERE created_at<? "
+                "AND media_type LIKE 'image/%'",
+                (cutoff,),
+            ).fetchall()
+            for (digest,) in digests:
+                shared = db.execute(
+                    "SELECT 1 FROM attachments WHERE sha256=? AND "
+                    "(created_at>=? OR media_type NOT LIKE 'image/%') LIMIT 1",
+                    (digest, cutoff),
+                ).fetchone()
+                if shared is None:
+                    self._objects_path(digest).unlink(missing_ok=True)
+            db.execute(
+                "UPDATE attachments SET status='rejected' WHERE created_at<? "
+                "AND media_type LIKE 'image/%'",
+                (cutoff,),
+            )
+            db.commit()
 
     def _initialize_sync(self) -> None:
         self._database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,6 +172,8 @@ class AttachmentStore:
     ) -> StoredAttachment:
         if not channel or not chat_id or not event_id:
             raise ValueError("attachment scope is required")
+        if self.image_retention_days is not None:
+            await self.expire_images(self.image_retention_days)
         if not _MEDIA_TYPE.fullmatch(media_type.lower()):
             raise ValueError("invalid attachment media type")
         if not content or len(content) > self._max_attachment_bytes:
@@ -323,6 +356,8 @@ class AttachmentStore:
         record = await asyncio.to_thread(self._get_sync, attachment_id)
         if record is None:
             raise KeyError(str(attachment_id))
+        if record.status == "rejected":
+            raise ValueError("attachment is rejected or expired")
         if (record.channel, record.chat_id, record.event_id) != (channel, chat_id, event_id):
             raise AttachmentScopeError("attachment belongs to another conversation event")
         path = self._objects_path(record.sha256)

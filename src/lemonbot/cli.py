@@ -1221,6 +1221,7 @@ def data_delete_conversation(
             {
                 "operation_id": result.operation_id,
                 "rows_deleted": result.total_rows,
+                "accounting_rows_redacted": sum(result.rows_redacted.values()),
                 "objects_removed": result.objects_removed,
                 "object_cleanup_failures": result.object_cleanup_failures,
             },

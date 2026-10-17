@@ -16,7 +16,7 @@ from pathlib import Path
 
 from lemonbot.config import RuntimePaths
 from lemonbot.config.paths import default_wechat_runtime_config
-from lemonbot.config.settings import load_settings
+from lemonbot.config.settings import load_settings, resolve_config_path
 
 UNIT = "lemonbot-wechat-conversation.service"
 
@@ -58,6 +58,12 @@ def main() -> None:
         "--stop", action="store_true", help="Pause, drain and stop without restarting."
     )
     args = parser.parse_args()
+    args.config = resolve_config_path(args.config)
+    if not args.config.is_file():
+        print(
+            f"RuntimeConfigMissing: {args.config}; use --config or migrate to config/lemonbot.toml."
+        )
+        raise SystemExit(1)
     settings = load_settings(args.config)
     paths = RuntimePaths.from_settings(settings)
     state = command(

@@ -2,6 +2,8 @@
 
 Run these from the installed checkout as the desktop user. First install:
 [deployment guide](deployment.md). Custom configs require `--config /absolute/path`.
+For this Jetson Orin installation, use the [device reboot startup manual](restart-jetson-orin.md),
+which includes the required ARM64 flag and this device's noVNC entry point.
 
 ## Everyday commands
 
@@ -27,7 +29,11 @@ non-retryable even when a user reports not receiving the message.
 
 ## Change whitelist or settings
 
-Edit the private `whitelist.toml`, then safe restart and **explicitly resume**.
+Edit `config/wechat-whitelist.local.toml` in the checkout, then safe restart and **explicitly resume**.
+The main config is `config/lemonbot.toml`; all entry points honor explicit `--config`
+before `LEMONBOT_CONFIG` before the checkout default. Services record an absolute
+config path. After selecting a different main config, regenerate service units with
+`install-services --config ...` and use the same config for control/restart.
 Resume alone does not reload config or synchronize newly named conversations.
 Use exact names, including spaces, and open new chats in WeChat before restarting.
 The startup report distinguishes name matching, message readability and reply enabling.
@@ -70,8 +76,9 @@ from private persistent files; it does not depend on `/tmp`.
 | Keyring/model failures | Unlock Secret Service, inspect key status, official balance and budget; no retry loop |
 | No group reply | Verify genuine member-selection @, whitelist, pause, budget and limits; typed nickname is not a trigger |
 
-A quoted message triggers only through its current message metadata. Media and
-nontext quote bodies are unsupported. Same text with different IDs remains distinct.
+A quoted message triggers only through its current message metadata. Media is off
+by default; the optional [read capabilities](read-capabilities.md) add exact image
+quotes and public link cards. Same text with different IDs remains distinct.
 
 ## Data, upgrades and rollback
 
@@ -84,3 +91,6 @@ Before an upgrade record your commit/config, drain, make a private backup, insta
 locked dependencies and restart/resume. Roll back code without rewriting the DB,
 UNKNOWN or pause state. No automatic schema downgrade is provided.
 Historical recovery experiments are [archived](history/README.md), not current commands.
+
+统一上下文公开默认关闭；本机已进入阶段 8 两目标验收。只读检查、备份/删除语义、迁移门槛与配置回退见
+[统一上下文运维手册](context-memory-operations.md)。生产迁移及真实验收只在阶段 8 执行。

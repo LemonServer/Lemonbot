@@ -7,6 +7,7 @@ import os
 import sys
 from collections.abc import Awaitable, Callable
 from decimal import Decimal
+from pathlib import Path
 from typing import BinaryIO, Protocol
 
 from pydantic import ValidationError
@@ -20,6 +21,7 @@ from lemonbot.models.gateway import (
     ModelTransportError,
     OpenAICompatibleBackend,
 )
+from lemonbot.models.image_input import ImageInputReader
 from lemonbot.models.schema import ToolCallValidationError, ToolSchemaError
 from lemonbot.models.secrets import MappingSecretStore, SecretNotFoundError, SecretStore
 from lemonbot.models.worker_protocol import (
@@ -86,6 +88,7 @@ async def _build_backend(config: ModelWorkerConfig) -> _WorkerBackend:
         config=provider,
         secret_store=secret_store,
         budget=budget,
+        image_reader=(ImageInputReader(Path(config.objects_root)) if config.objects_root else None),
     )
 
 

@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from lemonbot.config.paths import RuntimePaths
+from lemonbot.memory.unified.lifecycle import index_files, invalidate_index
 from lemonbot.runtime_lock import AlreadyRunningError, RuntimeLock
 
 
@@ -116,6 +117,7 @@ def create_backup(paths: RuntimePaths, output: Path | None = None) -> Path:
             for entry in objects:
                 relative = str(entry["name"])
                 archive.write(paths.objects / relative, f"objects/{relative}")
+        partial.chmod(0o600)
         os.replace(partial, destination)
     return destination
 
@@ -348,6 +350,11 @@ def _restore_backup_locked(
             result = connection.execute("PRAGMA integrity_check").fetchone()
             if result != ("ok",):
                 raise BackupError("restored database failed integrity_check")
+        try:
+            index_files(paths)
+            invalidate_index(paths)
+        except ValueError as error:
+            raise BackupError("unsafe context index") from error
         _atomic_install_restore(
             paths,
             staged_database,

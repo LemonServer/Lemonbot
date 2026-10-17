@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import secrets
@@ -62,6 +63,8 @@ from lemonbot.memory import (
     MemoryDerivationService,
     SQLiteMemoryStore,
 )
+from lemonbot.memory.unified.archive import SQLiteMessageArchive
+from lemonbot.memory.unified.flow import TwoStageContextFlow
 from lemonbot.models import (
     BudgetLimits,
     IsolatedModelBackend,
@@ -80,6 +83,7 @@ from lemonbot.orchestration import (
     PipelineConfig,
     PipelineStatus,
 )
+from lemonbot.orchestration.prompts import CAPABILITY_SYSTEM_PROMPT
 from lemonbot.policy import DeterministicPolicy, PolicyConfig, RateLimitProfile
 from lemonbot.proactive import ProactiveJobStore, ProactiveRunner
 from lemonbot.runtime_lock import RuntimeLock
@@ -93,7 +97,9 @@ from lemonbot.tools import Tool
 from lemonbot.tools.attachments import AttachmentStore
 from lemonbot.tools.browser_worker_protocol import BrowserWorkerConfig
 from lemonbot.tools.browser_worker_proxy import IsolatedBrowserReadTool
+from lemonbot.tools.clock import ClockTool
 from lemonbot.tools.mcp import MCPStdioClient, MCPToolAdapter, PinnedMCPServer
+from lemonbot.tools.search import SearchQuota, SearchTool
 from lemonbot.tools.vault import FileVault, VaultCreateTool, VaultReadTool, VaultRoot
 from lemonbot.tools.vision_tool import ImageUnderstandingTool
 
@@ -374,15 +380,25 @@ class LemonbotRuntime:
             profile=settings.profile,
         )
         self.memory = SQLiteMemoryStore(self.paths.database)
-        self.attachments = AttachmentStore(self.paths.database, self.paths.objects)
+        self.attachments = AttachmentStore(
+            self.paths.database,
+            self.paths.objects,
+            image_retention_days=(
+                settings.conversation.image_retention_days
+                if settings.conversation.images_enabled
+                else None
+            ),
+        )
         self.connector: Connector | None = None
         self.model: ModelBackend | None = None
         self.pipeline: EventPipeline | None = None
         self.proactive_store = ProactiveJobStore(self.paths.database)
         self.proactive_runner: ProactiveRunner | None = None
         self._model_close: Any | None = None
+        self._context_flow_close: Any | None = None
         self._vision_close: Any | None = None
         self._browser_close: Any | None = None
+        self._search_close: Any | None = None
         self._mcp_clients: list[MCPStdioClient] = []
         self._worker_supervisor = WorkerSupervisor()
         self._budget: PersistentBudgetManager | None = None
@@ -403,6 +419,8 @@ class LemonbotRuntime:
         await self.database.initialise()
         await self.memory.initialize()
         await self.attachments.initialize()
+        if self.settings.conversation.images_enabled:
+            await self.attachments.expire_images(self.settings.conversation.image_retention_days)
         observe_only = self.settings.runtime.connector == "wechat_atspi"
         agent_selected = self.settings.runtime.connector == "wechat_agent"
         canary_only = agent_selected and self.settings.wechat_agent.mode == "canary"
@@ -426,16 +444,22 @@ class LemonbotRuntime:
         if isinstance(self.connector, RuntimeAgentWechatConnector) and recovery["outbox_unknown"]:
             await self.connector.pause("InterruptedSend")
         self.model = await self._build_model()
-        tools, scopes = ({}, set()) if passive_services else await self._build_tools()
+        if agent_selected and not canary_only:
+            tools, scopes = await self._build_conversation_tools()
+        else:
+            tools, scopes = ({}, set()) if passive_services else await self._build_tools()
         policy = DeterministicPolicy(self.repository, config=self._policy_config())
         self._tools = dict(tools)
         self._tool_scopes = frozenset(scopes)
         self._policy = policy
+        context_flow = await self._build_context_flow()
         self.pipeline = EventPipeline(
             self.repository,
             policy,
             self.model,
             tools=tools,
+            attachments=self.attachments,
+            context_flow=context_flow,
             memory_context=(
                 None
                 if not memory_enabled
@@ -460,6 +484,11 @@ class LemonbotRuntime:
                 else None
             ),
             config=PipelineConfig(
+                system_prompt=(
+                    CAPABILITY_SYSTEM_PROMPT
+                    if self.settings.conversation.enabled
+                    else PipelineConfig().system_prompt
+                ),
                 profile=self.settings.profile,
                 welcome_text=None,
                 max_task_seconds=self.settings.limits.event_timeout_seconds,
@@ -467,7 +496,11 @@ class LemonbotRuntime:
                 max_model_turns=self.settings.limits.max_model_turns,
                 max_task_input_tokens=(self.settings.limits.max_task_input_tokens),
                 max_task_output_tokens=(self.settings.limits.max_task_output_tokens),
-                max_tool_calls=self.settings.limits.max_tool_calls,
+                max_tool_calls=(
+                    min(5, self.settings.limits.max_tool_calls)
+                    if agent_selected
+                    else self.settings.limits.max_tool_calls
+                ),
                 max_navigations=self.settings.limits.max_navigations,
                 max_downloads=self.settings.limits.max_downloads,
                 max_reply_chars=(
@@ -487,6 +520,11 @@ class LemonbotRuntime:
                 deep_sender_ids=frozenset(),
                 output_mode=_pipeline_output_mode(self.settings),
                 canary_only=canary_only,
+                timezone=self.settings.timezone,
+                images_enabled=self.settings.conversation.images_enabled,
+                image_retention_days=self.settings.conversation.image_retention_days,
+                tool_headroom_tokens=(1024 if agent_selected and tools else 0),
+                tool_result_bytes=(2000 if agent_selected else 64_000),
             ),
         )
         if not passive_services:
@@ -609,6 +647,15 @@ class LemonbotRuntime:
                     state,
                     run_id=transport.run_id,
                     diagnostic=lambda value: logger.info("agent_send %s", value),
+                    attachments=(
+                        self.attachments if self.settings.conversation.images_enabled else None
+                    ),
+                    links_enabled=self.settings.conversation.web_read_enabled,
+                    archive=(
+                        self._message_archive()
+                        if self.settings.context_memory.archive_enabled
+                        else None
+                    ),
                 )
             connector = RuntimeAgentWechatConnector(transport, self.repository, state)
             await connector.initialize()
@@ -662,6 +709,116 @@ class LemonbotRuntime:
             load_cursor=load_cursor,
             save_cursor=save_cursor,
         )
+
+    async def _build_context_flow(self) -> TwoStageContextFlow | None:
+        if not self.settings.context_memory.enabled:
+            return None
+        from lemonbot.embeddings.artifacts import EmbeddingError
+        from lemonbot.embeddings.config import embedding_paths, worker_config
+        from lemonbot.embeddings.proxy import IsolatedEmbeddingWorker
+        from lemonbot.memory.unified.assembly import VerifiedContextAssembler
+        from lemonbot.memory.unified.images import BoundImageResolver
+        from lemonbot.memory.unified.index import SQLiteRetrievalIndex
+        from lemonbot.memory.unified.retrieval import HybridContextRetriever
+        from lemonbot.memory.unified.retrieval_cli import configured_options
+        from lemonbot.memory.unified.wechat import archive_scope
+
+        if (
+            self._budget is None
+            or self.model is None
+            or not isinstance(self.connector, RuntimeAgentWechatConnector)
+            or not isinstance(self.connector.transport, ConversationMultiplexer)
+        ):
+            raise RuntimeError("unified context requires bound conversation components")
+        archive = self._message_archive()
+        index = SQLiteRetrievalIndex(
+            self.paths.root / "context-index" / self.settings.profile / "index.sqlite3",
+            self.paths.database,
+        )
+        worker = None
+        _, executable = embedding_paths(self.settings)
+        try:
+            worker = await IsolatedEmbeddingWorker.create(
+                config=worker_config(self.settings),
+                python_executable=executable,
+                timeout_seconds=self.settings.context_memory.embedding_timeout_seconds,
+            )
+        except (EmbeddingError, OSError, ValueError, TimeoutError):
+            logger.warning("unified context embedding unavailable; using keyword/recent retrieval")
+        logger.info(
+            "unified_context_startup %s",
+            json.dumps({
+                "backend": "keyword_recent" if worker is None else worker.ready.backend,
+                "precision": None if worker is None else worker.ready.precision,
+                "model_version": None if worker is None else worker.ready.model_version,
+                "degraded": worker is None,
+                "archive_enabled": self.settings.context_memory.archive_enabled,
+                "consolidation_enabled": self.settings.context_memory.consolidation_enabled,
+            }),
+        )
+        retriever = HybridContextRetriever(
+            archive, index, worker=worker, options=configured_options(self.settings)
+        )
+        self._context_flow_close = retriever.close
+        images = (
+            BoundImageResolver(
+                archive,
+                self.repository,
+                self.attachments,
+                retention_days=self.settings.conversation.image_retention_days,
+            )
+            if self.settings.conversation.images_enabled
+            else None
+        )
+        from lemonbot.memory.unified.consolidation import MemoryConsolidator
+        from lemonbot.memory.unified.maintenance import UnifiedMemoryStore
+        from lemonbot.memory.unified.remember import MemoryContextRetriever
+        from lemonbot.memory.unified.wechat import snapshot_message
+
+        memories = UnifiedMemoryStore(archive)
+        flow = TwoStageContextFlow(
+            archive=archive,
+            retriever=MemoryContextRetriever(retriever, memories),
+            assembler=VerifiedContextAssembler(archive, images, memories),
+            memories=memories,
+            model=self.model,
+            budget=self._budget,
+            scopes={
+                reference: archive_scope(child.binding, is_group=child.target.is_group)
+                for reference, child in self.connector.transport.children.items()
+            },
+            system_prompt=CAPABILITY_SYSTEM_PROMPT
+            if self.settings.conversation.enabled
+            else PipelineConfig().system_prompt,
+            timezone=self.settings.timezone,
+            input_limit=self.settings.models.max_input_tokens,
+            output_limit=self.settings.models.max_output_tokens,
+        )
+        transport = self.connector.transport
+
+        def confirmed_source(outbound: Any) -> Any:
+            child = transport.children.get(outbound.chat_id)
+            confirmed = None if child is None else getattr(child, "last_confirmed_row", None)
+            if child is None or confirmed is None or confirmed[0] != str(outbound.message_id):
+                return None
+            return snapshot_message(
+                confirmed[1], binding=child.binding, key=child.key, is_group=child.target.is_group
+            )
+
+        flow.confirmed_source = confirmed_source
+        if self.settings.context_memory.consolidation_enabled:
+            flow.consolidator = MemoryConsolidator(
+                memories,
+                self.model,
+                self._budget,
+                minimum=self.settings.context_memory.consolidation_min_messages,
+                daily_cap=self.settings.context_memory.consolidation_daily_cny,
+                timezone=self.settings.timezone,
+            )
+        return flow
+
+    def _message_archive(self) -> SQLiteMessageArchive:
+        return SQLiteMessageArchive(self.paths.database)
 
     @staticmethod
     def _sha256_file(path: Path) -> str:
@@ -786,6 +943,11 @@ class LemonbotRuntime:
                 profile=self.settings.profile,
                 provider=config,
                 verify_models_on_startup=self.settings.models.verify_models_on_startup,
+                objects_root=(
+                    str(self.paths.objects.resolve())
+                    if self.settings.conversation.images_enabled
+                    else None
+                ),
             ),
             budget=budget,
             supervisor=self._worker_supervisor,
@@ -794,6 +956,42 @@ class LemonbotRuntime:
         )
         self._model_close = backend.aclose
         return backend
+
+    async def _build_conversation_tools(self) -> tuple[Mapping[str, Tool], set[str]]:
+        features = self.settings.conversation
+        tools: dict[str, Tool] = {}
+        scopes: set[str] = set()
+        if features.web_read_enabled:
+            browser = await IsolatedBrowserReadTool.create(
+                config=BrowserWorkerConfig(max_text_chars=12000, timeout_seconds=30),
+                supervisor=self._worker_supervisor,
+                python_executable=Path(sys.executable),
+                cwd=Path(__file__).resolve().parent,
+            )
+            browser.with_name("web.read")
+            tools["web.read"] = browser
+            scopes.add("browser.read_public")
+            self._browser_close = browser.aclose
+        if features.clock_enabled:
+            clock = ClockTool(self.settings.timezone)
+            tools["clock.now"] = clock
+            scopes.add("clock.read")
+        if features.search_enabled:
+            if self._budget is None:
+                raise RuntimeError("search requires the shared persistent budget")
+            search = SearchTool(
+                endpoint=features.search_url,
+                quota=SearchQuota(
+                    self.paths.database,
+                    daily=features.search_daily_limit,
+                    monthly=features.search_monthly_limit,
+                    timezone=self.settings.timezone,
+                ),
+            )
+            tools["web.search"] = search
+            scopes.add("web.search")
+            self._search_close = search.aclose
+        return tools, scopes
 
     async def _build_tools(self) -> tuple[Mapping[str, Tool], set[str]]:
         tools: dict[str, Tool] = {}
@@ -897,12 +1095,16 @@ class LemonbotRuntime:
         connector = self.connector
         if connector is not None and hasattr(connector, "close"):
             close_operations.append(connector.close())
+        if self._context_flow_close is not None:
+            close_operations.append(self._context_flow_close())
         if self._model_close is not None:
             close_operations.append(self._model_close())
         if self._vision_close is not None:
             close_operations.append(self._vision_close())
         if self._browser_close is not None:
             close_operations.append(self._browser_close())
+        if self._search_close is not None:
+            close_operations.append(self._search_close())
         clients, self._mcp_clients = self._mcp_clients, []
         close_operations.extend(client.close() for client in clients)
         results = list(await asyncio.gather(*close_operations, return_exceptions=True))
@@ -1008,6 +1210,8 @@ class LemonbotRuntime:
                 self.connector.work_available.clear()
                 async with self.connector.processing_operation():
                     result = await self.pipeline.process_once(channel)
+                    if result.status is PipelineStatus.IDLE:
+                        await self._maintain_context_idle()
                 if result.status is PipelineStatus.IDLE:
                     if not await self.repository.has_active_inbox(
                         CHANNEL
@@ -1027,6 +1231,37 @@ class LemonbotRuntime:
             ):
                 await self.connector.pause("ModelReplyFailed")
             await asyncio.sleep(0.2 if result.status is PipelineStatus.IDLE else 0)
+
+    async def _maintain_context_idle(self) -> None:
+        """Run inside the existing serialized processing operation, never a new task."""
+        flow = None if self.pipeline is None else self.pipeline.context_flow
+        if flow is None:
+            return
+        try:
+            await flow.recover_confirmed()
+        except Exception:
+            logger.warning("unified local ACK maintenance incomplete; preserved for recovery")
+        if flow.consolidator is None:
+            return
+        for scope in flow.scopes.values():
+
+            async def before_call(scope: Any = scope) -> None:
+                if (
+                    await self.repository.is_paused(scope.channel)
+                    or await self.repository.has_active_inbox(scope.channel)
+                    or await self.repository.has_active_outbox(scope.channel)
+                    or not isinstance(self.connector, RuntimeAgentWechatConnector)
+                    or not self.connector.ready
+                    or not isinstance(self.connector.transport, ConversationMultiplexer)
+                    or scope.conversation_id in self.connector.transport.target_pauses
+                ):
+                    raise RuntimeError("context consolidation requires an idle eligible target")
+
+            try:
+                await before_call()
+                await flow.consolidator.run_once(scope, before_call=before_call)
+            except Exception:
+                logger.warning("unified consolidation skipped/failed; no automatic paid retry")
 
     async def _consume_loop(self) -> None:
         assert self.pipeline is not None and self.connector is not None

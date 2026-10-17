@@ -125,6 +125,23 @@ class CoreRepository:
             )
         return None if row is None else self._inbox_item(row).event
 
+    async def image_intakes(
+        self, channel: str, chat_id: str, source_message_id: str
+    ) -> tuple[InboundEvent, ...]:
+        """Exact broker image source only; return up to two to expose ambiguity."""
+        async with self.database.sessions() as session:
+            rows = await session.scalars(
+                select(InboxRow)
+                .where(
+                    InboxRow.channel == channel,
+                    InboxRow.chat_id == chat_id,
+                    func.json_extract(InboxRow.metadata_json, "$.image_source_ref")
+                    == source_message_id,
+                )
+                .limit(2)
+            )
+            return tuple(self._inbox_item(row).event for row in rows)
+
     async def record_inbound(self, event: InboundEvent) -> bool:
         """Persist an event and its raw message exactly once."""
         async with self.database.sessions() as session, session.begin():
@@ -978,6 +995,28 @@ class CoreRepository:
                 )
             ).all()
         return [self._conversation_message(row) for row in reversed(rows)]
+
+    async def retain_read_context(self, event: InboundEvent, name: str, content: str) -> None:
+        """Bounded untrusted observations attached to their originating user event."""
+        async with self.database.sessions() as session, session.begin():
+            row = await session.scalar(
+                select(MessageRow).where(
+                    MessageRow.channel == event.channel,
+                    MessageRow.chat_id == event.chat_id,
+                    MessageRow.external_id == event.event_id,
+                    MessageRow.role == MessageRole.USER.value,
+                )
+            )
+            if row is None or row.metadata_json.get("context_scope") != event.metadata.get(
+                "context_scope"
+            ):
+                raise ValueError("read context event binding mismatch")
+            metadata = dict(row.metadata_json)
+            observations = list(metadata.get("read_context", []))[-2:]
+            observations.append(
+                {"tool": name, "content": content.encode("utf-8")[:2000].decode("utf-8", "ignore")}
+            )
+            row.metadata_json = {**metadata, "read_context": observations}
 
     async def search_messages(
         self, channel: str, chat_id: str, query: str, *, limit: int = 10

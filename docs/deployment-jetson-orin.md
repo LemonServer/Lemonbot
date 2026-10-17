@@ -92,6 +92,8 @@ Frida 原生模块、zstd 与 SQLCipher 执行、固定微信版本；结果保�
 Orin 默认独立状态和卷如下；不复用旧机数据，不复制绑定：
 
 ```text
+/home/ega-agx-orin/Lemonbot/config/lemonbot.toml
+/home/ega-agx-orin/Lemonbot/config/wechat-whitelist.local.toml
 ~/.local/state/lemonbot/jetson-orin/agent-wechat-reproduction/api-token
 ~/.local/state/lemonbot/jetson-orin/agent-wechat-lab/
 ~/.local/share/Lemonbot-wechat-orin/
@@ -135,8 +137,9 @@ uv run --locked lemonbot secret set deepseek_api_key --profile lab
 不适用于消息查询。
 
 setup 不发消息，不自动启用机器人。私有文件 0600、目录 0700；API 密钥仅隐藏输入并
-存于 Secret Service。编辑私有白名单，仅包含 testing 与一个明确授权的精确私聊名称，
-先手动打开两会话同步。将生成配置已有字段改为 `runtime.connector="wechat_agent"`、
+存于 Secret Service。编辑仓库内 `config/wechat-whitelist.local.toml`，首次验收仅包含
+testing 与一个明确授权的精确私聊名称，先手动打开两会话同步。
+将生成的 `config/lemonbot.toml` 已有字段改为 `runtime.connector="wechat_agent"`、
 `wechat_agent.enabled=true`、`models.provider="deepseek"`，保持 `memory_enabled=false`。
 不要追加重复 TOML 表；保留 Orin 数据路径、token/state/whitelist、价格、预算和限制。
 默认每日 5 CNY、每月 100 CNY；启用时复核 [模型价格](deepseek-pricing.md)。
@@ -157,8 +160,10 @@ uv run --locked python scripts/wechat_conversation_control.py resume
 ```
 
 用户单位使用实际 checkout/Python/私有配置与当前容器 IP；setup 不 enable 任何 boot
-单位，不启动 metadata/bot 业务。控制/重启脚本在 aarch64 默认使用 Orin 配置；自定义
-部署明确传 `--config /absolute/path/conversation-runtime.toml`。桥 localhost 6175、
+单位，不启动 metadata/bot 业务。所有入口按显式 `--config`、`LEMONBOT_CONFIG`、
+当前 checkout 的 `config/lemonbot.toml` 顺序选择配置，不依赖终端工作目录。
+主配置保留 Orin 私有数据路径；旧状态目录里的 TOML 不自动回退加载。
+自定义部署明确传 `--config /absolute/path/lemonbot.toml`。桥 localhost 6175、
 管理 UI localhost 8767，认证 URL 不公开。resume 核验身份/目标并建立新基线，不回放停机消息。
 
 对端按顺序发六条，应回复的消息收到一次回复后再发下一条，不重发或人工补发机器人回复：
@@ -207,6 +212,9 @@ uv run --locked python scripts/wechat_conversation_control.py resume
 召回和其他 ARM64 设备未在本轮验收，不能外推。合成测试继续覆盖 UNKNOWN 跨重启不重发。
 
 ## 运行、恢复与回退
+
+设备重启后按 [Orin 设备重启启动手册](restart-jetson-orin.md) 逐步恢复；其中包含本机
+实际路径、正确的 noVNC 入口、密钥环解锁、服务配置刷新及 doctor/显式恢复顺序。
 
 常用：`wechat_conversation_control.py status/pause/resume`；安全重启：
 `wechat_bot_restart.py`；安全停止：`wechat_bot_restart.py --stop`。详见 [运维](operations.md)。

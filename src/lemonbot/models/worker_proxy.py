@@ -240,7 +240,7 @@ class IsolatedModelBackend:
             tools=True,
             json_output=True,
             thinking=provider.enable_thinking_on_pro,
-            vision=False,
+            vision=self._config.objects_root is not None,
             embeddings=False,
             context_tokens=provider.context_tokens,
         )
@@ -249,6 +249,7 @@ class IsolatedModelBackend:
         total = 256
         for message in messages:
             if isinstance(message, ModelMessage):
+                total += 1024 * len(message.images)
                 try:
                     payload: object = OpenAICompatibleBackend._message_payload(message)
                 except ModelProtocolError:
@@ -285,6 +286,13 @@ class IsolatedModelBackend:
             ).encode("utf-8")
             prompt_tokens += len(encoded) + 64 * len(request.tools) + 256
         routed = self._router.route(request)
+        if any(m.images for m in request.messages) and (
+            self._config.objects_root is None
+            or routed.provider != "deepseek"
+            or routed.model != "deepseek-flash"
+            or sum(len(m.images) for m in request.messages) > 1
+        ):
+            raise ModelProtocolError("native images require configured DeepSeek Flash")
         if prompt_tokens + request.max_tokens > self._config.provider.context_tokens:
             raise ModelProtocolError("request exceeds the configured model context window")
         return routed.model, prompt_tokens
@@ -324,6 +332,7 @@ class IsolatedModelBackend:
                     reservation_id,
                     prompt_tokens=response.prompt_tokens,
                     completion_tokens=response.completion_tokens,
+                    cached_prompt_tokens=min(response.prompt_tokens, response.cached_prompt_tokens),
                 )
         except Exception:
             await self._terminate()

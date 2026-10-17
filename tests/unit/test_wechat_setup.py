@@ -50,10 +50,16 @@ def supported_host(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 def args(tmp_path: Path) -> argparse.Namespace:
     state = tmp_path / "different user" / "state"
     state.mkdir(parents=True, mode=0o700)
+    (tmp_path / "checkout/config").mkdir(parents=True)
     token = state / "token"
     private_write(token, b"a" * 64)
     return argparse.Namespace(
-        state_dir=state, token_file=token, sudo=False, proxy=None, experimental_arm64=False
+        state_dir=state,
+        token_file=token,
+        config=tmp_path / "checkout/config/lemonbot.toml",
+        sudo=False,
+        proxy=None,
+        experimental_arm64=False,
     )
 
 
@@ -100,10 +106,12 @@ def test_existing_environment_rejects_unsafe_reuse(tmp_path: Path, change: str) 
 
 
 @pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
+@pytest.mark.parametrize("existing_whitelist", [False, True])
 async def test_first_bind_generates_private_disabled_config_and_preserves_repeat(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     env: setup.FixedEnvironment,
+    existing_whitelist: bool,
 ) -> None:
     options = args(tmp_path)
     options.experimental_arm64 = env.experimental
@@ -116,16 +124,28 @@ async def test_first_bind_generates_private_disabled_config_and_preserves_repeat
     monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file, env))
     synced = AsyncMock()
     monkeypatch.setattr(setup, "sync_whitelist", synced)
+    whitelist = options.config.parent / "wechat-whitelist.local.toml"
+    if existing_whitelist:
+        private_write(
+            whitelist, b'version=1\ngroups=["testing", "Second group"]\ncontacts=["Peer"]\n'
+        )
+    private_write(
+        options.state_dir / "whitelist.toml", b'version=1\ngroups=["Old ignored group"]\n'
+    )
     await setup.bind_account(options)
     from lemonbot.config.settings import load_settings
 
-    config = load_settings(options.state_dir / "conversation-runtime.toml")
+    config = load_settings(options.config)
     assert config.wechat_agent.state_dir == str(options.state_dir)
     assert config.wechat_agent.token_file == str(options.token_file)
     assert not config.wechat_agent.enabled
     assert config.runtime.connector == "fake"
     assert config.models.provider == "disabled"
     assert not config.wechat_agent.memory_enabled
+    assert config.wechat_agent.whitelist_file == str(whitelist)
+    assert synced.call_args.args[4].groups == (
+        ("testing", "Second group") if existing_whitelist else ("testing",)
+    )
     if env.experimental:
         assert config.runtime.data_root == str(Path.home() / ".local/share/Lemonbot-wechat-orin")
     assert (
@@ -133,11 +153,58 @@ async def test_first_bind_generates_private_disabled_config_and_preserves_repeat
         == mock.account
     )
     assert synced.await_count == 1
-    private_write(options.state_dir / "whitelist.toml", b'version=1\ngroups=["testing"]\n')
-    before = private_read(options.state_dir / "conversation-runtime.toml")
+    private_write(
+        options.config.parent / "wechat-whitelist.local.toml", b'version=1\ngroups=["testing"]\n'
+    )
+    before = private_read(options.config)
     await setup.bind_account(options)
-    assert private_read(options.state_dir / "conversation-runtime.toml") == before
+    assert private_read(options.config) == before
     assert mock.posts == 0
+
+
+@pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
+def test_setup_resolves_config_and_preserves_private_state_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: setup.FixedEnvironment
+) -> None:
+    options = args(tmp_path)
+    options.command = "install-services"
+    options.experimental_arm64 = env.experimental
+    monkeypatch.setattr(setup.platform, "machine", lambda: env.machine)
+    original_config = options.config
+    text = (setup.REPO / "config/wechat-agent-conversation.example.toml").read_text()
+    text = text.replace(
+        'state_dir = "~/.local/state/lemonbot/agent-wechat-lab"',
+        "state_dir = " + json.dumps(str(options.state_dir)),
+    ).replace(
+        'token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"',
+        "token_file = " + json.dumps(str(options.token_file)),
+    )
+    private_write(original_config, text.encode())
+    original_state, original_token = options.state_dir, options.token_file
+    monkeypatch.setenv("LEMONBOT_CONFIG", str(original_config))
+    monkeypatch.chdir(tmp_path)
+    options.config = options.state_dir = options.token_file = None
+    setup.configure_paths(options)
+    assert options.config == original_config
+    assert options.state_dir == original_state
+    assert options.token_file == original_token
+    monkeypatch.setenv("LEMONBOT_CONFIG", str(tmp_path / "ignored.toml"))
+    setup.configure_paths(options)
+    assert options.config == original_config
+    options.state_dir = tmp_path / "conflicting-state"
+    with pytest.raises(ValueError, match="ConfigStateDirectoryMismatch"):
+        setup.configure_paths(options)
+
+
+@pytest.mark.parametrize("operation", ["doctor", "install-services"])
+def test_missing_checkout_config_rejects_legacy_implicit_fallback(
+    tmp_path: Path, operation: str
+) -> None:
+    options = args(tmp_path)
+    options.command = operation
+    private_write(options.state_dir / "conversation-runtime.toml", b'profile="lab"\n')
+    with pytest.raises(ValueError, match="RuntimeConfigMissing"):
+        setup.configure_paths(options)
 
 
 async def test_bind_requires_self_evidence_and_creates_no_binding(
@@ -213,7 +280,7 @@ def test_persistent_service_install_is_idempotent_and_does_not_start(
         'token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"',
         "token_file = " + json.dumps(str(options.token_file)),
     )
-    private_write(options.state_dir / "conversation-runtime.toml", text.encode())
+    private_write(options.config, text.encode())
     monkeypatch.setattr(setup, "inspect", lambda _args: container(options.token_file, env))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     calls = []
@@ -225,7 +292,7 @@ def test_persistent_service_install_is_idempotent_and_does_not_start(
     assert target.read_bytes() == before
     assert all(c == ("systemctl", "--user", "daemon-reload") for c in calls)
     assert target.stat().st_mode & 0o077 == 0
-    assert str(options.state_dir / "conversation-runtime.toml") in target.read_text()
+    assert str(options.config) in target.read_text()
 
 
 async def test_doctor_missing_secret_service_reports_failure_without_details(
@@ -375,9 +442,9 @@ def test_native_profiles_use_distinct_state_and_volumes(
     assert setup.default_paths(setup.AMD64) != setup.default_paths(setup.ARM64)
     assert set(setup.AMD64.volumes).isdisjoint(setup.ARM64.volumes)
     from lemonbot.config import paths
+    from lemonbot.config.settings import resolve_config_path
 
-    monkeypatch.setattr(paths, "machine", lambda: env.machine)
-    assert paths.default_wechat_runtime_config() == state / "conversation-runtime.toml"
+    assert paths.default_wechat_runtime_config() == resolve_config_path()
 
 
 @pytest.mark.parametrize("env", [setup.AMD64, setup.ARM64])
@@ -418,7 +485,7 @@ async def test_every_binding_and_service_entry_rejects_mismatched_image_before_s
         'token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"',
         "token_file = " + json.dumps(str(options.token_file)),
     )
-    private_write(options.state_dir / "conversation-runtime.toml", config.encode())
+    private_write(options.config, config.encode())
     commands = []
     monkeypatch.setattr(setup, "command", lambda *argv: commands.append(argv) or "")
     with pytest.raises(ValueError, match=reason):
@@ -457,8 +524,12 @@ async def test_login_initialization_never_repairs_existing_missing_identity(
 
 @pytest.mark.parametrize(
     ("event", "reason"),
-    [("login_success", None), ("qr", "ManualLoginRequired"),
-     ("error", "LoginInitializationFailed"), ("login_timeout", "LoginInitializationFailed")],
+    [
+        ("login_success", None),
+        ("qr", "ManualLoginRequired"),
+        ("error", "LoginInitializationFailed"),
+        ("login_timeout", "LoginInitializationFailed"),
+    ],
 )
 async def test_login_initialization_uses_candidate_protocol_and_requires_real_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, event: str, reason: str | None

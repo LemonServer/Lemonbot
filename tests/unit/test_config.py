@@ -7,6 +7,54 @@ import pytest
 from lemonbot.config.settings import AppSettings, load_settings
 
 
+def test_checkout_config_is_independent_of_cwd_and_missing_file_has_no_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lemonbot.config import settings
+    from lemonbot.config.paths import default_wechat_runtime_config
+
+    root = tmp_path / "source checkout"
+    root.mkdir()
+    monkeypatch.setattr(settings, "checkout_root", lambda: root)
+    monkeypatch.delenv("LEMONBOT_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    expected = root / "config/lemonbot.toml"
+    assert settings.default_config_path() == expected
+    assert default_wechat_runtime_config() == expected
+    with pytest.raises(FileNotFoundError) as error:
+        load_settings()
+    assert error.value.filename == str(expected)
+
+
+def test_config_priority_explicit_then_environment_then_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from lemonbot.config import settings
+
+    explicit = tmp_path / "explicit.toml"
+    explicit.write_text('profile="lab"\ntimezone="UTC"\n')
+    override = tmp_path / "override.toml"
+    override.write_text('profile="prod"\n')
+    monkeypatch.setenv("LEMONBOT_CONFIG", str(override))
+    assert settings.resolve_config_path() == override
+    assert load_settings().profile == "prod"
+    assert settings.resolve_config_path(explicit) == explicit
+    assert load_settings(explicit).timezone == "UTC"
+
+
+def test_installed_package_keeps_user_config_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import platformdirs
+
+    from lemonbot.config import settings
+
+    monkeypatch.delenv("LEMONBOT_CONFIG", raising=False)
+    monkeypatch.setattr(settings, "checkout_root", lambda: None)
+    monkeypatch.setattr(platformdirs, "user_config_path", lambda _app: tmp_path)
+    assert settings.default_config_path() == tmp_path / "config.toml"
+
+
 def enabled_atspi_raw() -> dict[str, object]:
     raw = AppSettings().model_dump(mode="python")
     raw["profile"] = "lab"

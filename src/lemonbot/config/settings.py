@@ -7,6 +7,7 @@ from datetime import time
 from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
@@ -140,6 +141,48 @@ class WechatAgentSettings(StrictModel):
         return self
 
 
+class ConversationCapabilities(StrictModel):
+    """Opt-in, read-only capabilities for the bound conversation runtime."""
+
+    images_enabled: bool = False
+    web_read_enabled: bool = False
+    search_enabled: bool = False
+    clock_enabled: bool = False
+    image_retention_days: int = Field(default=7, ge=1, le=30)
+    search_url: str = "http://127.0.0.1:6177/search"
+    search_image: str = (
+        "ghcr.io/searxng/searxng@sha256:"
+        "ef6ae36e01f89f8dadcabc684a9159728fbda6f0be8d638edce26d0a3ede17c6"
+    )
+    search_daily_limit: int = Field(default=20, ge=1, le=20)
+    search_monthly_limit: int = Field(default=600, ge=1, le=600)
+
+    @model_validator(mode="after")
+    def constrain_search(self) -> ConversationCapabilities:
+        parsed = urlsplit(self.search_url)
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname != "127.0.0.1"
+            or parsed.path != "/search"
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError("search must use the private loopback SearXNG endpoint")
+        if not re.fullmatch(
+            r"(?:ghcr\.io/searxng/searxng@)?sha256:[a-f0-9]{64}", self.search_image
+        ):
+            raise ValueError("search image must be a pinned official digest or local image ID")
+        return self
+
+    @property
+    def enabled(self) -> bool:
+        return any(
+            (self.images_enabled, self.web_read_enabled, self.search_enabled, self.clock_enabled)
+        )
+
+
 class WechatAtspiSettings(StrictModel):
     enabled: bool = False
     stage: Literal["observe"] = "observe"
@@ -253,6 +296,36 @@ class LimitsSettings(StrictModel):
     )
 
 
+class ContextMemorySettings(StrictModel):
+    """Staged unified-context configuration; no live implementation in stage 1."""
+
+    enabled: bool = False
+    archive_enabled: bool = False
+    consolidation_enabled: bool = False
+    consolidation_min_messages: int = Field(default=20, ge=20, le=100)
+    consolidation_daily_cny: Decimal = Field(default=Decimal("0.50"), gt=0, le=Decimal("0.50"))
+    embedding_backend: Literal["tensorrt", "cpu"] = "tensorrt"
+    embedding_precision: Literal["fp16", "fp32"] = "fp16"
+    embedding_worker_python: str = Field(default="", max_length=4096)
+    embedding_assets_root: str = Field(default="", max_length=4096)
+    embedding_timeout_seconds: float = Field(default=30, gt=0, le=300)
+    embedding_cache_entries: int = Field(default=4096, ge=1, le=100_000)
+    retrieval_max_messages: int = Field(default=10000, ge=1, le=10000)
+    retrieval_vector_chunks_per_refresh: int = Field(default=256, ge=1, le=4096)
+    retrieval_semantic_min_similarity: float = Field(default=0.5, ge=0, le=1)
+    retrieval_candidate_char_budget: int = Field(default=16000, ge=2048, le=32000)
+    retrieval_recent_messages: int = Field(default=6, ge=0, le=20)
+
+    @model_validator(mode="after")
+    def prevent_premature_activation(self) -> ContextMemorySettings:
+        if self.consolidation_enabled and not self.enabled:
+            raise ValueError("unified consolidation requires unified context enabled")
+        for value in (self.embedding_worker_python, self.embedding_assets_root):
+            if value and not Path(value).expanduser().is_absolute():
+                raise ValueError("embedding paths must be absolute")
+        return self
+
+
 class AppSettings(StrictModel):
     schema_version: Literal[2] = 2
     profile: Literal["prod", "lab"] = "prod"
@@ -265,11 +338,32 @@ class AppSettings(StrictModel):
     vault: VaultSettings = Field(default_factory=VaultSettings)
     mcp: MCPSettings = Field(default_factory=MCPSettings)
     wechat_agent: WechatAgentSettings = Field(default_factory=WechatAgentSettings)
+    conversation: ConversationCapabilities = Field(default_factory=ConversationCapabilities)
+    context_memory: ContextMemorySettings = Field(default_factory=ContextMemorySettings)
     wechat_atspi: WechatAtspiSettings = Field(default_factory=WechatAtspiSettings)
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
 
     @model_validator(mode="after")
     def validate_channel_isolation(self) -> AppSettings:
+        if self.context_memory.enabled and (
+            not self.context_memory.archive_enabled
+            or self.runtime.connector != "wechat_agent"
+            or self.wechat_agent.mode != "conversation"
+            or self.wechat_agent.memory_enabled
+            or self.limits.max_model_turns < 2
+        ):
+            raise ValueError(
+                "unified context requires archive, bound conversation runtime, "
+                "at least two model turns, and legacy memory disabled"
+            )
+        if self.context_memory.archive_enabled and (
+            self.runtime.connector != "wechat_agent" or self.wechat_agent.mode != "conversation"
+        ):
+            raise ValueError("unified archive requires the bound conversation runtime")
+        if self.conversation.enabled and (
+            self.runtime.connector != "wechat_agent" or self.wechat_agent.mode != "conversation"
+        ):
+            raise ValueError("conversation capabilities require the bound conversation runtime")
         if self.runtime.connector == "wechat_agent":
             if self.profile != "lab" or not self.wechat_agent.enabled:
                 raise ValueError("wechat_agent requires lab profile and explicit enabled=true")
@@ -330,17 +424,32 @@ class AppSettings(StrictModel):
         return self
 
 
+def checkout_root() -> Path | None:
+    """Locate this source checkout, independently of the caller's working directory."""
+    root = Path(__file__).resolve().parents[3]
+    if (root / "pyproject.toml").is_file() and (root / "src/lemonbot/config/settings.py").is_file():
+        return root
+    return None
+
+
 def default_config_path() -> Path:
     override = os.environ.get("LEMONBOT_CONFIG")
     if override:
         return Path(override).expanduser().resolve()
+    root = checkout_root()
+    if root is not None:
+        return root / "config/lemonbot.toml"
     from platformdirs import user_config_path
 
     return user_config_path("Lemonbot") / "config.toml"
 
 
+def resolve_config_path(path: Path | None = None) -> Path:
+    return (path if path is not None else default_config_path()).expanduser().resolve()
+
+
 def load_settings(path: Path | None = None) -> AppSettings:
-    config_path = (path or default_config_path()).expanduser().resolve()
+    config_path = resolve_config_path(path)
     with config_path.open("rb") as stream:
         raw = tomllib.load(stream)
     return AppSettings.model_validate(raw)

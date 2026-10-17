@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
@@ -40,9 +41,18 @@ class ModelWorkerConfig(WorkerPayload):
     profile: Literal["prod", "lab"]
     provider: ProviderConfig
     verify_models_on_startup: bool = True
+    objects_root: str | None = Field(default=None, max_length=4096)
 
     @model_validator(mode="after")
     def constrain_provider_boundary(self) -> ModelWorkerConfig:
+        if self.objects_root is not None and (
+            not Path(self.objects_root).is_absolute()
+            or self.provider.provider != "deepseek"
+            or self.provider.flash_model != "deepseek-flash"
+        ):
+            raise ValueError(
+                "native vision requires official DeepSeek Flash and an absolute object root"
+            )
         if self.provider.provider not in {"deepseek", "openai_compatible"}:
             raise ValueError("model worker supports only DeepSeek or OpenAI-compatible providers")
         parsed = urlsplit(self.provider.base_url)

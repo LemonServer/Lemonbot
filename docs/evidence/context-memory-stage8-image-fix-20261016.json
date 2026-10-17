@@ -1,0 +1,357 @@
+{
+  "date": "2026-10-16",
+  "stage": 8,
+  "status": "fix_validated_with_synthetic_real_api_wechat_retest_pending",
+  "live_failure": {
+    "confirmed_replies": 3,
+    "duplicate_or_unknown": 0,
+    "arithmetic_denied_by": "rate_reply_10m",
+    "reply_language": "English",
+    "image_followup": "image_not_selected"
+  },
+  "root_causes": [
+    "missing visual query cues excluded metadata-only picture candidate",
+    "initial not_loaded label lacked verified current image availability",
+    "full provenance repeated in prompts and unconditional tool reserve displaced selected evidence",
+    "image-only input lacked explicit default reply language",
+    "short-window policy intentionally denied fourth message"
+  ],
+  "fixes": [
+    "verified image availability remains separate from raw archive",
+    "more visual followup cues only offer candidates; model still must select",
+    "compact prompt provenance and no duplicate fresh caption when actual original is supplied",
+    "optional tool schemas cannot evict selected evidence",
+    "Chinese default for image-only input and current text language priority"
+  ],
+  "attempts": {
+    "v1": {
+      "passed": false,
+      "state": "unknown_no_retry",
+      "cost_estimate_cny": null,
+      "calls": 0,
+      "results": [],
+      "usage": [],
+      "local_harness_failure_before_generation": true
+    },
+    "v2": {
+      "passed": false,
+      "state": "complete",
+      "cost_estimate_cny": "0.021392",
+      "calls": 8,
+      "results": [
+        {
+          "case": 0,
+          "mode": "standalone",
+          "fallback": null,
+          "image": true,
+          "observations": 1,
+          "chinese": true
+        },
+        {
+          "case": 1,
+          "mode": "standalone",
+          "fallback": null,
+          "image": false,
+          "observations": 0,
+          "chinese": true
+        },
+        {
+          "case": 2,
+          "mode": "standalone",
+          "fallback": null,
+          "image": false,
+          "observations": 0,
+          "chinese": false
+        },
+        {
+          "case": 3,
+          "mode": "clarify",
+          "fallback": "selected_context_exceeds_budget",
+          "image": false,
+          "observations": 0,
+          "chinese": true
+        }
+      ],
+      "usage": [
+        {
+          "stage": "classification",
+          "prompt_tokens": 1192,
+          "completion_tokens": 47,
+          "cached_tokens": 0,
+          "image_input": true,
+          "ms": 963.84
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 1262,
+          "completion_tokens": 30,
+          "cached_tokens": 128,
+          "image_input": true,
+          "ms": 1036.48
+        },
+        {
+          "stage": "classification",
+          "prompt_tokens": 916,
+          "completion_tokens": 36,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 771.25
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 909,
+          "completion_tokens": 31,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 1323.54
+        },
+        {
+          "stage": "classification",
+          "prompt_tokens": 1243,
+          "completion_tokens": 36,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 1093.76
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 913,
+          "completion_tokens": 1,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 772.33
+        },
+        {
+          "stage": "classification",
+          "prompt_tokens": 1715,
+          "completion_tokens": 173,
+          "cached_tokens": 384,
+          "image_input": true,
+          "ms": 1298.71
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 1002,
+          "completion_tokens": 32,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 1043.25
+        }
+      ]
+    },
+    "v3": {
+      "passed": true,
+      "state": "complete",
+      "cost_estimate_cny": "0.021970",
+      "calls": 8,
+      "results": [
+        {
+          "case": 0,
+          "mode": "standalone",
+          "fallback": null,
+          "image": true,
+          "observations": 1,
+          "chinese": true
+        },
+        {
+          "case": 1,
+          "mode": "related",
+          "fallback": null,
+          "image": true,
+          "observations": 0,
+          "chinese": true
+        },
+        {
+          "case": 2,
+          "mode": "standalone",
+          "fallback": null,
+          "image": false,
+          "observations": 0,
+          "chinese": false
+        },
+        {
+          "case": 3,
+          "mode": "related",
+          "fallback": null,
+          "image": true,
+          "observations": 1,
+          "chinese": true
+        }
+      ],
+      "usage": [
+        {
+          "stage": "classification",
+          "prompt_tokens": 1140,
+          "completion_tokens": 49,
+          "cached_tokens": 512,
+          "image_input": true,
+          "ms": 724.77
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 961,
+          "completion_tokens": 16,
+          "cached_tokens": 128,
+          "image_input": true,
+          "ms": 706.27
+        },
+        {
+          "stage": "classification",
+          "prompt_tokens": 1194,
+          "completion_tokens": 167,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 1137.39
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 1088,
+          "completion_tokens": 6,
+          "cached_tokens": 384,
+          "image_input": true,
+          "ms": 558.35
+        },
+        {
+          "stage": "classification",
+          "prompt_tokens": 1105,
+          "completion_tokens": 36,
+          "cached_tokens": 512,
+          "image_input": null,
+          "ms": 1068.32
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 772,
+          "completion_tokens": 1,
+          "cached_tokens": 384,
+          "image_input": null,
+          "ms": 935.08
+        },
+        {
+          "stage": "classification",
+          "prompt_tokens": 1765,
+          "completion_tokens": 180,
+          "cached_tokens": 640,
+          "image_input": true,
+          "ms": 1551.63
+        },
+        {
+          "stage": "answer",
+          "prompt_tokens": 1120,
+          "completion_tokens": 5,
+          "cached_tokens": 512,
+          "image_input": true,
+          "ms": 795.57
+        }
+      ]
+    }
+  },
+  "limits": {
+    "per_10_minutes": 0,
+    "per_hour": 0,
+    "per_day": 30,
+    "global_per_day": 50,
+    "daily_cny": "5",
+    "monthly_cny": "100"
+  },
+  "tests": {
+    "full_suite_passed": 941,
+    "duration_seconds": 163.99,
+    "ruff": "passed",
+    "mypy_files": 160,
+    "lock": "passed",
+    "release": "passed",
+    "git_diff_check": "passed",
+    "new_regressions": 6
+  },
+  "wechat_retest": "private_four_steps_user_confirmed_passed",
+  "deployment": {
+    "restarted": true,
+    "resumed": true,
+    "authorized_groups": 1,
+    "authorized_private_chats": 1,
+    "backend": "tensorrt",
+    "precision": "fp16",
+    "degraded": false,
+    "outbox_acknowledged_before_retest": 38,
+    "unknown_before_retest": 0,
+    "doctor_passed": true
+  },
+  "ack_maintenance_fix": {
+    "root_cause": "historical_and_fresh_description_same_source_insert_collision",
+    "regression_tests": "new_metadata_fresh_only_and_legacy_recovery_idempotence",
+    "pending_before": 2,
+    "pending_after": 0,
+    "receipts_after": 8,
+    "acknowledged_before_repair": 43,
+    "acknowledged_after_repair": 43,
+    "unknown": 0,
+    "classification_calls_before_and_after": 8,
+    "answer_calls_before_and_after": 8,
+    "additional_cloud_calls": 0,
+    "additional_sends": 0,
+    "resumed": true,
+    "scope": "authorized_pair_only",
+    "remaining_acceptance": [
+      "links_cards",
+      "restart_memory"
+    ]
+  },
+  "group_cross_author_acceptance": {
+    "user_confirmed": true,
+    "ordinary_message_no_reply": true,
+    "genuine_mention_one_correct_reply": true,
+    "latest_two_group_inbound_same_scope": true,
+    "latest_two_group_inbound_distinct_authors": true,
+    "ack_before": 43,
+    "ack_after": 44,
+    "new_reply_attempts": 1,
+    "classification_calls_after": 9,
+    "answer_calls_after": 9,
+    "pending_maintenance": 0,
+    "unknown": 0
+  },
+  "conversation_isolation_acceptance": {
+    "user_confirmed": true,
+    "private_fact_confirmation": true,
+    "private_cannot_recall_group_fact": true,
+    "group_cannot_recall_private_fact": true,
+    "ack_before": 44,
+    "ack_after": 47,
+    "new_reply_attempts": [
+      1,
+      1,
+      1
+    ],
+    "classification_calls_after": 12,
+    "answer_calls_after": 12,
+    "pending_maintenance": 0,
+    "unknown": 0,
+    "scope": "authorized_group_private_pair_only"
+  },
+  "intake_marker_presentation_revision": {
+    "date": "2026-10-17",
+    "user_report": "image_content_correct_but_stale_intake_marker_narrated",
+    "fix": "hide_exact_supplied_image_intake_marker_in_prompt_only_and_refresh_expiry_status",
+    "archive_unchanged": true,
+    "tests": {
+      "pytest": 948,
+      "duration_seconds": 181.34,
+      "ruff": "passed",
+      "mypy_files": 160,
+      "lock": "passed",
+      "release": "passed",
+      "diff_check": "passed"
+    },
+    "deployment": {
+      "doctor_passed": true,
+      "ack_before": 58,
+      "ack_after": 58,
+      "unknown": 0,
+      "pending_maintenance": 0,
+      "resumed": true
+    },
+    "diagnostic_cloud_calls": 0,
+    "diagnostic_wechat_sends": 0
+  }
+}

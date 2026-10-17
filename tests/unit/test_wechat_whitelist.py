@@ -231,8 +231,9 @@ async def test_kept_target_pause_survives_configuration_sync(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("archive_enabled", [False, True])
 async def test_runtime_startup_synchronizes_allowlist_and_keeps_persistent_pause(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, archive_enabled
 ):
     from lemonbot.config.settings import AppSettings
     from lemonbot.connectors.wechat_agent import CHANNEL
@@ -282,6 +283,7 @@ async def test_runtime_startup_synchronizes_allowlist_and_keeps_persistent_pause
     monkeypatch.setattr(LemonbotRuntime, "_build_model", model)
     raw = AppSettings().model_dump(mode="python")
     raw["profile"] = "lab"
+    raw["context_memory"]["archive_enabled"] = archive_enabled
     raw["runtime"] = {"connector": "wechat_agent", "data_root": str(tmp_path / "runtime")}
     raw["wechat_agent"] = {
         "enabled": True,
@@ -309,6 +311,11 @@ async def test_runtime_startup_synchronizes_allowlist_and_keeps_persistent_pause
     runtime = LemonbotRuntime(AppSettings.model_validate(raw))
     try:
         await runtime.initialize()
+        assert all(
+            (child.archive is not None) == archive_enabled
+            for child in runtime.connector.transport.children.values()
+        )
+        assert runtime.pipeline.memory_context is None
         old_refs = runtime.connector.chat_refs
         assert len(old_refs) == 3
         assert all([await runtime.repository.is_allowlisted(CHANNEL, ref) for ref in old_refs])

@@ -36,7 +36,33 @@ original AMD64 digest, 1.0.0 tag and send/identity/memory invariants.
 3. Extend acceptance coverage of added whitelist conversations without conflating readability with sends.
 4. Only after these, separately design unattended host recovery or further capabilities.
 
-No automatic client/image upgrades, offline-message backfill, multimodal support or
-proactive messaging are planned as implicit 1.0 behavior.
+The explicitly authorized first capability extension adds native DeepSeek Flash image
+input, public-page reads, local SearXNG search and clock access. These stay disabled
+in public examples; track live evidence separately in [read capabilities](docs/read-capabilities.md).
+The local Orin acceptance now covers scoped image replies and followups, genuine
+group image quotes, public link reads, search/time replies and honest verification-page
+card feedback. WeChat article body access remains unverified; this is limited to
+the authorized group/private pair and does not extend to other targets or accounts.
+Group participation without real @ and proactive followups remain future work.
+No automatic client/image upgrades, offline-message backfill or proactive messaging
+are planned as implicit 1.0 behavior.
+
+The authorized unified-context redesign is implemented in eight separate tasks:
+contracts, archive, CUDA embeddings, retrieval, two-stage classification/answer,
+consolidation/cache, offline readiness, then live deployment. Track current stage
+and handoff in [the implementation record](docs/context-memory-implementation.md).
+Stages 1–7 add default-off contracts, raw archive, backup-copy migration, CUDA
+embeddings, scoped retrieval and classification/answer assembly. Native Orin FP16
+embedding/retrieval and offline two-stage checks passed. Stage 8 has safely migrated
+and enabled the new flow for the authorized pair; real synthetic two-stage API preflight
+passed, while finite WeChat acceptance is still in progress. Confirmed-delivery consolidation/cache accounting is offline-tested;
+stage 7 integrated offline readiness, lifecycle, migration/rollback and source diagnostics
+also passed. See [context operations](docs/context-memory-operations.md) for the
+prepared stage-8 cutover and [two-stage flow](docs/context-flow.md) for budget boundaries.
+Stage 8 real-model and WeChat acceptance remains pending.
+New group memory is shared with author attribution, private/account scopes stay
+isolated, and local model inference defaults to CUDA/TensorRT. Do not deploy later
+stages or migrate live data while completing an earlier task.
+
 [Earlier Linux work](docs/history/linux-plan-before-1.0.md) preserves chronology;
 [Windows/Observe/native identity research](docs/history/README.md) is inactive.

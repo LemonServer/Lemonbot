@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +25,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 from websockets.asyncio.client import connect as websocket_connect
 
-from lemonbot.config.settings import load_settings
+from lemonbot.config.settings import AppSettings, load_settings, resolve_config_path
 from lemonbot.connectors.wechat_agent import (
     AgentWechatHTTP,
     LabPaused,
@@ -48,6 +49,26 @@ BRIDGE_UNIT = "lemonbot-wechat-metadata.service"
 NOVNC_UNIT = "lemonbot-wechat-novnc.service"
 NOVNC_URL = "https://ports.ubuntu.com/pool/universe/n/novnc/novnc_1.3.0-2_all.deb"
 NOVNC_SHA256 = "52022b96f5540ffa8d3626279172616b9f395820f50a96924e6089117647d1be"
+
+
+def configure_paths(args: argparse.Namespace) -> None:
+    """Select one runtime config; state/token overrides must agree with it."""
+    state, token = default_paths(selected_environment(args))
+    args.config = resolve_config_path(args.config)
+    if args.config.exists():
+        settings = load_settings(args.config)
+        for name in ("state_dir", "token_file"):
+            configured = getattr(settings.wechat_agent, name)
+            explicit = getattr(args, name)
+            if configured:
+                path = Path(configured).expanduser().absolute()
+                if explicit is not None and explicit.expanduser().absolute() != path:
+                    raise ValueError("ConfigStateDirectoryMismatch")
+                setattr(args, name, path)
+    args.state_dir = (args.state_dir or state).expanduser().absolute()
+    args.token_file = (args.token_file or token).expanduser().absolute()
+    if args.command in {"install-services", "doctor"} and not args.config.is_file():
+        raise ValueError("RuntimeConfigMissing")
 
 
 @dataclass(frozen=True)
@@ -237,6 +258,7 @@ def backend(args: argparse.Namespace) -> None:
     private_read(binding)
     for source, dest in (
         (REPO / "scripts/agent_wechat_wal_snapshot.py", "agent_wechat_wal_snapshot.py"),
+        (REPO / "scripts/agent_wechat_image.py", "agent_wechat_image.py"),
         (REPO / "scripts/agent_wechat_metadata.py", "lemonbot-metadata.py"),
         (binding, "lemonbot-conversation.json"),
     ):
@@ -448,11 +470,12 @@ async def bind_account(args: argparse.Namespace) -> None:
             saved = json.loads(private_read(meta_path))
             if saved.get("account") != account or saved.get("self_identity") != identity:
                 raise LabPaused("ExistingBindingChanged")
-        config = args.state_dir / "conversation-runtime.toml"
-        whitelist = args.state_dir / "whitelist.toml"
-        if not whitelist.exists():
-            private_write(whitelist, b'version = 1\ngroups = ["testing"]\ncontacts = []\n')
+        config = args.config
         if not config.exists():
+            config.parent.mkdir(parents=True, exist_ok=True)
+            whitelist = config.parent / "wechat-whitelist.local.toml"
+            if not whitelist.exists():
+                private_write(whitelist, b'version = 1\ngroups = ["testing"]\ncontacts = []\n')
             text = (REPO / "config/wechat-agent-conversation.example.toml").read_text()
             if env.experimental:
                 text = text.replace(
@@ -471,11 +494,12 @@ async def bind_account(args: argparse.Namespace) -> None:
             text = text.replace(
                 'whitelist_file = ""', "whitelist_file = " + json.dumps(str(whitelist))
             )
-            load_settings_text_check = args.state_dir / "setup-config-check.toml"
-            private_write(load_settings_text_check, text.encode())
-            load_settings(load_settings_text_check)
-            load_settings_text_check.unlink()
+            AppSettings.model_validate(tomllib.loads(text))
             private_write(config, text.encode())
+        settings = load_settings(config)
+        if not settings.wechat_agent.whitelist_file:
+            raise ValueError("WhitelistConfigMissing")
+        whitelist = Path(settings.wechat_agent.whitelist_file).expanduser()
         # Start only our bridge; neither WeChat nor bot are restarted by binding.
         backend(args)
         ip, _ = network(inspect(args))
@@ -573,8 +597,18 @@ def novnc_assets() -> Path:
         with tempfile.TemporaryDirectory(prefix="lemonbot-novnc-") as directory:
             archive = Path(directory) / "novnc.deb"
             command(
-                "curl", "--fail", "--silent", "--show-error", "--location", "--proto", "=https",
-                "--max-time", "45", "--output", str(archive), NOVNC_URL,
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--location",
+                "--proto",
+                "=https",
+                "--max-time",
+                "45",
+                "--output",
+                str(archive),
+                NOVNC_URL,
             )
             if hashlib.sha256(archive.read_bytes()).hexdigest() != NOVNC_SHA256:
                 raise ValueError("NoVNCAssetChecksumMismatch")
@@ -626,7 +660,7 @@ def install_novnc(args: argparse.Namespace, *, start: bool = False) -> None:
 
 def install_services(args: argparse.Namespace) -> None:
     selected_environment(args)
-    config = args.state_dir / "conversation-runtime.toml"
+    config = args.config
     settings = load_settings(config)
     if (
         Path(settings.wechat_agent.state_dir).expanduser() != args.state_dir
@@ -724,12 +758,54 @@ async def doctor(args: argparse.Namespace) -> bool:
     except Exception:
         check("container", False, "Run environment; inspect Docker access and localhost mounts.")
     try:
-        config = load_settings(args.state_dir / "conversation-runtime.toml")
+        config = load_settings(args.config)
+        checks.append({"check": "config", "ok": True, "path": str(args.config)})
+        features = config.conversation
+        checks.append(
+            {
+                "check": "conversation_capabilities",
+                "ok": True,
+                "model": config.models.flash_model,
+                "images": features.images_enabled,
+                "web_read": features.web_read_enabled,
+                "search": features.search_enabled,
+                "clock": features.clock_enabled,
+                "search_provider": "local_searxng",
+                "proactive": False,
+            }
+        )
+        if features.search_enabled:
+            try:
+                async with httpx.AsyncClient(trust_env=False, timeout=5) as search_client:
+                    endpoint = features.search_url.removesuffix("/search") + "/config"
+                    response = await search_client.get(endpoint)
+                    response.raise_for_status()
+                    check(
+                        "search_service",
+                        isinstance(response.json(), dict),
+                        "Run scripts/search_setup.py environment; no search API key is needed.",
+                    )
+            except (httpx.HTTPError, ValueError):
+                check("search_service", False, "Restore the local SearXNG container.")
+        if features.web_read_enabled:
+            from playwright.async_api import async_playwright
+
+            async with async_playwright() as browser_driver:
+                check(
+                    "web_reader",
+                    Path(browser_driver.chromium.executable_path).is_file(),
+                    "Run uv run --locked playwright install chromium as the desktop user.",
+                )
         check(
             "configured",
             config.wechat_agent.enabled and config.runtime.connector == "wechat_agent",
             "Explicitly enable wechat_agent and deepseek in private runtime TOML.",
         )
+        from lemonbot.config.paths import RuntimePaths
+        from lemonbot.memory.unified.operations import health
+
+        context_health = health(config, RuntimePaths.from_settings(config))
+        checks.append({"check": "unified_context", **context_health})
         requested = read_whitelist(Path(config.wechat_agent.whitelist_file).expanduser())
         check("whitelist", True, "Check exact names in private whitelist TOML.")
         check("admin_port", config.admin.host == "127.0.0.1", "Admin must bind only localhost.")
@@ -764,6 +840,17 @@ async def doctor(args: argparse.Namespace) -> bool:
             headers={"Authorization": "Bearer " + token},
             timeout=90,
         ) as meta:
+            if features.images_enabled:
+                response = await meta.get("/health")
+                response.raise_for_status()
+                image_health = response.json()
+                check(
+                    "image_reader",
+                    image_health.get("image_source") == "validated_wal_snapshot"
+                    and image_health.get("image_crypto") is True
+                    and image_health.get("image_converter") is True,
+                    "Install the snapshot image bridge; live image replies still need acceptance.",
+                )
             response = await meta.post(
                 "/read-cycle", json={"anchors": {t.binding.chat_id: None for t in targets}}
             )
@@ -811,11 +898,21 @@ def main() -> None:
     parser.add_argument(
         "command",
         choices=(
-            "environment", "image-preflight", "open-vnc", "bind", "install-services", "doctor"
+            "environment",
+            "image-preflight",
+            "open-vnc",
+            "bind",
+            "install-services",
+            "doctor",
         ),
     )
     parser.add_argument("--state-dir", type=Path)
     parser.add_argument("--token-file", type=Path)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="Runtime TOML; defaults to LEMONBOT_CONFIG or this checkout's config/lemonbot.toml.",
+    )
     parser.add_argument(
         "--experimental-arm64",
         action="store_true",
@@ -834,10 +931,7 @@ def main() -> None:
     if os.getuid() == 0:
         parser.error("Run as the desktop user; use --sudo only for Docker access.")
     try:
-        env = selected_environment(args)
-        state, token = default_paths(env)
-        args.state_dir = (args.state_dir or state).expanduser().absolute()
-        args.token_file = (args.token_file or token).expanduser().absolute()
+        configure_paths(args)
         if args.command == "doctor":
             if not asyncio.run(doctor(args)):
                 raise SystemExit(1)

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import json
 import re
+import sqlite3
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -30,10 +33,14 @@ from lemonbot.domain.models import (
     ConnectorHealth,
     DeliveryReceipt,
     DeliveryStatus,
+    EventKind,
     InboundEvent,
     OutboundMessage,
 )
 from lemonbot.latency import measure, record
+from lemonbot.memory.unified.archive import ArchiveError, SQLiteMessageArchive
+from lemonbot.memory.unified.wechat import snapshot_message
+from lemonbot.tools.attachments import AttachmentStore
 
 
 @dataclass(frozen=True)
@@ -150,11 +157,17 @@ class ConversationTransport(AgentWechatConnector):
         target: ConversationTarget,
         key: bytes,
         metadata: httpx.AsyncClient,
+        attachments: AttachmentStore | None = None,
+        links_enabled: bool = False,
+        archive: SQLiteMessageArchive | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(http, target.binding, key, **kwargs)
         self.target = target
         self.metadata = metadata
+        self.attachments = attachments
+        self.links_enabled = links_enabled
+        self.archive = archive
         suffix = r"(?:\s*\([0-9]+\))?" if target.is_group else ""
         self.title = re.compile(re.escape(target.name) + suffix)
 
@@ -243,7 +256,19 @@ class ConversationTransport(AgentWechatConnector):
     def event(self, row: dict[str, Any]) -> InboundEvent | None:
         text = row.get("content")
         is_quote = row.get("type") == 49 and row.get("quoteReply") is True
-        if (row.get("type") != 1 and not is_quote) or not isinstance(text, str) or not text.strip():
+        is_image = row.get("type") == 3 and self.attachments is not None
+        is_link = row.get("type") == 49 and bool(row.get("linkUrl")) and self.links_enabled
+        if is_image and self.target.is_group:
+            return None
+        if is_image:
+            text = "[The user sent an image. Respond naturally to its content.]"
+        if is_link and not is_quote:
+            text = "Shared webpage: " + str(row.get("linkTitle", "")) + "\n" + row["linkUrl"]
+        if (
+            (row.get("type") != 1 and not is_quote and not is_image and not is_link)
+            or not isinstance(text, str)
+            or not text.strip()
+        ):
             return None
         if type(row.get("isSelf")) is not bool:
             self.pause("DirectionMissing")
@@ -266,6 +291,16 @@ class ConversationTransport(AgentWechatConnector):
                 + "\n\nQuoted message (context only):\n"
                 + (quoted if quoted is not None else "[Quoted content unavailable or non-text]")
             )
+        if is_link and is_quote:
+            text += "\nQuoted webpage URL: " + row["linkUrl"]
+        media_id = (
+            row["localId"]
+            if is_image
+            else (row.get("quotedImageLocalId") if is_quote and row.get("quotedImage") else None)
+        )
+        wants_image = is_image or (is_quote and row.get("quotedImage") is True)
+        if wants_image and (self.attachments is None or type(media_id) is not int or media_id <= 0):
+            text += "\n[Image unavailable: no verified original message or image feature disabled.]"
         if len(text) > 100_000:
             self.pause("TextTooLarge")
         try:
@@ -288,13 +323,132 @@ class ConversationTransport(AgentWechatConnector):
             chat_id=self.binding.chat_ref,
             sender_id=sender_ref,
             text=text,
+            kind=EventKind.IMAGE if is_image else EventKind.TEXT,
             occurred_at=timestamp,
             metadata={
                 "wechat_mode": "conversation",
                 "context_scope": scope,
                 "is_group": self.target.is_group,
+                **({"shared_link_url": row["linkUrl"]} if is_link else {}),
+                **(
+                    {"_media_local_id": media_id}
+                    if wants_image
+                    and self.attachments is not None
+                    and type(media_id) is int
+                    and media_id > 0
+                    else {}
+                ),
+                **(
+                    {"image_unavailable": True}
+                    if wants_image
+                    and (self.attachments is None or type(media_id) is not int or media_id <= 0)
+                    else {}
+                ),
             },
         )
+
+    async def intake_image(self, event: InboundEvent) -> InboundEvent:
+        metadata = dict(event.metadata)
+        local_id = metadata.pop("_media_local_id", None)
+        if local_id is None or self.attachments is None:
+            return event.model_copy(update={"metadata": metadata})
+        await self.guard()
+        failure_code = "ImageDownloadFailed"
+        try:
+            path = (
+                "/media/" + quote(self.binding.chat_id, safe="") + "/" + str(local_id)
+            )
+            raw = bytearray()
+            async with self.metadata.stream("GET", path, timeout=30) as response:
+                if response.is_error:
+                    error_body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        error_body.extend(chunk)
+                        if len(error_body) > 4096:
+                            break
+                    try:
+                        code = json.loads(error_body).get("error")
+                        if isinstance(code, str) and re.fullmatch(r"Image[A-Za-z]{1,80}", code):
+                            failure_code = code
+                    except (ValueError, AttributeError):
+                        pass
+                response.raise_for_status()
+                media_type = response.headers.get("content-type", "").split(";", 1)[0]
+                if media_type != "application/json":
+                    raise ValueError("image bridge did not return a verified envelope")
+                async for chunk in response.aiter_bytes():
+                    raw.extend(chunk)
+                    if len(raw) > (10 * 1024 * 1024 * 4 // 3 + 4096):
+                        raise ValueError("image download exceeds limit")
+            failure_code = "ImageEnvelopeInvalid"
+            if media_type == "application/json":
+                payload = json.loads(raw)
+                if (
+                    not isinstance(payload, dict)
+                    or payload.get("type") != "image"
+                    or payload.get("accountVerified") is not True
+                    or payload.get("chatId") != self.binding.chat_id
+                    or type(payload.get("localId")) is not int
+                    or payload["localId"] != local_id
+                    or payload.get("source") != "validated_wal_snapshot"
+                    or not isinstance(payload.get("account"), str)
+                    or reference(self.key, "account", payload["account"])
+                    != self.binding.account_ref
+                ):
+                    raise ValueError("media response is not an image")
+                encoded, fmt = payload.get("data"), payload.get("format")
+                formats = {
+                    "jpeg": "image/jpeg",
+                    "jpg": "image/jpeg",
+                    "png": "image/png",
+                    "webp": "image/webp",
+                }
+                if (
+                    not isinstance(encoded, str)
+                    or not isinstance(fmt, str)
+                    or fmt.lower() not in formats
+                ):
+                    raise ValueError("unsupported image envelope")
+                raw = bytearray(base64.b64decode(encoded, validate=True))
+                media_type = formats[fmt.lower()]
+            if not raw or len(raw) > 10 * 1024 * 1024:
+                raise ValueError("decoded image exceeds limit")
+            await self.guard()
+            failure_code = "ImageSaveFailed"
+            attachment = await self.attachments.ingest(
+                channel=event.channel,
+                chat_id=event.chat_id,
+                event_id=event.event_id,
+                content=bytes(raw),
+                media_type=media_type,
+            )
+            metadata["attachment_ids"] = [str(attachment.attachment_id)]
+            metadata["image_source"] = "validated_wal_snapshot"
+            metadata["image_source_ref"] = reference(
+                self.key, "event", self.binding.account_ref, self.binding.chat_id, str(local_id)
+            )
+        except LabPaused:
+            raise
+        except (httpx.HTTPError, ValueError, OSError, RuntimeError, binascii.Error):
+            await self.guard()
+            metadata.update(
+                image_unavailable=True, attachment_failures=1, image_failure_code=failure_code
+            )
+        return event.model_copy(update={"metadata": metadata})
+
+    async def observe_rows(self, rows: list[dict[str, Any]]) -> None:
+        if self.archive is None:
+            return
+        try:
+            messages = [
+                snapshot_message(
+                    row, binding=self.binding, key=self.key, is_group=self.target.is_group
+                )
+                for row in rows
+            ]
+            await self.archive.put_observed_batch(messages)
+        except (ArchiveError, ValueError, OSError, sqlite3.Error):
+            self.pause("ArchiveSnapshotFailed")
 
     async def poll(self) -> list[InboundEvent]:
         # A notification can arrive while the two snapshots are being read.
@@ -327,6 +481,9 @@ class ConversationMultiplexer(AgentWechatConnector):
         key: bytes,
         token: str,
         state: Path,
+        attachments: AttachmentStore | None = None,
+        links_enabled: bool = False,
+        archive: SQLiteMessageArchive | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(http, targets[0].binding, key, **kwargs)
@@ -338,7 +495,16 @@ class ConversationMultiplexer(AgentWechatConnector):
             follow_redirects=False,
         )
         self.children = {
-            t.binding.chat_ref: ConversationTransport(http, t, key, self.metadata, **kwargs)
+            t.binding.chat_ref: ConversationTransport(
+                http,
+                t,
+                key,
+                self.metadata,
+                attachments=attachments,
+                links_enabled=links_enabled,
+                archive=archive,
+                **kwargs,
+            )
             for t in targets
         }
         self.target_pause_file = state / "targets-paused.json"
@@ -493,6 +659,16 @@ class ConversationMultiplexer(AgentWechatConnector):
                     raise ValueError
                 if baseline and rows:
                     raise ValueError
+                if child.archive is not None:
+                    if child.target.is_group and any(
+                        type(row.get("mentionedSelf")) is not bool for row in rows
+                    ):
+                        raise ValueError
+                    try:
+                        await child.observe_rows(list(reversed(rows)))
+                    except LabPaused as error:
+                        self.target_failure(ref, error)
+                        continue
                 for row in reversed(rows):
                     if child.target.is_group:
                         if type(row.get("mentionedSelf")) is not bool:
@@ -504,7 +680,7 @@ class ConversationMultiplexer(AgentWechatConnector):
                         self.target_failure(ref, error)
                         break
                     if event is not None:
-                        events.append(event)
+                        events.append(await child.intake_image(event))
                 else:
                     staged.append((child, set(anchors)))
             for child, anchors in staged:

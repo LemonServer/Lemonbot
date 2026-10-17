@@ -115,6 +115,7 @@ class ContextBundle(BaseModel):
 
     messages: tuple[ModelMessage, ...]
     memory_ids: tuple[UUID, ...]
+    selected_message_ids: tuple[str, ...] = ()
     estimated_tokens: int = Field(ge=0)
     omitted_turns: int = Field(ge=0)
     omitted_memories: int = Field(ge=0)

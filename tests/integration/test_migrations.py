@@ -34,5 +34,17 @@ def test_initial_migration_creates_all_durable_subsystems(tmp_path: Path) -> Non
         "runtime_state",
         "proactive_jobs",
         "attachments",
+        "context_archive_messages",
+        "context_archive_parts",
+        "context_archive_references",
+        "context_archive_observations",
+        "unified_delivery_proofs",
+        "unified_memories",
+        "unified_supersessions",
+        "unified_jobs",
+        "unified_receipts",
+        "unified_content_cache",
+        "unified_topics",
+        "unified_stage_usage",
     }.issubset(tables)
-    assert revision == ("20260825_0006",)
+    assert revision == ("20261015_0008",)

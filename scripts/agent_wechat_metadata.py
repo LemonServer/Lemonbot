@@ -15,6 +15,7 @@ import hmac
 import importlib.util
 import json
 import os
+import re
 import select
 import struct
 import subprocess
@@ -37,6 +38,13 @@ _snapshot_spec = importlib.util.spec_from_file_location(
 assert _snapshot_spec and _snapshot_spec.loader
 _snapshots = importlib.util.module_from_spec(_snapshot_spec)
 _snapshot_spec.loader.exec_module(_snapshots)
+
+_image_spec = importlib.util.spec_from_file_location(
+    "wechat_image", Path(__file__).with_name("agent_wechat_image.py")
+)
+assert _image_spec and _image_spec.loader
+_images = importlib.util.module_from_spec(_image_spec)
+_image_spec.loader.exec_module(_images)
 
 MAX_SOURCE = 65536
 
@@ -74,6 +82,86 @@ def quoted_reply(content: str) -> tuple[str, str | None] | None:
     ):
         quoted = texts[0].text or None
     return title, quoted
+
+
+def app_details(content: str, depth: int = 0) -> dict[str, Any]:
+    """Bounded top-level app fields; quoted identities never grant authority."""
+    if (
+        depth > 2
+        or len(content) > MAX_SOURCE
+        or any(x in content.upper() for x in ("<!DOCTYPE", "<!ENTITY"))
+    ):
+        return {}
+    try:
+        root = ET.fromstring(content)  # noqa: S314 -- bounded XML, DTD rejected
+    except ET.ParseError:
+        return {}
+    apps = root.findall("./appmsg")
+    if root.tag != "msg" or len(apps) != 1:
+        return {}
+    app = apps[0]
+
+    def scalar(parent: Any, name: str) -> str | None:
+        nodes = parent.findall(name)
+        return nodes[0].text if len(nodes) == 1 and not len(nodes[0]) else None
+
+    subtype = scalar(app, "type")
+    if subtype == "5":
+        url = scalar(app, "url")
+        if not url or len(url) > 4096:
+            return {}
+        try:
+            if urllib.parse.urlsplit(url).scheme != "https":
+                return {}
+        except ValueError:
+            return {}
+        return {"linkUrl": url, "linkTitle": (scalar(app, "title") or "")[:1000]}
+    quotes = app.findall("refermsg")
+    if subtype == "57" and len(quotes) == 1:
+        kind = scalar(quotes[0], "type")
+        server = scalar(quotes[0], "svrid")
+        source = {
+            "quotedServerId": int(server)
+            if server and server.isdigit() and 0 < len(server) <= 20 and int(server) > 0
+            else None,
+        }
+        if kind == "3":
+            return {"quotedImage": True, **source}
+        if kind == "49":
+            nested = scalar(quotes[0], "content")
+            details = (
+                app_details(nested, depth + 1) if nested and len(nested) < len(content) else {}
+            )
+            if details.get("linkUrl"):
+                return {**details, **source}
+        return source
+    return {}
+
+
+def bind_image_references(
+    rows: list[dict[str, Any]], image_rows: list[dict[str, Any]] | None = None
+) -> list[dict[str, Any]]:
+    """Resolve quoted server IDs uniquely within this chat's validated snapshot."""
+    for row in rows:
+        if "quotedServerId" in row:
+            matches = [
+                r
+                for r in (rows if image_rows is None else image_rows)
+                if type(row.get("quotedServerId")) is int
+                and r.get("serverId") == row.get("quotedServerId")
+                and type(r.get("serverId")) is int
+                and r["serverId"] > 0
+                and r.get("chatId") == row.get("chatId")
+                and type(r.get("localId")) is int
+                and r["localId"] > 0
+                and r["localId"] != row.get("localId")
+                and (not row.get("quotedImage") or r.get("type") == 3)
+            ]
+            original = matches[0]["localId"] if len(matches) == 1 else None
+            row["quotedMessageLocalId"] = original
+            if row.get("quotedImage"):
+                row["quotedImageLocalId"] = original
+    return rows
 
 
 def canonical_self(rows: list[dict[str, Any]], account: str) -> str:
@@ -128,6 +216,7 @@ def decode_source(value: str, compressed: int) -> str:
 
 
 class SourceReader:
+    snapshot = staticmethod(_snapshots.snapshot)
     def __init__(
         self,
         token: str,
@@ -359,11 +448,14 @@ class SourceReader:
             "ORDER BY m.create_time DESC,m.local_id DESC "
             "LIMIT 100 OFFSET " + str(offset),
         )
-        result = [self.message_row(row, chat_id) for row in rows]
+        result = bind_image_references([self.message_row(row, chat_id) for row in rows])
         after = self.api("/api/status/auth")
         if after.get("loggedInUser") != account or after.get("status") != "logged_in":
             raise ValueError("AccountChanged")
         return {"rows": result, "accountVerified": True}
+
+    def image(self, chat_id: str, local_id: int) -> dict[str, Any]:
+        return _images.read_bound_image(self, chat_id, local_id)
 
     def message_row(self, row: dict[str, Any], chat_id: str) -> dict[str, Any]:
         sender = row["sender"]
@@ -372,6 +464,7 @@ class SourceReader:
             decode_source(row["content"] or "", row["compressed"] or 0) if message_type == 1 else ""
         )
         reply = None
+        details: dict[str, Any] = {}
         if message_type == 49:
             content = decode_source(row["content"] or "", row["compressed"] or 0)
             if (
@@ -381,6 +474,7 @@ class SourceReader:
             ):
                 content = content[len(sender) + 2 :]
             reply = quoted_reply(content)
+            details = app_details(content)
             if reply is not None:
                 text = reply[0]
         if (
@@ -390,6 +484,7 @@ class SourceReader:
         ):
             text = text[len(sender) + 2 :]
         return {
+            **details,
             "localId": row["local_id"],
             "serverId": row["server_id"],
             "chatId": chat_id,
@@ -410,6 +505,23 @@ class SourceReader:
             ).isoformat(),
             "isSelf": sender == self.canonical_identity if isinstance(sender, str) else None,
         }
+
+    def cycle_rows(
+        self,
+        rows: list[dict[str, Any]],
+        selected: list[dict[str, Any]],
+        chat: str,
+        anchors: list[int] | None,
+    ) -> list[dict[str, Any]]:
+        sources = [
+            {"chatId": chat, "localId": r["local_id"], "serverId": r["server_id"],
+             "type": r["local_type"] & 0x7FFFFFFF}
+            for r in rows
+        ]
+        return bind_image_references(
+            [self.message_row(r, chat) for r in selected if r["local_id"] not in (anchors or [])],
+            sources,
+        )
 
     def read_cycle(self, anchors: dict[str, list[int] | None]) -> dict[str, Any]:
         if not isinstance(anchors, dict) or not anchors or len(anchors) > 20:
@@ -508,13 +620,7 @@ class SourceReader:
                     "chatId": chat,
                     "anchors": latest,
                     "error": error,
-                    "rows": []
-                    if error
-                    else [
-                        self.message_row(row, chat)
-                        for row in selected
-                        if row["local_id"] not in (ids or [])
-                    ],
+                    "rows": [] if error else self.cycle_rows(rows, selected, chat, ids),
                 }
             )
         after = self.api("/api/status/auth")
@@ -765,7 +871,42 @@ def serve(
             parsed = urllib.parse.urlsplit(self.path)
             try:
                 if parsed.path == "/health":
-                    body = {"ready": True}
+                    if upstream:
+                        request = urllib.request.Request(
+                            "http://" + upstream + ":6175/health",
+                            headers={"Authorization": "Bearer " + token},
+                        )
+                        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                        with opener.open(request, timeout=10) as response:
+                            body = json.load(response)
+                    else:
+                        body = {
+                            "ready": True, "image_source": "validated_wal_snapshot",
+                            "image_crypto": ctypes.util.find_library("crypto") is not None,
+                            "image_converter": Path("/opt/tools/media-convert").is_file(),
+                        }
+                elif parsed.path.startswith("/media/"):
+                    if parsed.query:
+                        raise ValueError("InvalidImageRequest")
+                    parts = parsed.path[len("/media/"):].split("/")
+                    if len(parts) != 2 or not parts[1].isascii() or not parts[1].isdecimal():
+                        raise ValueError("InvalidImageRequest")
+                    if upstream:
+                        request = urllib.request.Request(
+                            "http://" + upstream + ":6175" + self.path,
+                            headers={"Authorization": "Bearer " + token},
+                        )
+                        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                        try:
+                            with opener.open(request, timeout=25) as response:
+                                body = json.load(response)
+                        except urllib.error.HTTPError as error:
+                            payload = json.loads(error.read(4096))
+                            raise ValueError(payload.get("error", "ImageReadFailed")) from None
+                    else:
+                        assert reader is not None
+                        with reader.lock:
+                            body = reader.image(urllib.parse.unquote(parts[0]), int(parts[1]))
                 elif (
                     parsed.path.startswith(("/mentions/", "/messages/"))
                     or parsed.path == "/changes"
@@ -819,8 +960,13 @@ def serve(
                     return
                 data = json.dumps(body).encode()
                 self.send_response(200)
-            except Exception:
-                data = b'{"error":"MetadataBridgeUnavailable"}'
+            except Exception as error:
+                # Only our fixed image reason codes are returned, never upstream
+                # text, filenames, keys or account identifiers.
+                code = str(error) if isinstance(error, ValueError) else "ImageReadFailed"
+                if not re.fullmatch(r"Image[A-Za-z]{1,80}", code):
+                    code = "MetadataBridgeUnavailable"
+                data = json.dumps({"error": code}).encode()
                 self.send_response(503)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")

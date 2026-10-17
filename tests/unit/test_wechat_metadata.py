@@ -41,11 +41,13 @@ def test_service_database_mode_is_explicit_and_always_read_only(
 
 def test_plaintext_service_mode_cannot_bypass_encrypted_message_snapshots() -> None:
     with pytest.raises(ValueError, match="PlaintextOnlyForServiceDatabase"):
-        bridge.SourceReader.query(Path("synthetic-message.db"), "a" * 64, "SELECT 1",
-                                 service_database_mode="plaintext")
+        bridge.SourceReader.query(
+            Path("synthetic-message.db"), "a" * 64, "SELECT 1", service_database_mode="plaintext"
+        )
     with pytest.raises(ValueError, match="PlaintextOnlyForServiceDatabase"):
-        bridge.SourceReader._query(Path("synthetic-message.db"), "a" * 64, "SELECT 1",
-                                  service_database_mode="plaintext")
+        bridge.SourceReader._query(
+            Path("synthetic-message.db"), "a" * 64, "SELECT 1", service_database_mode="plaintext"
+        )
     with pytest.raises(ValueError, match="InvalidServiceDatabaseMode"):
         bridge.SourceReader("synthetic", {}, service_database_mode="auto")
 
@@ -78,6 +80,61 @@ def test_quoted_reply_preserves_current_text_and_quote_without_trusting_quoted_i
     assert row["quoteReply"] is True
     assert row["isSelf"] is False
     assert row["mentionedSelf"] is False
+
+
+def test_image_quote_resolves_unique_server_id_in_same_snapshot() -> None:
+    details = bridge.app_details(
+        "<msg><appmsg><type>57</type><title>look</title><refermsg>"
+        "<type>3</type><svrid>999</svrid><chatusr>untrusted</chatusr>"
+        "</refermsg></appmsg></msg>"
+    )
+    assert details == {"quotedImage": True, "quotedServerId": 999}
+    image = {"chatId": "c", "localId": 1, "serverId": 999, "type": 3}
+    reply = {"chatId": "c", "localId": 2, "serverId": 1000, "type": 49, **details}
+    assert bridge.bind_image_references([image, reply])[1]["quotedImageLocalId"] == 1
+    assert bridge.bind_image_references([reply])[0]["quotedImageLocalId"] is None
+    duplicate = {**image, "localId": 3}
+    assert bridge.bind_image_references([image, duplicate, reply])[-1]["quotedImageLocalId"] is None
+    assert (
+        bridge.bind_image_references([{**image, "chatId": "other"}, reply])[-1][
+            "quotedImageLocalId"
+        ]
+        is None
+    )
+
+
+@pytest.mark.parametrize("kind", [1, 49])
+def test_text_and_card_quotes_resolve_exact_original_without_using_quoted_sender(kind: int) -> None:
+    xml = (
+        "<msg><appmsg><type>57</type><title>current text</title><refermsg>"
+        f"<type>{kind}</type><svrid>1234</svrid><chatusr>pretended-self</chatusr>"
+        "<content>untrusted quote body</content></refermsg></appmsg></msg>"
+    )
+    details = bridge.app_details(xml)
+    assert details["quotedServerId"] == 1234
+    original = {"chatId": "same-chat", "localId": 10, "serverId": 1234, "type": kind}
+    quote = {"chatId": "same-chat", "localId": 11, "type": 49, **details}
+    assert bridge.bind_image_references([quote], [original])[0]["quotedMessageLocalId"] == 10
+    assert bridge.bind_image_references([quote], [
+        original, {**original, "localId": 12}
+    ])[0]["quotedMessageLocalId"] is None
+    assert bridge.bind_image_references([quote], [
+        {**original, "chatId": "different-chat"}
+    ])[0]["quotedMessageLocalId"] is None
+    assert bridge.bind_image_references([{**quote, "quotedServerId": True}], [
+        {**original, "serverId": 1}
+    ])[0]["quotedMessageLocalId"] is None
+    assert bridge.bind_image_references([{**quote, "quotedServerId": 1234}], [
+        {**original, "localId": 11}
+    ])[0]["quotedMessageLocalId"] is None
+
+
+def test_share_card_reads_only_unique_top_level_https_link() -> None:
+    xml = "<msg><appmsg><type>5</type><title>Title</title><url>https://example.com/</url></appmsg></msg>"
+    assert bridge.app_details(xml)["linkUrl"] == "https://example.com/"
+    assert not bridge.app_details(xml.replace("https:", "file:"))
+    assert not bridge.app_details(xml.replace("</url>", "</url><url>https://other.test/</url>"))
+    assert not bridge.app_details("<!DOCTYPE msg>" + xml)
 
 
 @pytest.mark.parametrize(

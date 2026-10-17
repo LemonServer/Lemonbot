@@ -317,6 +317,8 @@ class AgentWechatConnector(Connector):
         self.anchors: set[int] | None = None
         self.closed = False
         self.attempts: dict[str, DeliveryReceipt] = {}
+        # Exact unique self row already verified by the existing readback. No new I/O.
+        self.last_confirmed_row: tuple[str, dict[str, Any]] | None = None
         self.reply_texts: dict[str, str] = {}
         self.delivery_lock = asyncio.Lock()
         if re.fullmatch(r"[A-Za-z0-9_-]{1,80}", run_id) is None:
@@ -432,6 +434,9 @@ class AgentWechatConnector(Connector):
             occurred_at=timestamp,
         )
 
+    async def observe_rows(self, rows: list[dict[str, Any]]) -> None:
+        """Optional archive hook after stable reads, before reply-trigger filtering."""
+
     async def poll(self) -> list[InboundEvent]:
         try:
             await self.guard()
@@ -458,6 +463,7 @@ class AgentWechatConnector(Connector):
             # Offset pagination must not silently skip arrivals while reading pages.
             if [r["localId"] for r in await self.page()] != [r["localId"] for r in first]:
                 self.pause("MessageWindowChanged")
+            await self.observe_rows(list(reversed(rows)))
             events = [e for row in reversed(rows) if (e := self.event(row)) is not None]
             self.anchors = {r["localId"] for r in first}
             return events
@@ -556,6 +562,7 @@ class AgentWechatConnector(Connector):
                         acknowledged_at=utc_now(),
                     )
                     self.attempts[identifier] = receipt
+                    self.last_confirmed_row = (identifier, dict(row))
                     return receipt
                 if asyncio.get_running_loop().time() >= deadline:
                     self.pause("ReadbackTimeoutNoRetry")

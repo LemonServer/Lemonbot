@@ -49,6 +49,13 @@ dev = [
 [project.scripts]
 lemonbot = "lemonbot.cli:app"
 
+[dependency-groups]
+embedding-worker = [
+  "numpy>=2.2,<3",
+  "pydantic>=2.11,<3",
+  "tokenizers==0.22.2",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/lemonbot"]
 

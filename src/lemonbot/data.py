@@ -7,13 +7,20 @@ import json
 import re
 import sqlite3
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from lemonbot.backup import create_backup
 from lemonbot.config.paths import RuntimePaths
+from lemonbot.memory.unified.lifecycle import (
+    archive_scopes,
+    attachment_refs,
+    delete_rows,
+    index_files,
+    invalidate_index,
+)
 from lemonbot.runtime_lock import RuntimeLock
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
@@ -46,6 +53,7 @@ class ConversationDeletionResult:
     rows_deleted: dict[str, int]
     objects_removed: int
     object_cleanup_failures: int
+    rows_redacted: dict[str, int] = field(default_factory=dict)
 
     @property
     def total_rows(self) -> int:
@@ -89,7 +97,10 @@ def delete_conversation(
         raise DataOperationError("profile database does not exist")
     _validate_offline_paths(paths, include_objects=False)
     with RuntimeLock(paths.lock_file):
-        return _delete_conversation_locked(paths, channel=channel, chat_id=chat_id)
+        try:
+            return _delete_conversation_locked(paths, channel=channel, chat_id=chat_id)
+        except ValueError as error:
+            raise DataOperationError("unified data provenance invalid; deletion refused") from error
 
 
 def _delete_conversation_locked(
@@ -115,6 +126,10 @@ def _delete_conversation_locked(
             joined = ", ".join(sorted(unsupported))
             raise DataOperationError(f"unsupported conversation-scoped tables: {joined}")
         _checkpoint_truncate(connection)
+        try:
+            index_files(paths)
+        except ValueError as error:
+            raise DataOperationError("unsafe context index") from error
 
         connection.execute("BEGIN IMMEDIATE")
         try:
@@ -131,8 +146,19 @@ def _delete_conversation_locked(
                 channel=channel,
                 chat_id=chat_id,
             )
+            if "context_archive_messages" in existing:
+                keys = archive_scopes(connection, channel, chat_id)
+                owned, shared = attachment_refs(connection, keys)
+                removable_hashes = (
+                    removable_hashes
+                    | _unshared_attachment_hashes(
+                        connection, existing, owned, channel=channel, chat_id=chat_id
+                    )
+                ) - shared
             object_paths = _preflight_object_paths(paths, removable_hashes)
-            counts: dict[str, int] = {}
+            counts, redacted = delete_rows(
+                connection, channel=channel, chat_id=chat_id, operation_id=operation_id
+            )
             for table in _SCOPED_TABLES:
                 if table not in existing:
                     continue
@@ -146,10 +172,13 @@ def _delete_conversation_locked(
             if sum(counts.values()) == 0:
                 raise ConversationNotFoundError("conversation has no persisted records")
 
+            # Purge private derived text/vectors before committing erasure. Other scopes rebuild.
+            invalidate_index(paths)
             _rebuild_fts(connection, existing)
             summary = {
                 "operation_id": operation_id,
                 "rows_deleted": counts,
+                "rows_redacted": redacted,
                 "object_candidates": len(object_paths),
             }
             audit_cursor = connection.execute(
@@ -204,6 +233,7 @@ def _delete_conversation_locked(
         rows_deleted=counts,
         objects_removed=removed,
         object_cleanup_failures=failures,
+        rows_redacted=redacted,
     )
 
 

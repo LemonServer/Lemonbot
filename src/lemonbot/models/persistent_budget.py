@@ -136,6 +136,11 @@ class PersistentBudgetManager(BudgetManager):
         return daily, monthly
 
     async def reserve(self, **kwargs) -> BudgetReservation:  # type: ignore[no-untyped-def]
+        from .prepaid_budget import claim_prepaid
+
+        prepaid = await claim_prepaid(self, **kwargs)
+        if prepaid is not None:
+            return prepaid
         reservation = await super().reserve(**kwargs)
         try:
             async with self._ledger_lock:

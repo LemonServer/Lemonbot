@@ -6,6 +6,7 @@ new text in allowlisted private chats, using DeepSeek Flash.
 
 **Start here:** [first deployment](docs/deployment.md) ·
 [Jetson Orin ARM64](docs/deployment-jetson-orin.md) ·
+[Orin reboot startup](docs/restart-jetson-orin.md) ·
 [operations and troubleshooting](docs/operations.md) ·
 [development](CONTRIBUTING.md) · [all docs](docs/README.md)
 
@@ -17,7 +18,10 @@ new text in allowlisted private chats, using DeepSeek Flash.
 - Quoted text with explicit quote context; optional long-term extraction and SQLite FTS recall.
 - Persistent inbox/outbox, precise new-self-message confirmation, budgets, rate limits,
   pause controls and an authenticated localhost administration UI.
-- Brief conversational replies. Tools, media processing and proactive messages remain off.
+- Brief conversational replies; proactive messages remain off.
+- Optional experimental DeepSeek image input, public page reading, local SearXNG search
+  and time tools. Public defaults remain off; see [read capabilities](docs/read-capabilities.md)
+  for configuration and the distinction between API checks and live WeChat acceptance.
 
 This is a **desktop deployment**, requiring manual QR login. Host restart recovery
 is manual. Automatic navigation depends on the pinned client's UI and must fail
@@ -46,6 +50,15 @@ retain **3 GiB free**. The Docker image digest and WeChat version are frozen.
 ARM64 uses a separate pinned candidate, WeChat 4.1.0.16, fresh state and dedicated
 volumes. It requires explicit `--experimental-arm64`; see the [Orin guide](docs/deployment-jetson-orin.md).
 No emulation, system reflash, local model or GPU acceleration is needed by this route.
+The separate, default-off [context-memory redesign](docs/context-memory-implementation.md)
+includes an independently verified [CUDA embedding worker](docs/embedding-worker.md),
+[scoped hybrid retrieval](docs/context-retrieval.md) and an offline-tested
+[two-stage answering flow](docs/context-flow.md), plus default-off
+[source-backed consolidation and caches](docs/context-consolidation.md), with
+[offline readiness and operations](docs/context-memory-operations.md).
+The local Orin deployment is undergoing stage-8 acceptance with the new context flow
+limited to the authorized group/private pair; consolidation remains off. Public defaults
+stay disabled, and full live context acceptance is still pending.
 The opt-in flag remains explicit on the adaptation branch; the unchanged v1.0.0
 tag still describes the original AMD64 release. ARM64 host restart recovery is manual.
 
@@ -66,6 +79,13 @@ Docker, an account or a model key. `simulated_http_not_live` is not a real-chann
 Follow [the complete first-install guide](docs/deployment.md); do not start the bot
 from the public example before login, binding and secret setup. Public configuration
 stays disabled, and setup never sends messages or enables boot startup.
+
+Editable local configuration lives in this checkout: `config/lemonbot.toml` is the
+main config and references `config/wechat-whitelist.local.toml` by absolute path.
+Both are Git-ignored. All entry points select explicit `--config`, then
+`LEMONBOT_CONFIG`, then this checkout's main config, independently of the shell's
+working directory. Keys remain in the desktop keyring; bindings, pause and database
+remain in private user directories. See [configuration and whitelist](docs/wechat-whitelist.md).
 
 From the repository, after setup:
 

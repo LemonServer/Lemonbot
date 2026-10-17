@@ -155,6 +155,18 @@ class BudgetManager:
         maximum_completion_tokens: int,
         at: datetime | None = None,
     ) -> BudgetReservation:
+        from .prepaid_budget import claim_prepaid
+
+        prepaid = await claim_prepaid(
+            self,
+            provider=provider,
+            model=model,
+            prompt_tokens=prompt_tokens,
+            maximum_completion_tokens=maximum_completion_tokens,
+            at=at,
+        )
+        if prepaid is not None:
+            return prepaid
         if prompt_tokens < 0 or maximum_completion_tokens < 0:
             raise ValueError("token counts cannot be negative")
         price = self.price_for(provider, model)

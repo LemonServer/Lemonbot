@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "selected_backend": "tensorrt",
+  "selected_precision": "fp16",
+  "fp16_passed": true,
+  "fp16_error": null,
+  "minimum_fp16_fp32_cosine": 0.9999918447161319,
+  "model_repository": "Xenova/bge-small-zh-v1.5",
+  "model_revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+  "onnx_sha256": "69a0b846f4f116b5e6aabf9546ea6754d02264f3211a13a1bd69b31b8040749a",
+  "engine_sha256": {
+    "fp32": "4767715dfbe07ffebd1a7bd74c70dab004cd59b271254a528dd3a1eccd527878",
+    "fp16": "2dde4ec81fbf7896add7439977261c3ca24c0655069fbb00bd54724964e49e87"
+  },
+  "device": {
+    "gpu": "Orin",
+    "compute": [
+      8,
+      7
+    ],
+    "driver": 13020,
+    "cuda_runtime": 13020
+  },
+  "metrics": {
+    "fp32": {
+      "cold_backend_ms": 576.4387130038813,
+      "batch_1": {
+        "median_ms": 1.8488370114937425,
+        "p95_ms": 3.5921969974879175,
+        "texts_per_second": 484.71588197975615
+      },
+      "batch_16": {
+        "median_ms": 6.291529498412274,
+        "p95_ms": 8.331701013958082,
+        "texts_per_second": 2435.412664851412
+      },
+      "golden_ranks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "memory": {
+        "free_bytes": 55687823360,
+        "total_bytes": 65932353536
+      }
+    },
+    "fp16": {
+      "cold_backend_ms": 197.815018997062,
+      "batch_1": {
+        "median_ms": 0.8536630193702877,
+        "p95_ms": 1.4821029908489436,
+        "texts_per_second": 1034.59167344184
+      },
+      "batch_16": {
+        "median_ms": 1.546968996990472,
+        "p95_ms": 3.1791900109965354,
+        "texts_per_second": 9148.27238076832
+      },
+      "golden_ranks": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "memory": {
+        "free_bytes": 55580172288,
+        "total_bytes": 65932353536
+      }
+    }
+  },
+  "worker": {
+    "startup_ms": 996.5968649776187,
+    "cache_miss_rpc_ms": 56.59857901628129,
+    "cache_hit_rpc_ms": 6.549490004545078,
+    "stats": {
+      "requests": 2,
+      "cache_hits": 1,
+      "cache_misses": 1,
+      "inference_batches": 1,
+      "peak_process_rss_bytes": 849707008
+    },
+    "restart_stats": {
+      "requests": 1,
+      "cache_hits": 1,
+      "cache_misses": 0,
+      "inference_batches": 0,
+      "peak_process_rss_bytes": 801964032
+    },
+    "lossless_chunks": 18
+  },
+  "peak_process_rss_bytes": 801964032,
+  "execution": "TensorRT execute_async_v3 + CUDA synchronization; no CPU model fallback",
+  "scope": "synthetic_device_acceptance_not_wechat",
+  "numpy_version": "2.5.2",
+  "tokenizers_version": "0.22.2",
+  "tensorrt_version": "10.16.2.10",
+  "recorded_date": "2026-10-15",
+  "environment": {
+    "architecture": "aarch64",
+    "python": "3.12.3",
+    "ubuntu": "24.04",
+    "jetpack": "7.2.1",
+    "l4t": "R39.2.1",
+    "cuda_toolkit": "13.2.2",
+    "cuda_runtime_package": "13.2.86"
+  }
+}

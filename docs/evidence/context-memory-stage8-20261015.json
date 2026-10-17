@@ -1,0 +1,132 @@
+{
+  "stage": 8,
+  "date": "2026-10-15",
+  "status": "deployed_waiting_limited_wechat_acceptance",
+  "production_migration": {
+    "from": "20260825_0006",
+    "to": "20261015_0008",
+    "inserted": 76,
+    "old_inbox_completed": 39,
+    "old_inbox_dead": 2,
+    "old_outbox_acknowledged": 35,
+    "old_unknown": 0
+  },
+  "api_preflight": {
+    "mode": "real_api_synthetic_context_no_wechat",
+    "cases": [
+      {
+        "case": "related",
+        "mode": "related",
+        "fallback": null,
+        "model": "deepseek-flash",
+        "answer_matches": true,
+        "answer_prompt_tokens": 639,
+        "answer_completion_tokens": 3,
+        "answer_cached_prompt_tokens": 0,
+        "latency_ms": 1832.73,
+        "classification_budget_tokens": [
+          3545,
+          75
+        ]
+      },
+      {
+        "case": "independent",
+        "mode": "standalone",
+        "fallback": null,
+        "model": "deepseek-flash",
+        "answer_matches": true,
+        "answer_prompt_tokens": 402,
+        "answer_completion_tokens": 1,
+        "answer_cached_prompt_tokens": 0,
+        "latency_ms": 1335.71,
+        "classification_budget_tokens": [
+          4239,
+          36
+        ]
+      }
+    ],
+    "passed": true,
+    "cost_estimate_cny": "0.006250",
+    "daily_spent_cny": "0.014140",
+    "requests_maximum": 4,
+    "stage_usage": [
+      {
+        "stage": "classification",
+        "elapsed_ms": 1192.6549909985624,
+        "prompt_tokens": 713,
+        "completion_tokens": 75,
+        "cached_tokens": 0,
+        "estimated_cny": "0.002026",
+        "outcome": "known"
+      },
+      {
+        "stage": "answer",
+        "elapsed_ms": 516.0467700334266,
+        "prompt_tokens": 639,
+        "completion_tokens": 3,
+        "cached_tokens": 0,
+        "estimated_cny": "0.001302",
+        "outcome": "known"
+      },
+      {
+        "stage": "classification",
+        "elapsed_ms": 613.8758130255155,
+        "prompt_tokens": 911,
+        "completion_tokens": 36,
+        "cached_tokens": 128,
+        "estimated_cny": "0.00211",
+        "outcome": "known"
+      },
+      {
+        "stage": "answer",
+        "elapsed_ms": 613.8912619790062,
+        "prompt_tokens": 402,
+        "completion_tokens": 1,
+        "cached_tokens": 0,
+        "estimated_cny": "0.000812",
+        "outcome": "known"
+      }
+    ]
+  },
+  "cuda": {
+    "backend": "tensorrt",
+    "precision": "fp16",
+    "model_version": "bge-small-zh-v1.5:6813975a3b02b0d1714317ce02fed090c81e021f782cf21a345a3af3f3db993d",
+    "synthetic_cases": 6,
+    "top_one": 6,
+    "restart_vectorized_units": 0,
+    "median_retrieval_ms": 81.67449,
+    "runtime_worker_ready": true,
+    "runtime_degraded": false
+  },
+  "rollout": {
+    "groups": 1,
+    "private_chats": 1,
+    "consolidation_enabled": false,
+    "daily_budget_cny": "5",
+    "monthly_budget_cny": "100",
+    "doctor_passed": true
+  },
+  "wechat_acceptance": {
+    "image_four_steps": "pending",
+    "group_shared_memory": "pending",
+    "isolation": "pending",
+    "links_cards": "pending",
+    "safe_restart": "pending"
+  },
+  "tests": {
+    "final_full_suite": 935,
+    "duration_seconds": 159.49,
+    "final_targeted": 20,
+    "ruff": "passed",
+    "mypy_source_files": 160,
+    "lock": "passed",
+    "release": "passed",
+    "diff_check": "passed"
+  },
+  "limitations": [
+    "synthetic paid preflight is not WeChat acceptance",
+    "cloud consolidation disabled and not live tested",
+    "host reboot not tested"
+  ]
+}

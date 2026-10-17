@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -61,11 +63,13 @@ class OpenAICompatibleBackend:
         secret_store: SecretStore,
         budget: BudgetManager,
         client: httpx.AsyncClient | None = None,
+        image_reader: Any | None = None,
     ) -> None:
         self._config = config
         self._secret_store = secret_store
         self._budget = budget
         self._router = DeterministicRouter(config)
+        self._image_reader = image_reader
         # Cloud credentials must never be forwarded to an ambient HTTP(S)
         # proxy configured through process environment variables. Callers
         # that intentionally need a proxy must pass an explicitly configured
@@ -107,7 +111,7 @@ class OpenAICompatibleBackend:
             tools=True,
             json_output=True,
             thinking=self._config.enable_thinking_on_pro,
-            vision=False,
+            vision=self._image_reader is not None,
             embeddings=False,
             context_tokens=self._config.context_tokens,
         )
@@ -128,6 +132,7 @@ class OpenAICompatibleBackend:
         total = 256  # provider chat framing and special-token reserve
         for message in messages:
             if isinstance(message, ModelMessage):
+                total += 1024 * len(message.images)
                 try:
                     payload: object = self._message_payload(message)
                 except ModelProtocolError:
@@ -233,10 +238,17 @@ class OpenAICompatibleBackend:
         return total
 
     @staticmethod
+    def _wire_tool_name(name: str) -> str:
+        if re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", name):
+            return name
+        readable = re.sub(r"[^a-zA-Z0-9_-]", "_", name)[:40]
+        return "lb_" + readable + "_" + hashlib.sha256(name.encode()).hexdigest()[:12]
+
+    @staticmethod
     def _message_payload(message: ModelMessage) -> dict[str, Any]:
         payload: dict[str, Any] = {"role": message.role.value, "content": message.content}
         if message.name is not None:
-            payload["name"] = message.name
+            payload["name"] = OpenAICompatibleBackend._wire_tool_name(message.name)
         if message.role is MessageRole.TOOL:
             if not message.tool_call_id:
                 raise ModelProtocolError("tool messages require tool_call_id")
@@ -249,7 +261,7 @@ class OpenAICompatibleBackend:
                     "id": call.call_id,
                     "type": "function",
                     "function": {
-                        "name": call.name,
+                        "name": OpenAICompatibleBackend._wire_tool_name(call.name),
                         "arguments": json.dumps(
                             call.arguments,
                             ensure_ascii=False,
@@ -271,13 +283,16 @@ class OpenAICompatibleBackend:
         return {
             "type": "function",
             "function": {
-                "name": manifest.name,
+                "name": OpenAICompatibleBackend._wire_tool_name(manifest.name),
                 "description": manifest.description,
                 "parameters": manifest.input_schema,
             },
         }
 
     def _request_payload(self, request: ModelRequest, model: str, thinking: bool) -> dict[str, Any]:
+        aliases = [self._wire_tool_name(tool.name) for tool in request.tools]
+        if len(set(aliases)) != len(aliases):
+            raise ModelProtocolError("wire tool names are ambiguous")
         payload: dict[str, Any] = {
             "model": model,
             "messages": [self._message_payload(message) for message in request.messages],
@@ -285,6 +300,35 @@ class OpenAICompatibleBackend:
             "max_tokens": request.max_tokens,
             "stream": False,
         }
+        if any(message.images for message in request.messages):
+            if (
+                self._image_reader is None
+                or self._config.provider != "deepseek"
+                or model != "deepseek-flash"
+                or sum(len(m.images) for m in request.messages) > 1
+                or any(m.images and m.role is not MessageRole.USER for m in request.messages)
+            ):
+                raise ModelProtocolError("native images require configured DeepSeek Flash")
+            for source, wire in zip(request.messages, payload["messages"], strict=True):
+                if source.images:
+                    try:
+                        data_url = self._image_reader.data_url(source.images[0])
+                    except (ValueError, OSError):
+                        wire["content"] = (source.content or "") + (
+                            "\n[IMAGE REJECTED: validation/decoding failed before upload. "
+                            "You have not seen this image. Briefly explain that it is unavailable.]"
+                        )
+                        continue
+                    wire["content"] = [
+                        {"type": "text", "text": source.content or "Describe this image."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": data_url,
+                                "detail": "original",
+                            },
+                        },
+                    ]
         if request.tools:
             payload["tools"] = [self._tool_payload(manifest) for manifest in request.tools]
             payload["tool_choice"] = "auto"
@@ -377,6 +421,8 @@ class OpenAICompatibleBackend:
             raise ModelProtocolError("model request requires at least one message")
         registry = ToolSchemaRegistry(request.tools)
         routed = self._router.route(request)
+        # Prepare and validate image objects before key lookup, reservation or I/O.
+        payload = self._request_payload(request, routed.model, routed.thinking)
         estimated_prompt = self._estimate_prompt_tokens(request)
         if estimated_prompt + request.max_tokens > self._config.context_tokens:
             raise ModelProtocolError("request exceeds the configured model context window")
@@ -392,7 +438,6 @@ class OpenAICompatibleBackend:
             maximum_completion_tokens=request.max_tokens,
         )
         endpoint = f"{self._config.base_url}/chat/completions"
-        payload = self._request_payload(request, routed.model, routed.thinking)
 
         try:
             response = await self._client.post(
@@ -442,6 +487,10 @@ class OpenAICompatibleBackend:
             completion_tokens=completion_tokens,
             cached_prompt_tokens=cached_prompt_tokens,
         )
+        wire_names = {self._wire_tool_name(tool.name): tool.name for tool in request.tools}
+        calls = tuple(
+            call.model_copy(update={"name": wire_names.get(call.name, call.name)}) for call in calls
+        )
         validated_calls = registry.validate_many(calls)
         if request.response_format == "json" and content is not None:
             try:
@@ -451,12 +500,18 @@ class OpenAICompatibleBackend:
             if not isinstance(parsed_content, dict):
                 raise ModelProtocolError("JSON response mode requires a JSON object")
         return ModelResponse(
+            image_input_accepted=(
+                any(isinstance(message["content"], list) for message in payload["messages"])
+                if any(message.images for message in request.messages)
+                else None
+            ),
             content=content,
             tool_calls=validated_calls,
             reasoning_content=reasoning_content,
             model=routed.model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            cached_prompt_tokens=cached_prompt_tokens,
             finish_reason=finish_reason,
         )
 

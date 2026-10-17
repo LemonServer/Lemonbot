@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import json
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+from PIL import Image
 
 from lemonbot.connectors.wechat_agent import (
     CHANNEL,
@@ -21,6 +24,7 @@ from lemonbot.connectors.wechat_agent_conversation import (
 )
 from lemonbot.domain.models import DeliveryStatus, OutboundMessage
 from lemonbot.research.agent_wechat_lab import SimulatedWechat
+from lemonbot.tools.attachments import AttachmentStore
 
 KEY = b"x" * 32
 
@@ -530,5 +534,71 @@ async def test_needed_navigation_opens_once_and_verifies_target(tmp_path: Path) 
         message = OutboundMessage(channel=CHANNEL, chat_id=private.binding.chat_ref, text="reply")
         assert (await transport.deliver(message)).status is DeliveryStatus.ACKNOWLEDGED
         assert mock.opens == 1 and mock.posts == 1 and mock.title == private.name
+    finally:
+        await transport.close()
+
+
+@pytest.mark.parametrize("mismatch", [None, "chatId", "localId", "account", "source"])
+async def test_native_media_intake_uses_exact_bound_message_and_group_quote_trigger(
+    tmp_path: Path,
+    mismatch: str | None,
+) -> None:
+    mock = TwoChats()
+    original = mock.metadata
+    stream = io.BytesIO()
+    Image.new("RGB", (10, 10), "red").save(stream, format="PNG")
+    paths = []
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/media/"):
+            paths.append(request.url.path)
+            payload = {
+                "type": "image", "format": "png",
+                "data": base64.b64encode(stream.getvalue()).decode(),
+                "accountVerified": True, "account": mock.account,
+                "chatId": mock.peer, "localId": int(request.url.path.rsplit("/", 1)[1]),
+                "source": "validated_wal_snapshot",
+            }
+            if mismatch:
+                payload[mismatch] = 98765 if mismatch == "localId" else "wrong"
+            return httpx.Response(
+                200, json=payload,
+            )
+        return await original(request)
+
+    mock.metadata = handle
+    transport = await setup(mock, tmp_path)
+    store = AttachmentStore(tmp_path / "a.db", tmp_path / "objects", minimum_free_bytes=0)
+    await store.initialize()
+    try:
+        private_target, group_target = mock.targets()[1], mock.targets()[0]
+        peer = transport.children[private_target.binding.chat_ref]
+        group = transport.children[group_target.binding.chat_ref]
+        peer.attachments = group.attachments = store
+        row = mock.add(mock.peer, "picture")
+        row.update(type=3, content="")
+        event = peer.event(row)
+        assert event is not None and event.kind.value == "image"
+        event = await peer.intake_image(event)
+        if mismatch:
+            assert "attachment_ids" not in event.metadata
+            assert event.metadata["image_failure_code"] == "ImageEnvelopeInvalid"
+        else:
+            assert len(event.metadata["attachment_ids"]) == 1
+            assert event.metadata["image_source"] == "validated_wal_snapshot"
+        assert paths == [f"/media/{mock.peer}/{row['localId']}"]
+        assert "_media_local_id" not in event.metadata
+        row = mock.add(mock.group, "picture", mention=True)
+        row.update(type=3)
+        assert group.event(row) is None
+        quote = mock.add(mock.group, "look", mention=False)
+        quote.update(type=49, quoteReply=True, quotedImage=True, quotedImageLocalId=row["localId"])
+        assert group.event(quote) is None
+        quote["_mentionedSelf"] = True
+        event = group.event(quote)
+        assert event is not None and event.metadata["_media_local_id"] == row["localId"]
+        quote["quotedImageLocalId"] = None
+        event = group.event(quote)
+        assert event is not None and event.metadata["image_unavailable"] is True
     finally:
         await transport.close()

@@ -19,7 +19,7 @@ token_file = "~/.local/state/lemonbot/agent-wechat-reproduction/api-token"
 state_dir = "~/.local/state/lemonbot/agent-wechat-lab"
 # Optional name-based startup synchronization (exact WeChat chat display names).
 # Copy config/wechat-whitelist.example.toml to a private local file first.
-whitelist_file = "" # e.g. ~/.local/state/lemonbot/agent-wechat-lab/whitelist.toml
+whitelist_file = "" # setup fills the absolute path to config/wechat-whitelist.local.toml
 
 [models]
 provider = "disabled" # Change to deepseek together with connector/enabled above.
@@ -58,3 +58,34 @@ enabled = false
 # per_hour = 0
 # per_day = 100
 # global_per_day = 100
+
+# Experimental read-only capabilities; enable individually after local acceptance.
+[conversation]
+images_enabled = false
+web_read_enabled = false
+search_enabled = false
+clock_enabled = false
+image_retention_days = 7
+search_url = "http://127.0.0.1:6177/search"
+search_daily_limit = 20
+search_monthly_limit = 600
+
+# Experimental unified answering; keep disabled until staged deployment acceptance.
+[context_memory]
+enabled = false
+archive_enabled = false # Raw storage; keep off until controlled deployment.
+consolidation_enabled = false # Paid idle consolidation; separate explicit opt-in.
+consolidation_min_messages = 20
+consolidation_daily_cny = "0.50" # Sub-limit within the global 5/day and 100/month.
+embedding_backend = "tensorrt" # CUDA first; "cpu" requires an explicit operator choice.
+embedding_precision = "fp16" # Use fp32 if the candidate fails device precision validation.
+embedding_worker_python = "" # Empty: data_root/embedding-worker/bin/python
+embedding_assets_root = "" # Empty: data_root/embeddings/profile
+embedding_timeout_seconds = 30
+embedding_cache_entries = 4096
+# Retrieval diagnostics only; no runtime activation in stage 4.
+retrieval_max_messages = 10000
+retrieval_vector_chunks_per_refresh = 256
+retrieval_semantic_min_similarity = 0.5
+retrieval_candidate_char_budget = 16000
+retrieval_recent_messages = 6

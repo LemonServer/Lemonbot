@@ -29,9 +29,15 @@ Observe, AT-SPI, canary or PR #171 deployment paths as the default.
    Restart must not clear pause or replay downtime messages.
 5. All navigation/sending serialized; no reception re-entry during model or UI work.
    Inbox/outbox/policy/budget/stop mechanisms remain the single route.
-6. Context/memory scoped by private target or group+sender. Confirmed replies alone
+6. The active legacy context/memory is scoped by private target or group+sender.
+   The explicitly authorized, default-off unified-context redesign uses private
+   targets or shared groups with mandatory author attribution and account isolation;
+   see docs/context-memory-implementation.md. Its stages must not silently change
+   the running legacy scope. Confirmed replies alone
    become delivered assistant history and qualify for memory extraction.
-   UNKNOWN never causes extraction or a new paid retry; tools/proactive remain off.
+   UNKNOWN never causes extraction or a new paid retry. Proactive remains off;
+   explicitly enabled conversation capabilities expose only image input and
+   the bounded read-only web/search/time tools, through the existing pipeline.
 7. Preserve volumes, DB, bindings and old UNKNOWN. Drain before deployment/restart;
    no deleting user data to fix environmental faults.
 

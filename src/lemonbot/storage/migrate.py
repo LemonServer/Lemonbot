@@ -15,4 +15,7 @@ def upgrade_database(database_path: Path) -> None:
         config = Config()
         config.set_main_option("script_location", str(script_location))
         config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path.as_posix()}")
+        # A caller supplying an explicit path (especially an offline copy) must
+        # never be redirected to another database by the Alembic CLI environment.
+        config.attributes["explicit_database_path"] = True
         command.upgrade(config, "head")

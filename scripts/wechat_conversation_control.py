@@ -14,7 +14,7 @@ import httpx
 
 from lemonbot.config import RuntimePaths
 from lemonbot.config.paths import default_wechat_runtime_config
-from lemonbot.config.settings import load_settings
+from lemonbot.config.settings import load_settings, resolve_config_path
 from lemonbot.connectors.wechat_agent import CHANNEL
 from lemonbot.connectors.wechat_agent_state import private_read, private_write
 
@@ -30,7 +30,7 @@ async def control(action: str, config: Path) -> None:
     if parts.port != settings.admin.port or parts.path != "/login":
         raise ValueError("InvalidAdminURL")
     origin = f"http://127.0.0.1:{settings.admin.port}"
-    cache = config.parent / "conversation-admin-session.json"
+    cache = Path(settings.wechat_agent.state_dir).expanduser() / "conversation-admin-session.json"
     saved = json.loads(private_read(cache)) if cache.exists() else {}
     fingerprint = hashlib.sha256(parts.fragment.encode()).hexdigest()
     async with httpx.AsyncClient(base_url=origin, trust_env=False, timeout=90) as client:
@@ -90,6 +90,12 @@ def main() -> None:
         default=default_wechat_runtime_config(),
     )
     args = parser.parse_args()
+    args.config = resolve_config_path(args.config)
+    if not args.config.is_file():
+        print(
+            json.dumps({"ok": False, "error": "RuntimeConfigMissing", "config": str(args.config)})
+        )
+        raise SystemExit(1)
     try:
         asyncio.run(control(args.action, args.config))
     except Exception as error:

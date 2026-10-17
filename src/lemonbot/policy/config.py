@@ -49,6 +49,8 @@ class PolicyConfig(BaseModel):
             "memory_read",
             "memory_write",
             "browse_public_https",
+            "search_public_web",
+            "read_time",
             "vision_read",
             "read_file",
             "mcp_read",
